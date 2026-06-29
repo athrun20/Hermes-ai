@@ -1,6 +1,8 @@
-.next
-node_modules
-out
-dist
+work/
+npm-cache/
+*.log
+.next/
+node_modules/
+out/
+dist/
 .env*
-npm-debug.log*
