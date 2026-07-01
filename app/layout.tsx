@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Hermes",
-  description: "AI-assisted market intelligence and paper trading engine.",
+  description: "AI-assisted market intelligence with local paper trading persistence.",
 };
 
 export default function RootLayout({

@@ -1,7 +1,7 @@
-import { journal } from "@/lib/market-data";
+import type { JournalEntry } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
-export function TradeJournal() {
+export function TradeJournal({ entries }: { entries: JournalEntry[] }) {
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
@@ -9,7 +9,7 @@ export function TradeJournal() {
         title="Trade Journal"
         action={
           <span className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-slate-300">
-            4 mock trades
+            {entries.length} entries
           </span>
         }
       />
@@ -25,10 +25,10 @@ export function TradeJournal() {
             </tr>
           </thead>
           <tbody>
-            {journal.map((trade) => (
+            {entries.map((trade) => (
               <tr
                 className="group text-slate-300 transition hover:bg-white/[0.025]"
-                key={`${trade.date}-${trade.pair}-${trade.setup}`}
+                key={trade.id}
               >
                 <td className="border-b border-white/10 px-5 py-4 text-slate-400">
                   {trade.date}

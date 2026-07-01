@@ -17,14 +17,7 @@ export function EquityCurve({ points }: { points: EquityPoint[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const data = useMemo<LineData<Time>[]>(
-    () =>
-      points.map((point) => ({
-        time: point.time as Time,
-        value: point.value,
-      })),
-    [points],
-  );
+  const data = useMemo<LineData<Time>[]>(() => normalizeEquityPoints(points), [points]);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -67,7 +60,8 @@ export function EquityCurve({ points }: { points: EquityPoint[] }) {
   }, []);
 
   useEffect(() => {
-    seriesRef.current?.setData(data);
+    const safeData = normalizeLineData(data);
+    seriesRef.current?.setData(safeData);
     chartRef.current?.timeScale().fitContent();
   }, [data]);
 
@@ -81,4 +75,42 @@ export function EquityCurve({ points }: { points: EquityPoint[] }) {
       </div>
     </Panel>
   );
+}
+
+function normalizeEquityPoints(points: EquityPoint[]): LineData<Time>[] {
+  const latestValueByTime = new Map<number, number>();
+
+  [...points]
+    .sort((a, b) => a.time - b.time)
+    .forEach((point) => {
+      latestValueByTime.set(Math.floor(point.time), point.value);
+    });
+
+  return normalizeLineData(
+    Array.from(latestValueByTime.entries()).map(([time, value]) => ({
+      time: time as Time,
+      value,
+    })),
+  );
+}
+
+function normalizeLineData(data: LineData<Time>[]): LineData<Time>[] {
+  let previousTime = 0;
+
+  return [...data]
+    .map((point) => ({
+      time: Number(point.time),
+      value: point.value,
+    }))
+    .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.value))
+    .sort((a, b) => a.time - b.time)
+    .map((point) => {
+      const nextTime = point.time <= previousTime ? previousTime + 1 : point.time;
+      previousTime = nextTime;
+
+      return {
+        time: nextTime as Time,
+        value: point.value,
+      };
+    });
 }

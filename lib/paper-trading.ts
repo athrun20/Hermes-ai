@@ -1,7 +1,7 @@
 import type { CoinSymbol } from "@/lib/market-data";
 
 export type PositionSide = "Long" | "Short";
-export type OrderAction = "Buy" | "Sell";
+export type OrderAction = "Buy" | "Sell" | "Short" | "Cover";
 
 export type PaperPosition = {
   id: string;
@@ -53,7 +53,26 @@ export type PerformanceStats = {
   averageRiskReward: number;
 };
 
+export type JournalEntry = {
+  id: string;
+  date: string;
+  pair: string;
+  setup: string;
+  risk: string;
+  result: string;
+  status: string;
+};
+
+export type PaperSettings = {
+  riskPerTrade: number;
+  maxDailyRisk: number;
+};
+
 export const STARTING_BALANCE = 10000;
+export const DEFAULT_SETTINGS: PaperSettings = {
+  riskPerTrade: 1,
+  maxDailyRisk: 3,
+};
 
 export function getPositionPnl(position: PaperPosition, currentPrice: number): number {
   const move =
@@ -200,6 +219,7 @@ export function closePosition(
 
 export function buildEquityCurve(history: ClosedTrade[], currentEquity: number): EquityPoint[] {
   let equity = STARTING_BALANCE;
+  const sortedHistory = [...history].sort((a, b) => a.closedAt - b.closedAt);
   const points: EquityPoint[] = [
     {
       time: Math.floor((Date.now() - 6 * 60 * 60 * 1000) / 1000),
@@ -207,7 +227,7 @@ export function buildEquityCurve(history: ClosedTrade[], currentEquity: number):
     },
   ];
 
-  history.forEach((trade) => {
+  sortedHistory.forEach((trade) => {
     equity += trade.pnl;
     points.push({
       time: Math.floor(trade.closedAt / 1000),
@@ -220,5 +240,28 @@ export function buildEquityCurve(history: ClosedTrade[], currentEquity: number):
     value: currentEquity,
   });
 
-  return points;
+  return normalizeEquityCurvePoints(points);
+}
+
+function normalizeEquityCurvePoints(points: EquityPoint[]): EquityPoint[] {
+  const latestValueByTime = new Map<number, number>();
+
+  [...points]
+    .sort((a, b) => a.time - b.time)
+    .forEach((point) => {
+      latestValueByTime.set(Math.floor(point.time), point.value);
+    });
+
+  let previousTime = 0;
+  return Array.from(latestValueByTime.entries())
+    .map(([time, value]) => ({ time, value }))
+    .sort((a, b) => a.time - b.time)
+    .map((point) => {
+      const nextTime = point.time <= previousTime ? previousTime + 1 : point.time;
+      previousTime = nextTime;
+      return {
+        time: nextTime,
+        value: point.value,
+      };
+    });
 }

@@ -9,9 +9,11 @@ import { OpenPositions } from "@/components/open-positions";
 import { PaperPortfolio } from "@/components/paper-portfolio";
 import { PerformanceDashboard } from "@/components/performance-dashboard";
 import { PriceCard } from "@/components/price-card";
+import { SettingsPanel } from "@/components/settings-panel";
 import { TopNav } from "@/components/top-nav";
 import { TradeControls, type TradeTicket } from "@/components/trade-controls";
 import { TradeHistory } from "@/components/trade-history";
+import { TradeJournal } from "@/components/trade-journal";
 import { TradePlan } from "@/components/trade-plan";
 import { Watchlist } from "@/components/watchlist";
 import {
@@ -26,13 +28,23 @@ import {
   type Timeframe,
 } from "@/lib/market-data";
 import {
+  clearHermesState,
+  defaultJournalEntries,
+  defaultPersistedState,
+  loadHermesState,
+  saveHermesState,
+} from "@/lib/local-persistence";
+import {
+  DEFAULT_SETTINGS,
   buildEquityCurve,
   buildPerformanceStats,
   buildPortfolioSnapshot,
   closePosition,
   STARTING_BALANCE,
   type ClosedTrade,
+  type JournalEntry,
   type PaperPosition,
+  type PaperSettings,
 } from "@/lib/paper-trading";
 
 export function HermesDashboard() {
@@ -46,6 +58,11 @@ export function HermesDashboard() {
   const [cash, setCash] = useState(STARTING_BALANCE);
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [history, setHistory] = useState<ClosedTrade[]>([]);
+  const [journalEntries, setJournalEntries] =
+    useState<JournalEntry[]>(defaultJournalEntries);
+  const [settings, setSettings] = useState<PaperSettings>(DEFAULT_SETTINGS);
+  const [saveStatus, setSaveStatus] = useState("Restoring local data");
+  const [hasRestored, setHasRestored] = useState(false);
 
   const selectedQuote =
     quotes.find((quote) => quote.symbol === selectedSymbol) ?? fallbackQuotes[0];
@@ -111,10 +128,119 @@ export function HermesDashboard() {
     [history, portfolio.equity],
   );
 
-  const openPaperTrade = useCallback(
+  useEffect(() => {
+    const restored = loadHermesState();
+    if (restored) {
+      setCash(restored.cash);
+      setPositions(restored.positions);
+      setHistory(restored.history);
+      setJournalEntries(restored.journalEntries);
+      setSettings(restored.settings);
+      setSelectedSymbol(restored.selectedSymbol);
+      setTimeframe(restored.timeframe);
+      setSaveStatus("Saved locally");
+    } else {
+      setSaveStatus("Saved locally");
+    }
+    setHasRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestored) {
+      return;
+    }
+
+    saveHermesState({
+      version: defaultPersistedState.version,
+      cash,
+      buyingPower: portfolio.buyingPower,
+      positions,
+      history,
+      journalEntries,
+      settings,
+      selectedSymbol,
+      timeframe,
+      savedAt: Date.now(),
+    });
+    setSaveStatus("Saved locally");
+  }, [
+    cash,
+    hasRestored,
+    history,
+    journalEntries,
+    portfolio.buyingPower,
+    positions,
+    selectedSymbol,
+    settings,
+    timeframe,
+  ]);
+
+  const handlePaperTicket = useCallback(
     (ticket: TradeTicket) => {
       if (!Number.isFinite(ticket.notional) || ticket.notional <= 0) {
         return "Enter a valid paper position size.";
+      }
+
+      if (ticket.action === "Sell" || ticket.action === "Cover") {
+        const sideToClose = ticket.action === "Sell" ? "Long" : "Short";
+        const matchingPositions = positions.filter(
+          (position) =>
+            position.symbol === selectedQuote.symbol && position.side === sideToClose,
+        );
+
+        if (matchingPositions.length === 0) {
+          return ticket.action === "Sell"
+            ? "No open long position to sell."
+            : "No open short position to cover.";
+        }
+
+        const exitPrice = priceMap[selectedQuote.symbol] ?? selectedQuote.price;
+        let remainingNotional = ticket.notional;
+        let cashReturned = 0;
+        const closedTrades: ClosedTrade[] = [];
+        const nextPositions: PaperPosition[] = [];
+
+        positions.forEach((position) => {
+          const shouldReduce =
+            remainingNotional > 0 &&
+            position.symbol === selectedQuote.symbol &&
+            position.side === sideToClose;
+
+          if (!shouldReduce) {
+            nextPositions.push(position);
+            return;
+          }
+
+          const closedNotional = Math.min(remainingNotional, position.notional);
+          const closeRatio = closedNotional / position.notional;
+          const closedPosition: PaperPosition = {
+            ...position,
+            id:
+              closeRatio >= 1
+                ? position.id
+                : `${position.id}-partial-${Date.now()}`,
+            quantity: position.quantity * closeRatio,
+            notional: closedNotional,
+          };
+          const closed = closePosition(closedPosition, exitPrice);
+
+          closedTrades.push(closed);
+          cashReturned += closedNotional + closed.pnl;
+          remainingNotional -= closedNotional;
+
+          if (closeRatio < 1) {
+            nextPositions.push({
+              ...position,
+              quantity: position.quantity - closedPosition.quantity,
+              notional: position.notional - closedNotional,
+            });
+          }
+        });
+
+        setPositions(nextPositions);
+        setCash((current) => current + cashReturned);
+        setHistory((current) => [...closedTrades.reverse(), ...current]);
+        return undefined;
       }
 
       if (ticket.notional > portfolio.buyingPower) {
@@ -130,9 +256,9 @@ export function HermesDashboard() {
       }
 
       const position: PaperPosition = {
-        id: crypto.randomUUID(),
+        id: createBrowserSafeId(),
         symbol: selectedQuote.symbol,
-        side: ticket.side,
+        side: ticket.action === "Short" ? "Short" : "Long",
         entryPrice: selectedQuote.price,
         quantity: ticket.notional / selectedQuote.price,
         notional: ticket.notional,
@@ -145,7 +271,7 @@ export function HermesDashboard() {
       setCash((current) => current - ticket.notional);
       return undefined;
     },
-    [portfolio.buyingPower, selectedQuote],
+    [portfolio.buyingPower, positions, priceMap, selectedQuote],
   );
 
   const closePaperTrade = useCallback(
@@ -164,6 +290,47 @@ export function HermesDashboard() {
     [positions, priceMap],
   );
 
+  const resetPaperAccount = useCallback(() => {
+    const confirmed = window.confirm(
+      "Reset the Hermes paper account? This clears portfolio, open positions, history, journal entries, and settings saved in this browser.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    clearHermesState();
+    setCash(STARTING_BALANCE);
+    setPositions([]);
+    setHistory([]);
+    setJournalEntries(defaultJournalEntries);
+    setSettings(DEFAULT_SETTINGS);
+    setSelectedSymbol("BTC");
+    setTimeframe("1H");
+    setSaveStatus("Saved locally");
+  }, []);
+
+  if (!hasRestored) {
+    return (
+      <main>
+        <TopNav />
+        <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
+          <section className="rounded-lg border border-white/10 bg-white/[0.025] px-5 py-8 shadow-insetPanel">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
+              Hermes v1.3 paper trading engine
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              Restoring saved paper account...
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Loading local portfolio, positions, trade history, journal, and settings.
+            </p>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main>
       <TopNav />
@@ -171,7 +338,7 @@ export function HermesDashboard() {
         <section className="mb-5 flex flex-col justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.025] px-5 py-5 shadow-insetPanel lg:flex-row lg:items-end">
           <div className="max-w-4xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-              Hermes v1.2 paper trading engine
+              Hermes v1.3 local paper trading engine
             </p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl xl:text-[34px]">
               Hermes - AI-assisted market intelligence for paper trading.
@@ -191,15 +358,15 @@ export function HermesDashboard() {
               <p className="mt-1 font-semibold text-amberline">Manual</p>
             </div>
             <div className="rounded-md bg-white/[0.04] px-3 py-2">
-              <p className="text-xs text-slate-500">Feed</p>
+              <p className="text-xs text-slate-500">Storage</p>
               <p
                 className={
-                  status === "live"
+                  saveStatus === "Saved locally"
                     ? "mt-1 font-semibold text-mint-300"
                     : "mt-1 font-semibold text-amberline"
                 }
               >
-                {status === "live" ? "Live" : "Safe"}
+                {saveStatus}
               </p>
             </div>
           </div>
@@ -221,7 +388,7 @@ export function HermesDashboard() {
           <TradeControls
             buyingPower={portfolio.buyingPower}
             quote={selectedQuote}
-            onSubmit={openPaperTrade}
+            onSubmit={handlePaperTicket}
           />
         </section>
 
@@ -257,10 +424,23 @@ export function HermesDashboard() {
           <EquityCurve points={equityCurve} />
         </section>
 
-        <section className="mt-4">
+        <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
           <PerformanceDashboard stats={performance} />
+          <SettingsPanel
+            settings={settings}
+            onSettingsChange={setSettings}
+            onReset={resetPaperAccount}
+          />
+        </section>
+
+        <section className="mt-4">
+          <TradeJournal entries={journalEntries} />
         </section>
       </div>
     </main>
   );
+}
+
+function createBrowserSafeId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

@@ -37,7 +37,7 @@ export function TradeControls({
       stopLoss: stopLoss ? Number(stopLoss) : undefined,
       takeProfit: takeProfit ? Number(takeProfit) : undefined,
     });
-    setMessage(response ?? `${action} ${side.toLowerCase()} paper position opened.`);
+    setMessage(response ?? getSuccessMessage(action, side));
   };
 
   return (
@@ -69,24 +69,45 @@ export function TradeControls({
           <Input label="Take-profit" prefix="$" value={takeProfit} onChange={setTakeProfit} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-mint-400 px-4 py-3 text-sm font-bold text-surface-950 transition hover:bg-mint-300"
-            onClick={() => submit("Buy")}
-            type="button"
-          >
-            <ArrowUpFromLine className="size-4" aria-hidden="true" />
-            Buy
-          </button>
-          <button
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-400 px-4 py-3 text-sm font-bold text-surface-950 transition hover:bg-rose-300"
-            onClick={() => submit("Sell")}
-            type="button"
-          >
-            <ArrowDownToLine className="size-4" aria-hidden="true" />
-            Sell
-          </button>
-        </div>
+        {side === "Long" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-mint-400 px-4 py-3 text-sm font-bold text-surface-950 transition hover:bg-mint-300"
+              onClick={() => submit("Buy")}
+              type="button"
+            >
+              <ArrowUpFromLine className="size-4" aria-hidden="true" />
+              Buy
+            </button>
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-400 px-4 py-3 text-sm font-bold text-surface-950 transition hover:bg-rose-300"
+              onClick={() => submit("Sell")}
+              type="button"
+            >
+              <ArrowDownToLine className="size-4" aria-hidden="true" />
+              Sell
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-amberline px-4 py-3 text-sm font-bold text-surface-950 transition hover:brightness-110"
+              onClick={() => submit("Short")}
+              type="button"
+            >
+              <ArrowDownToLine className="size-4" aria-hidden="true" />
+              Short
+            </button>
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-200 px-4 py-3 text-sm font-bold text-surface-950 transition hover:bg-white"
+              onClick={() => submit("Cover")}
+              type="button"
+            >
+              <ArrowUpFromLine className="size-4" aria-hidden="true" />
+              Cover
+            </button>
+          </div>
+        )}
 
         <div className="rounded-lg border border-white/10 bg-surface-950/50 p-3 text-xs leading-5 text-slate-400">
           <p>Buying power: {formatCurrency(buyingPower)}</p>
@@ -95,6 +116,22 @@ export function TradeControls({
       </div>
     </Panel>
   );
+}
+
+function getSuccessMessage(action: OrderAction, side: PositionSide) {
+  if (action === "Buy") {
+    return "Long paper position opened.";
+  }
+
+  if (action === "Sell") {
+    return "Long paper position sold.";
+  }
+
+  if (action === "Short") {
+    return "Short paper position opened.";
+  }
+
+  return "Short paper position covered.";
 }
 
 function Input({
