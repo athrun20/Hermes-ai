@@ -5,6 +5,7 @@ import { ChartPanel } from "@/components/chart-panel";
 import { EquityCurve } from "@/components/equity-curve";
 import { HermesAiAnalysis } from "@/components/hermes-ai-analysis";
 import { HermesCoach } from "@/components/hermes-coach";
+import { HermesIntelligencePanel } from "@/components/hermes-intelligence-panel";
 import { OpenPositions } from "@/components/open-positions";
 import { PaperPortfolio } from "@/components/paper-portfolio";
 import { PerformanceDashboard } from "@/components/performance-dashboard";
@@ -27,6 +28,7 @@ import {
   type CoinSymbol,
   type Timeframe,
 } from "@/lib/market-data";
+import { buildHermesIntelligence } from "@/lib/hermes-intelligence";
 import {
   clearHermesState,
   defaultJournalEntries,
@@ -126,6 +128,14 @@ export function HermesDashboard() {
   const equityCurve = useMemo(
     () => buildEquityCurve(history, portfolio.equity),
     [history, portfolio.equity],
+  );
+  const intelligence = useMemo(
+    () =>
+      buildHermesIntelligence({
+        quote: selectedQuote,
+        journalEntries,
+      }),
+    [journalEntries, selectedQuote],
   );
 
   useEffect(() => {
@@ -407,6 +417,10 @@ export function HermesDashboard() {
             />
             <HermesAiAnalysis analysis={analysis} quote={selectedQuote} />
           </div>
+        </section>
+
+        <section className="mt-4">
+          <HermesIntelligencePanel intelligence={intelligence} />
         </section>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[360px_1fr_330px] xl:gap-5">
