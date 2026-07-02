@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChartPanel } from "@/components/chart-panel";
 import { EquityCurve } from "@/components/equity-curve";
+import { HermesAiAnalyst } from "@/components/hermes-ai-analyst";
 import { HermesAiAnalysis } from "@/components/hermes-ai-analysis";
 import { HermesCoach } from "@/components/hermes-coach";
 import { HermesIntelligencePanel } from "@/components/hermes-intelligence-panel";
@@ -391,6 +392,10 @@ export function HermesDashboard() {
               onSelect={() => setSelectedSymbol(quote.symbol)}
             />
           ))}
+        </section>
+
+        <section className="mt-4">
+          <HermesAiAnalyst />
         </section>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
