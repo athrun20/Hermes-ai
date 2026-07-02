@@ -23,10 +23,17 @@ export type ClosedTrade = PaperPosition & {
   followedPlan: boolean;
   qualityScore: number;
   coach: {
+    grade: TradeGrade;
     doneWell: string;
+    wentWrong: string;
+    riskManagement: string;
+    entryFeedback: string;
+    exitFeedback: string;
     improvement: string;
   };
 };
+
+export type TradeGrade = "A+" | "A" | "B+" | "B" | "C+" | "C" | "D" | "F";
 
 export type EquityPoint = {
   time: number;
@@ -176,27 +183,69 @@ export function scoreTrade({
   const reward = position.takeProfit ? Math.abs(position.takeProfit - position.entryPrice) : 0;
   const riskReward = risk > 0 ? reward / risk : 0;
   const followedPlan = hasPlan && riskReward >= 1.2;
+  const durationMinutes = Math.max(1, Math.floor((Date.now() - position.openedAt) / 60000));
+  const heldLongEnough = durationMinutes >= 5;
   const qualityScore = Math.max(
     0,
     Math.min(
       100,
-      Math.round(48 + (followedPlan ? 28 : 4) + (pnl > 0 ? 16 : -8) + Math.min(riskReward, 3) * 4),
+      Math.round(
+        44 +
+          (followedPlan ? 24 : 3) +
+          (pnl > 0 ? 16 : -10) +
+          (heldLongEnough ? 5 : -3) +
+          Math.min(riskReward, 3) * 5,
+      ),
     ),
   );
+  const grade = getTradeGrade(qualityScore);
+  const sideLabel = position.side.toLowerCase();
 
   return {
     followedPlan,
     qualityScore,
     coach: {
+      grade,
       doneWell: followedPlan
-        ? "You defined risk and reward before entering the paper trade."
-        : "You logged the trade and captured the outcome for review.",
+        ? `You entered the ${sideLabel} paper trade with both stop-loss and target defined.`
+        : "You logged the trade and captured the outcome for review instead of ignoring feedback.",
+      wentWrong:
+        pnl >= 0
+          ? "The main weakness is process risk: profitable trades still need consistent review before scaling size."
+          : hasPlan
+            ? "The setup did not pay enough relative to the risk taken, so execution quality needs another filter."
+            : "The trade lacked a complete predefined stop and target plan, which made the review weaker.",
+      riskManagement:
+        riskReward >= 2
+          ? `Risk/reward was strong at ${riskReward.toFixed(2)}R, which supports repeatable paper trading.`
+          : riskReward > 0
+            ? `Risk/reward was only ${riskReward.toFixed(2)}R; aim for cleaner setups above 2R.`
+            : "Risk/reward could not be measured because a stop-loss and take-profit were not both set.",
+      entryFeedback:
+        position.stopLoss
+          ? `Entry had a defined invalidation level at ${position.stopLoss.toFixed(2)}, which helps control downside.`
+          : "Entry needs a clear invalidation level before opening the next paper trade.",
+      exitFeedback:
+        pnl > 0
+          ? "Exit produced a realized gain; review whether it followed the original target or closed early."
+          : "Exit realized a loss; review whether the stop was respected or if the position was closed emotionally.",
       improvement:
         pnl >= 0
           ? "Keep sizing consistent so wins do not encourage oversized follow-up trades."
           : "Tighten the plan before entry by requiring a clear stop and target.",
     },
   };
+}
+
+export function getTradeGrade(score: number): TradeGrade {
+  if (score >= 97) return "A+";
+  if (score >= 90) return "A";
+  if (score >= 84) return "B+";
+  if (score >= 76) return "B";
+  if (score >= 68) return "C+";
+  if (score >= 60) return "C";
+  if (score >= 45) return "D";
+  return "F";
 }
 
 export function closePosition(

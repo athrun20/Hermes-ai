@@ -1,8 +1,10 @@
 import { GraduationCap } from "lucide-react";
-import type { ClosedTrade } from "@/lib/paper-trading";
+import { getDurationLabel, getTradeGrade, type ClosedTrade } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
 export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
+  const review = trade ? buildReview(trade) : undefined;
+
   return (
     <Panel>
       <PanelHeader
@@ -14,15 +16,33 @@ export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
         {trade ? (
           <>
             <div className="rounded-lg border border-mint-300/20 bg-mint-300/10 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-mint-300">
-                Trade Quality Score
-              </p>
-              <p className="mt-2 text-4xl font-semibold text-white">{trade.qualityScore}</p>
-              <p className="mt-1 text-sm text-slate-400">out of 100</p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-mint-300">
+                    Trade Score
+                  </p>
+                  <p className="mt-2 text-4xl font-semibold text-white">
+                    {trade.qualityScore}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-400">out of 100</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-surface-950/50 px-4 py-3 text-right">
+                  <p className="text-xs text-slate-500">Grade</p>
+                  <p className={gradeTone(review?.grade ?? "F")}>
+                    {review?.grade}
+                  </p>
+                </div>
+              </div>
             </div>
-            <CoachRow label="Followed plan" value={trade.followedPlan ? "Yes" : "Needs work"} />
-            <CoachRow label="Done well" value={trade.coach.doneWell} />
-            <CoachRow label="Improve next" value={trade.coach.improvement} />
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <CoachRow label="Followed plan" value={trade.followedPlan ? "Yes" : "Needs work"} />
+              <CoachRow label="What went well" value={review?.doneWell ?? ""} />
+              <CoachRow label="What went wrong" value={review?.wentWrong ?? ""} />
+              <CoachRow label="Risk management" value={review?.riskManagement ?? ""} />
+              <CoachRow label="Entry feedback" value={review?.entryFeedback ?? ""} />
+              <CoachRow label="Exit feedback" value={review?.exitFeedback ?? ""} />
+              <CoachRow label="One improvement tip" value={review?.improvement ?? ""} />
+            </div>
           </>
         ) : (
           <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4 text-sm leading-6 text-slate-400">
@@ -33,6 +53,57 @@ export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
       </div>
     </Panel>
   );
+}
+
+function buildReview(trade: ClosedTrade) {
+  const coach = trade.coach ?? {};
+  const grade = coach.grade ?? getTradeGrade(trade.qualityScore);
+  const riskReward =
+    trade.stopLoss && trade.takeProfit
+      ? Math.abs(trade.takeProfit - trade.entryPrice) /
+        Math.max(0.01, Math.abs(trade.entryPrice - trade.stopLoss))
+      : 0;
+
+  return {
+    grade,
+    doneWell:
+      coach.doneWell ??
+      (trade.followedPlan
+        ? "You defined the trade plan before execution."
+        : "You recorded the trade for review."),
+    wentWrong:
+      coach.wentWrong ??
+      (trade.pnl >= 0
+        ? "Even winning trades need review for process consistency."
+        : "The trade did not convert, so review setup quality and timing."),
+    riskManagement:
+      coach.riskManagement ??
+      (riskReward > 0
+        ? `Estimated risk/reward was ${riskReward.toFixed(2)}R.`
+        : "Risk/reward could not be measured because the stop and target were incomplete."),
+    entryFeedback:
+      coach.entryFeedback ??
+      (trade.stopLoss
+        ? "Entry had an invalidation level defined."
+        : "Entry needs a predefined stop-loss next time."),
+    exitFeedback:
+      coach.exitFeedback ??
+      `${trade.side} trade closed after ${getDurationLabel(trade.openedAt, trade.closedAt)} with ${trade.pnl >= 0 ? "a gain" : "a loss"}.`,
+    improvement:
+      coach.improvement ??
+      "Focus on one repeatable setup and keep position sizing consistent.",
+  };
+}
+
+function gradeTone(grade: string) {
+  const color =
+    grade.startsWith("A") || grade.startsWith("B")
+      ? "text-mint-300"
+      : grade.startsWith("C")
+        ? "text-amberline"
+        : "text-rose-300";
+
+  return `mt-1 text-3xl font-semibold ${color}`;
 }
 
 function CoachRow({ label, value }: { label: string; value: string }) {
