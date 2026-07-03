@@ -1,9 +1,11 @@
 import { GraduationCap } from "lucide-react";
+import { analyzeTrade } from "@/lib/hermes-brain";
 import { getDurationLabel, getTradeGrade, type ClosedTrade } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
 export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
   const review = trade ? buildReview(trade) : undefined;
+  const brainReview = trade ? analyzeTrade(trade) : undefined;
 
   return (
     <Panel>
@@ -22,18 +24,19 @@ export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
                     Trade Score
                   </p>
                   <p className="mt-2 text-4xl font-semibold text-white">
-                    {trade.qualityScore}
+                    {brainReview?.score}
                   </p>
                   <p className="mt-1 text-sm text-slate-400">out of 100</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-surface-950/50 px-4 py-3 text-right">
                   <p className="text-xs text-slate-500">Grade</p>
-                  <p className={gradeTone(review?.grade ?? "F")}>
-                    {review?.grade}
+                  <p className={gradeTone(brainReview?.grade ?? "F")}>
+                    {brainReview?.grade}
                   </p>
                 </div>
               </div>
             </div>
+            <CoachRow label="Brain verdict" value={brainReview?.verdict ?? ""} />
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <CoachRow label="Followed plan" value={trade.followedPlan ? "Yes" : "Needs work"} />
               <CoachRow label="What went well" value={review?.doneWell ?? ""} />
@@ -42,6 +45,7 @@ export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
               <CoachRow label="Entry feedback" value={review?.entryFeedback ?? ""} />
               <CoachRow label="Exit feedback" value={review?.exitFeedback ?? ""} />
               <CoachRow label="One improvement tip" value={review?.improvement ?? ""} />
+              <CoachRow label="Next best action" value={brainReview?.nextBestAction ?? ""} />
             </div>
           </>
         ) : (

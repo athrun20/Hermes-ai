@@ -5,6 +5,7 @@ import { ChartPanel } from "@/components/chart-panel";
 import { EquityCurve } from "@/components/equity-curve";
 import { HermesAiAnalyst } from "@/components/hermes-ai-analyst";
 import { HermesAiAnalysis } from "@/components/hermes-ai-analysis";
+import { HermesBrainSummary } from "@/components/hermes-brain-summary";
 import { HermesCoach } from "@/components/hermes-coach";
 import { HermesIntelligencePanel } from "@/components/hermes-intelligence-panel";
 import { OpenPositions } from "@/components/open-positions";
@@ -30,6 +31,14 @@ import {
   type Timeframe,
 } from "@/lib/market-data";
 import { buildHermesIntelligence } from "@/lib/hermes-intelligence";
+import {
+  analyzePortfolio,
+  calculateOpportunityScore,
+  detectTradingHabits,
+  generateDailyScroll,
+  generateRiskAssessment,
+  generateTradingPersonality,
+} from "@/lib/hermes-brain";
 import {
   clearHermesState,
   defaultJournalEntries,
@@ -137,6 +146,74 @@ export function HermesDashboard() {
         journalEntries,
       }),
     [journalEntries, selectedQuote],
+  );
+  const brainPortfolio = useMemo(
+    () =>
+      analyzePortfolio({
+        snapshot: portfolio,
+        positions,
+        prices: priceMap,
+      }),
+    [portfolio, positions, priceMap],
+  );
+  const brainHabits = useMemo(
+    () =>
+      detectTradingHabits({
+        history,
+        journalEntries,
+      }),
+    [history, journalEntries],
+  );
+  const brainRisk = useMemo(
+    () =>
+      generateRiskAssessment({
+        snapshot: portfolio,
+        positions,
+      }),
+    [portfolio, positions],
+  );
+  const opportunityScores = useMemo(
+    () =>
+      quotes.map((quote) =>
+        calculateOpportunityScore({
+          symbol: quote.symbol,
+          bias:
+            quote.change24h > 1
+              ? "Bullish"
+              : quote.change24h < -1
+                ? "Bearish"
+                : "Neutral",
+          confidence: Math.min(92, Math.max(52, 62 + Math.abs(quote.change24h) * 5)),
+          riskLevel: brainRisk.riskLevel,
+          journalAlignment: brainHabits.planAdherenceRate || 55,
+          portfolioFit: brainPortfolio.healthScore,
+        }),
+      ),
+    [brainHabits.planAdherenceRate, brainPortfolio.healthScore, brainRisk.riskLevel, quotes],
+  );
+  const topOpportunity = useMemo(
+    () =>
+      opportunityScores.reduce((best, item) =>
+        item.score > best.score ? item : best,
+      ),
+    [opportunityScores],
+  );
+  const dailyScroll = useMemo(
+    () =>
+      generateDailyScroll({
+        portfolio: brainPortfolio,
+        habits: brainHabits,
+        topOpportunity,
+      }),
+    [brainHabits, brainPortfolio, topOpportunity],
+  );
+  const tradingPersonality = useMemo(
+    () =>
+      generateTradingPersonality({
+        habits: brainHabits,
+        risk: brainRisk,
+      }),
+    [brainHabits, brainRisk],
   );
 
   useEffect(() => {
@@ -395,7 +472,14 @@ export function HermesDashboard() {
         </section>
 
         <section className="mt-4">
-          <HermesAiAnalyst />
+          <HermesAiAnalyst opportunities={opportunityScores} />
+        </section>
+
+        <section className="mt-4">
+          <HermesBrainSummary
+            dailyScroll={dailyScroll}
+            personality={tradingPersonality}
+          />
         </section>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">

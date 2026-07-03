@@ -11,18 +11,46 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import type { OpportunityScore } from "@/lib/hermes-brain";
 import { mockAssetAnalyses, type AnalystBias, type AssetAiAnalysis } from "@/lib/ai-analyst-data";
 import { Panel, PanelHeader } from "./ui";
 
-export function HermesAiAnalyst() {
+export function HermesAiAnalyst({
+  opportunities,
+}: {
+  opportunities: OpportunityScore[];
+}) {
   const [expandedSymbol, setExpandedSymbol] = useState("BTC");
+  const analyses = useMemo(
+    () =>
+      mockAssetAnalyses.map((analysis) => {
+        const opportunity = opportunities.find((item) => item.symbol === analysis.symbol);
+        return opportunity
+          ? {
+              ...analysis,
+              bias: opportunity.bias,
+              confidence: opportunity.score,
+              grade: opportunity.grade,
+              reasoning: [
+                opportunity.explanation,
+                `Brain trend component: ${opportunity.components.trend}/100.`,
+                `Brain risk/reward component: ${opportunity.components.riskReward}/100.`,
+                `Brain volatility component: ${opportunity.components.volatility}/100.`,
+                `Journal alignment component: ${opportunity.components.journalAlignment}/100.`,
+                `Portfolio fit component: ${opportunity.components.portfolioFit}/100.`,
+              ],
+            }
+          : analysis;
+      }),
+    [opportunities],
+  );
   const averageConfidence = useMemo(
     () =>
       Math.round(
-        mockAssetAnalyses.reduce((sum, item) => sum + item.confidence, 0) /
-          mockAssetAnalyses.length,
+        analyses.reduce((sum, item) => sum + item.confidence, 0) /
+          analyses.length,
       ),
-    [],
+    [analyses],
   );
 
   return (
@@ -39,13 +67,13 @@ export function HermesAiAnalyst() {
       />
       <div className="space-y-4 p-5">
         <div className="grid gap-3 md:grid-cols-4">
-          {mockAssetAnalyses.map((analysis) => (
+          {analyses.map((analysis) => (
             <CompactSignal key={analysis.symbol} analysis={analysis} />
           ))}
         </div>
 
         <div className="grid gap-3 xl:grid-cols-2">
-          {mockAssetAnalyses.map((analysis) => (
+          {analyses.map((analysis) => (
             <AnalysisCard
               analysis={analysis}
               expanded={expandedSymbol === analysis.symbol}
