@@ -3,11 +3,12 @@ import type {
   JournalEntry,
   PaperPosition,
   PerformanceStats,
+  PositionSide,
   PortfolioSnapshot,
   TradeGrade,
 } from "@/lib/paper-trading";
 import { getPositionPnl, getTradeGrade, STARTING_BALANCE } from "@/lib/paper-trading";
-import type { CoinSymbol } from "@/lib/market-data";
+import type { AssetQuote, CoinSymbol } from "@/lib/market-data";
 
 export type BrainBias = "Bullish" | "Bearish" | "Neutral";
 export type BrainRiskLevel = "Low" | "Moderate" | "Elevated" | "High";
@@ -117,6 +118,66 @@ export type RiskAssessment = {
   openExposure: number;
   warnings: BrainFinding[];
   safeguards: string[];
+};
+
+export type HermesMemory = {
+  kind: "hermes-memory";
+  tradeCount: number;
+  bestPerformingAsset: CoinSymbol | "N/A";
+  weakestAsset: CoinSymbol | "N/A";
+  winRate: number;
+  averagePnl: number;
+  averageHoldMinutes: number;
+  repeatedMistakes: string[];
+  strengths: string[];
+  commonTradeType: "long" | "short" | "breakout" | "reversal" | "scalp" | "balanced" | "unknown";
+  coachingInsight: string;
+};
+
+export type OpportunityScanItem = {
+  asset: CoinSymbol;
+  setupScore: number;
+  bias: BrainBias;
+  riskLevel: BrainRiskLevel;
+  reason: string;
+  suggestedAction: "Watch" | "Wait" | "Paper Trade Setup";
+};
+
+export type OpportunityScannerResult = {
+  kind: "opportunity-scanner";
+  generatedAt: number;
+  topAsset: CoinSymbol;
+  items: OpportunityScanItem[];
+};
+
+export type TradeTicketSuggestion = {
+  value: number;
+  confidence: number;
+  explanation: string;
+};
+
+export type TradePlanVerdict = {
+  label: "Strong Setup" | "Caution" | "Avoid";
+  confidence: number;
+  explanation: string;
+};
+
+export type TradeTicketSuggestions = {
+  kind: "trade-ticket-suggestions";
+  symbol: CoinSymbol;
+  side: PositionSide;
+  entryPrice: number;
+  setupQuality: number;
+  confidence: number;
+  riskLevel: "Low" | "Medium" | "High";
+  bias: BrainBias;
+  entry: TradeTicketSuggestion;
+  stopLoss: TradeTicketSuggestion;
+  takeProfit: TradeTicketSuggestion;
+  riskReward: number;
+  notes: string[];
+  verdict: TradePlanVerdict;
+  explanation: string;
 };
 
 const mockTrade: ClosedTrade = {
@@ -374,6 +435,174 @@ export function detectTradingHabits({
   };
 }
 
+export function generateHermesMemory({
+  history = mockHistory,
+  journalEntries = mockJournal,
+}: {
+  history?: ClosedTrade[];
+  journalEntries?: JournalEntry[];
+} = {}): HermesMemory {
+  const wins = history.filter((trade) => trade.pnl > 0);
+  const planned = history.filter((trade) => trade.followedPlan);
+  const averageHoldMinutes = Math.round(
+    average(history.map((trade) => Math.max(1, (trade.closedAt - trade.openedAt) / 60000))),
+  );
+  const pnlByAsset = groupPnlByAsset(history);
+  const rankedAssets = Object.entries(pnlByAsset).sort(([, a], [, b]) => b - a);
+  const repeatedMistakes = detectRepeatedMistakes(history, journalEntries);
+  const strengths = detectStrengths(history, journalEntries);
+  const commonTradeType = detectCommonTradeType(history, journalEntries);
+
+  return {
+    kind: "hermes-memory",
+    tradeCount: history.length,
+    bestPerformingAsset: (rankedAssets[0]?.[0] as CoinSymbol | undefined) ?? "N/A",
+    weakestAsset: (rankedAssets[rankedAssets.length - 1]?.[0] as CoinSymbol | undefined) ?? "N/A",
+    winRate: percent(wins.length, history.length),
+    averagePnl: round(average(history.map((trade) => trade.pnl))),
+    averageHoldMinutes,
+    repeatedMistakes,
+    strengths,
+    commonTradeType,
+    coachingInsight: buildMemoryInsight({
+      history,
+      repeatedMistakes,
+      strengths,
+      averageHoldMinutes,
+      best: (rankedAssets[0]?.[0] as CoinSymbol | undefined) ?? "N/A",
+      weakest: (rankedAssets[rankedAssets.length - 1]?.[0] as CoinSymbol | undefined) ?? "N/A",
+    }),
+  };
+}
+
+export function scanOpportunities({
+  opportunities = ["BTC", "ETH", "SOL", "LINK"].map((symbol) =>
+    calculateOpportunityScore({ symbol: symbol as CoinSymbol }),
+  ),
+  memory = generateHermesMemory(),
+  risk = generateRiskAssessment(),
+}: {
+  opportunities?: OpportunityScore[];
+  memory?: HermesMemory;
+  risk?: RiskAssessment;
+} = {}): OpportunityScannerResult {
+  const items = opportunities
+    .map((opportunity) => {
+      const memoryAdjustment =
+        opportunity.symbol === memory.bestPerformingAsset
+          ? 5
+          : opportunity.symbol === memory.weakestAsset
+            ? -5
+            : 0;
+      const setupScore = clamp(opportunity.score + memoryAdjustment);
+      const riskLevel =
+        risk.riskLevel === "High"
+          ? "High"
+          : setupScore >= 75
+            ? "Moderate"
+            : setupScore >= 58
+              ? "Elevated"
+              : "High";
+      const suggestedAction =
+        setupScore >= 74 && riskLevel !== "High"
+          ? "Paper Trade Setup"
+          : setupScore >= 58
+            ? "Watch"
+            : "Wait";
+
+      return {
+        asset: opportunity.symbol,
+        setupScore,
+        bias: opportunity.bias,
+        riskLevel,
+        reason: buildOpportunityReason(opportunity, memoryAdjustment, memory),
+        suggestedAction,
+      } satisfies OpportunityScanItem;
+    })
+    .sort((a, b) => b.setupScore - a.setupScore);
+
+  return {
+    kind: "opportunity-scanner",
+    generatedAt: Date.now(),
+    topAsset: items[0]?.asset ?? "BTC",
+    items,
+  };
+}
+
+export function generateTradeTicketSuggestions({
+  quote,
+  side = "Long",
+  opportunity = calculateOpportunityScore({ symbol: quote.symbol }),
+}: {
+  quote: AssetQuote;
+  side?: PositionSide;
+  opportunity?: OpportunityScore;
+}): TradeTicketSuggestions {
+  const conviction = opportunity.score;
+  const riskLevel: TradeTicketSuggestions["riskLevel"] =
+    opportunity.components.volatility >= 68 && conviction >= 72
+      ? "Low"
+      : conviction >= 58
+        ? "Medium"
+        : "High";
+  const stopPct = conviction >= 76 ? 0.014 : conviction >= 58 ? 0.018 : 0.024;
+  const rewardMultiple = conviction >= 76 ? 2.4 : conviction >= 58 ? 2 : 1.6;
+  const targetPct = stopPct * rewardMultiple;
+  const entry = side === "Long" ? quote.price * 0.999 : quote.price * 1.001;
+  const stopLoss =
+    side === "Long" ? entry * (1 - stopPct) : entry * (1 + stopPct);
+  const takeProfit =
+    side === "Long" ? entry * (1 + targetPct) : entry * (1 - targetPct);
+  const confidence = clamp(
+    conviction * 0.7 + opportunity.components.riskReward * 0.2 + opportunity.components.volatility * 0.1,
+  );
+  const verdict = buildTradePlanVerdict({
+    confidence,
+    bias: opportunity.bias,
+    riskLevel,
+    symbol: quote.symbol,
+  });
+
+  return {
+    kind: "trade-ticket-suggestions",
+    symbol: quote.symbol,
+    side,
+    entryPrice: round(quote.price),
+    setupQuality: conviction,
+    confidence,
+    riskLevel,
+    bias: opportunity.bias,
+    entry: {
+      value: round(entry),
+      confidence: clamp(confidence - 2),
+      explanation:
+        side === "Long"
+          ? "Entry is placed near current price with a small pullback buffer."
+          : "Entry is placed near current price with a small bounce buffer.",
+    },
+    stopLoss: {
+      value: round(stopLoss),
+      confidence: clamp(confidence - 4),
+      explanation: `${riskLevel} risk buffer based on ${quote.symbol} momentum, volatility, and current paper setup quality.`,
+    },
+    takeProfit: {
+      value: round(takeProfit),
+      confidence: clamp(confidence + (rewardMultiple >= 2 ? 2 : -2)),
+      explanation: `Targets about ${round(rewardMultiple)}R from the current market price while keeping the setup manual.`,
+    },
+    riskReward: round(rewardMultiple),
+    notes: [
+      side === "Long" ? "Entry near current pullback support." : "Entry near current bounce resistance.",
+      side === "Long" ? "Stop sits below the planned entry zone." : "Stop sits above the planned entry zone.",
+      side === "Long" ? "Target looks toward the next upside extension." : "Target looks toward the next downside extension.",
+      `${opportunity.bias} market bias from rule-based Hermes Brain.`,
+      rewardMultiple >= 2 ? "Risk/reward meets Hermes criteria." : "Risk/reward is acceptable but needs caution.",
+    ],
+    verdict,
+    explanation: `${quote.symbol} ${side.toLowerCase()} suggestion uses Hermes Brain opportunity score ${conviction}/100 and remains paper-only guidance.`,
+  };
+}
+
 export function calculateOpportunityScore({
   symbol = "BTC",
   bias = "Bullish",
@@ -416,27 +645,40 @@ export function generateDailyScroll({
   portfolio = analyzePortfolio(),
   habits = detectTradingHabits(),
   topOpportunity = calculateOpportunityScore(),
+  memory = generateHermesMemory(),
 }: {
   portfolio?: PortfolioAnalysis;
   habits?: TradingHabits;
   topOpportunity?: OpportunityScore;
+  memory?: HermesMemory;
 } = {}): DailyScroll {
+  const lesson =
+    memory.repeatedMistakes.some((mistake) => mistake.toLowerCase().includes("early"))
+      ? "Today's lesson: Practice patient exits."
+      : portfolio.riskLevel === "High" || portfolio.riskLevel === "Elevated"
+        ? "Today's lesson: Protect Capital First."
+        : "Today's lesson: Trade the plan, not the impulse.";
+
   return {
     kind: "daily-scroll",
     title: "Hermes Daily Scroll",
     marketPosture: topOpportunity.bias,
-    priority: `Focus on ${topOpportunity.symbol} only if the setup remains above ${topOpportunity.score}/100 quality.`,
+    priority: `${lesson} Focus on ${topOpportunity.symbol} only if the setup remains above ${topOpportunity.score}/100 quality.`,
     checklist: [
       "Confirm paper account risk before any entry.",
       "Require stop-loss and take-profit before opening a position.",
+      memory.bestPerformingAsset !== "N/A"
+        ? `Respect memory: ${memory.bestPerformingAsset} has been your strongest asset recently.`
+        : "Respect memory: wait for more trade history before increasing conviction.",
       "Avoid adding exposure if portfolio risk becomes elevated.",
       "Journal the thesis before closing the trade.",
     ],
     avoid: [
       portfolio.riskLevel === "High" ? "Avoid opening new trades until exposure falls." : "Avoid chasing candles away from planned entry zones.",
       habits.planAdherenceRate < 70 ? "Avoid trades without a written plan." : "Avoid oversizing after a winning streak.",
+      memory.weakestAsset !== "N/A" ? `Avoid forcing ${memory.weakestAsset} setups until execution improves.` : "Avoid inventing patterns from a tiny sample size.",
     ],
-    coachingNote: `Current portfolio health is ${portfolio.healthScore}/100 and plan adherence is ${habits.planAdherenceRate}%.`,
+    coachingNote: `${memory.coachingInsight} Current portfolio health is ${portfolio.healthScore}/100 and plan adherence is ${habits.planAdherenceRate}%.`,
   };
 }
 
@@ -551,6 +793,157 @@ function calculateTradeRiskReward(trade: ClosedTrade): number | null {
   const risk = Math.abs(trade.entryPrice - trade.stopLoss);
   const reward = Math.abs(trade.takeProfit - trade.entryPrice);
   return risk > 0 ? round(reward / risk) : null;
+}
+
+function groupPnlByAsset(history: ClosedTrade[]): Partial<Record<CoinSymbol, number>> {
+  return history.reduce<Partial<Record<CoinSymbol, number>>>((totals, trade) => {
+    totals[trade.symbol] = (totals[trade.symbol] ?? 0) + trade.pnl;
+    return totals;
+  }, {});
+}
+
+function detectRepeatedMistakes(history: ClosedTrade[], journalEntries: JournalEntry[]) {
+  const mistakes: string[] = [];
+  const missingPlans = history.filter((trade) => !trade.stopLoss || !trade.takeProfit).length;
+  const earlyExits = history.filter((trade) => trade.takeProfit && trade.pnl > 0 && trade.exitPrice !== trade.takeProfit).length;
+  const losses = history.filter((trade) => trade.pnl < 0).length;
+  const earlyBreakouts = journalEntries.filter((entry) => entry.setup.toLowerCase().includes("early")).length;
+
+  if (missingPlans >= 2 || missingPlans > history.length * 0.35) {
+    mistakes.push("Entering before the stop-loss and target are fully defined.");
+  }
+
+  if (earlyExits >= 2 || earlyBreakouts > 0) {
+    mistakes.push("Closing or entering too early before confirmation completes.");
+  }
+
+  if (losses > history.length * 0.45) {
+    mistakes.push("Taking too many low-quality setups relative to the current win rate.");
+  }
+
+  return mistakes.length > 0 ? mistakes : ["No dominant repeated mistake detected yet."];
+}
+
+function detectStrengths(history: ClosedTrade[], journalEntries: JournalEntry[]) {
+  const strengths: string[] = [];
+  const planned = history.filter((trade) => trade.followedPlan).length;
+  const winners = history.filter((trade) => trade.pnl > 0).length;
+
+  if (planned >= history.length * 0.6) {
+    strengths.push("You often define risk before closing trades.");
+  }
+
+  if (winners >= history.length * 0.55) {
+    strengths.push("Your recent paper trades show a positive win-rate profile.");
+  }
+
+  if (journalEntries.length >= Math.max(1, history.length)) {
+    strengths.push("You maintain enough journal context for coaching.");
+  }
+
+  return strengths.length > 0 ? strengths : ["You are building useful sample size through paper trading."];
+}
+
+function detectCommonTradeType(
+  history: ClosedTrade[],
+  journalEntries: JournalEntry[],
+): HermesMemory["commonTradeType"] {
+  const setupText = journalEntries.map((entry) => entry.setup.toLowerCase()).join(" ");
+  if (setupText.includes("breakout")) return "breakout";
+  if (setupText.includes("reversal") || setupText.includes("reclaim")) return "reversal";
+  if (setupText.includes("scalp")) return "scalp";
+
+  const longCount = history.filter((trade) => trade.side === "Long").length;
+  const shortCount = history.filter((trade) => trade.side === "Short").length;
+  if (longCount === 0 && shortCount === 0) return "unknown";
+  if (Math.abs(longCount - shortCount) <= 1) return "balanced";
+  return longCount > shortCount ? "long" : "short";
+}
+
+function buildMemoryInsight({
+  history,
+  repeatedMistakes,
+  strengths,
+  averageHoldMinutes,
+  best,
+  weakest,
+}: {
+  history: ClosedTrade[];
+  repeatedMistakes: string[];
+  strengths: string[];
+  averageHoldMinutes: number;
+  best: CoinSymbol | "N/A";
+  weakest: CoinSymbol | "N/A";
+}) {
+  if (history.length === 0) {
+    return "Hermes Memory is waiting for completed paper trades before drawing strong conclusions.";
+  }
+
+  if (repeatedMistakes.some((mistake) => mistake.toLowerCase().includes("early"))) {
+    return "Your recent trades show early execution patterns. Focus today on patience and confirmation.";
+  }
+
+  if (best !== "N/A" && weakest !== "N/A" && best !== weakest) {
+    return `Your ${best} trades are performing better than your ${weakest} trades. Favor cleaner ${best} setups until the pattern changes.`;
+  }
+
+  if (averageHoldMinutes < 5) {
+    return "Your average hold time is very short. Slow down exits unless the plan is invalidated.";
+  }
+
+  return strengths[0] ?? "Hermes Memory sees a stable paper trading process forming.";
+}
+
+function buildOpportunityReason(
+  opportunity: OpportunityScore,
+  memoryAdjustment: number,
+  memory: HermesMemory,
+) {
+  const memoryText =
+    memoryAdjustment > 0
+      ? "boosted by your recent asset performance"
+      : memoryAdjustment < 0
+        ? "reduced because this has been a weaker asset for you"
+        : "not materially changed by memory";
+
+  return `${opportunity.symbol} scores ${opportunity.score}/100 from trend, risk/reward, volatility, journal alignment, and portfolio fit; ${memoryText}.`;
+}
+
+function buildTradePlanVerdict({
+  confidence,
+  bias,
+  riskLevel,
+  symbol,
+}: {
+  confidence: number;
+  bias: BrainBias;
+  riskLevel: TradeTicketSuggestions["riskLevel"];
+  symbol: CoinSymbol;
+}): TradePlanVerdict {
+  if (confidence >= 78 && riskLevel !== "High") {
+    return {
+      label: "Strong Setup",
+      confidence,
+      explanation: `${symbol} aligns with Hermes criteria and shows ${bias.toLowerCase()} planning quality.`,
+    };
+  }
+
+  if (confidence >= 52) {
+    return {
+      label: "Caution",
+      confidence,
+      explanation:
+        riskLevel === "High"
+          ? "Setup quality is workable, but risk is elevated enough to require smaller sizing."
+          : "Setup is developing, but confirmation should improve before adding conviction.",
+    };
+  }
+
+  return {
+    label: "Avoid",
+    confidence,
+    explanation: "This setup does not currently meet Hermes criteria for a high-quality paper trade.",
+  };
 }
 
 function mockPerformance(history: ClosedTrade[]): BrainPerformanceStats {

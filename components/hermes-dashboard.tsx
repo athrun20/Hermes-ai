@@ -36,8 +36,10 @@ import {
   calculateOpportunityScore,
   detectTradingHabits,
   generateDailyScroll,
+  generateHermesMemory,
   generateRiskAssessment,
   generateTradingPersonality,
+  scanOpportunities,
 } from "@/lib/hermes-brain";
 import {
   clearHermesState,
@@ -164,6 +166,14 @@ export function HermesDashboard() {
       }),
     [history, journalEntries],
   );
+  const memory = useMemo(
+    () =>
+      generateHermesMemory({
+        history,
+        journalEntries,
+      }),
+    [history, journalEntries],
+  );
   const brainRisk = useMemo(
     () =>
       generateRiskAssessment({
@@ -198,14 +208,30 @@ export function HermesDashboard() {
       ),
     [opportunityScores],
   );
+  const selectedOpportunity = useMemo(
+    () =>
+      opportunityScores.find((item) => item.symbol === selectedQuote.symbol) ??
+      calculateOpportunityScore({ symbol: selectedQuote.symbol }),
+    [opportunityScores, selectedQuote.symbol],
+  );
   const dailyScroll = useMemo(
     () =>
       generateDailyScroll({
         portfolio: brainPortfolio,
         habits: brainHabits,
         topOpportunity,
+        memory,
       }),
-    [brainHabits, brainPortfolio, topOpportunity],
+    [brainHabits, brainPortfolio, memory, topOpportunity],
+  );
+  const opportunityScanner = useMemo(
+    () =>
+      scanOpportunities({
+        opportunities: opportunityScores,
+        memory,
+        risk: brainRisk,
+      }),
+    [brainRisk, memory, opportunityScores],
   );
   const tradingPersonality = useMemo(
     () =>
@@ -478,6 +504,8 @@ export function HermesDashboard() {
         <section className="mt-4">
           <HermesBrainSummary
             dailyScroll={dailyScroll}
+            memory={memory}
+            scanner={opportunityScanner}
             personality={tradingPersonality}
           />
         </section>
@@ -486,6 +514,7 @@ export function HermesDashboard() {
           <PaperPortfolio snapshot={portfolio} />
           <TradeControls
             buyingPower={portfolio.buyingPower}
+            opportunity={selectedOpportunity}
             quote={selectedQuote}
             onSubmit={handlePaperTicket}
           />
@@ -519,7 +548,7 @@ export function HermesDashboard() {
             prices={priceMap}
             onClose={closePaperTrade}
           />
-          <HermesCoach trade={history[0]} />
+          <HermesCoach trade={history[0]} memory={memory} />
         </section>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">

@@ -1,9 +1,15 @@
 import { GraduationCap } from "lucide-react";
-import { analyzeTrade } from "@/lib/hermes-brain";
+import { analyzeTrade, type HermesMemory } from "@/lib/hermes-brain";
 import { getDurationLabel, getTradeGrade, type ClosedTrade } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
-export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
+export function HermesCoach({
+  trade,
+  memory,
+}: {
+  trade?: ClosedTrade;
+  memory?: HermesMemory;
+}) {
   const review = trade ? buildReview(trade) : undefined;
   const brainReview = trade ? analyzeTrade(trade) : undefined;
 
@@ -37,6 +43,9 @@ export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
               </div>
             </div>
             <CoachRow label="Brain verdict" value={brainReview?.verdict ?? ""} />
+            {memory ? (
+              <CoachRow label="Habit-based advice" value={buildHabitAdvice(memory)} />
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <CoachRow label="Followed plan" value={trade.followedPlan ? "Yes" : "Needs work"} />
               <CoachRow label="What went well" value={review?.doneWell ?? ""} />
@@ -57,6 +66,24 @@ export function HermesCoach({ trade }: { trade?: ClosedTrade }) {
       </div>
     </Panel>
   );
+}
+
+function buildHabitAdvice(memory: HermesMemory) {
+  const mistake = memory.repeatedMistakes[0];
+
+  if (mistake && !mistake.startsWith("No dominant")) {
+    return `${memory.coachingInsight} Main pattern to work on: ${mistake}`;
+  }
+
+  if (
+    memory.bestPerformingAsset !== "N/A" &&
+    memory.weakestAsset !== "N/A" &&
+    memory.bestPerformingAsset !== memory.weakestAsset
+  ) {
+    return `Your ${memory.bestPerformingAsset} trades are performing better than your ${memory.weakestAsset} trades. Be more selective on weaker assets.`;
+  }
+
+  return memory.coachingInsight;
 }
 
 function buildReview(trade: ClosedTrade) {
