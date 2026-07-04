@@ -5,6 +5,11 @@ import type {
   OpportunityScannerResult,
   TradingPersonality,
 } from "@/lib/hermes-brain";
+import type {
+  HermesMemorySnapshot,
+  PeriodInsight,
+  TradingPersonalityProfile,
+} from "@/lib/hermes-memory";
 import { Panel, PanelHeader } from "./ui";
 
 export function HermesBrainSummary({
@@ -12,12 +17,23 @@ export function HermesBrainSummary({
   memory,
   scanner,
   personality,
+  hermesMemory,
+  weeklyInsights,
+  memoryPersonality,
 }: {
   dailyScroll: DailyScroll;
   memory: HermesMemory;
   scanner: OpportunityScannerResult;
   personality: TradingPersonality;
+  hermesMemory?: HermesMemorySnapshot;
+  weeklyInsights?: PeriodInsight;
+  memoryPersonality?: TradingPersonalityProfile;
 }) {
+  const hasMemoryHistory = Boolean(hermesMemory && hermesMemory.performance.totalTrades > 0);
+  const personalityTitle = memoryPersonality?.archetype ?? personality.archetype;
+  const strengths = memoryPersonality?.strengths ?? personality.strengths;
+  const blindSpots = memoryPersonality?.blindSpots ?? personality.blindSpots;
+
   return (
     <Panel>
       <PanelHeader
@@ -32,15 +48,20 @@ export function HermesBrainSummary({
             <p className="text-sm font-semibold text-white">Daily Scroll Preview</p>
           </div>
           <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
-            {dailyScroll.marketPosture} posture
+            {hasMemoryHistory ? `${hermesMemory?.personality} posture` : `${dailyScroll.marketPosture} posture`}
           </p>
-          <p className="mt-2 text-sm leading-6 text-slate-200">{dailyScroll.priority}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-200">
+            {buildMemoryScrollPriority({ dailyScroll, hermesMemory })}
+          </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <BrainList title="Checklist" items={dailyScroll.checklist.slice(0, 3)} />
-            <BrainList title="Avoid" items={dailyScroll.avoid} />
+            <BrainList
+              title="Checklist"
+              items={buildMemoryChecklist({ dailyScroll, hermesMemory, weeklyInsights })}
+            />
+            <BrainList title="Avoid" items={buildMemoryAvoid({ dailyScroll, hermesMemory })} />
           </div>
           <p className="mt-4 rounded-md border border-amberline/20 bg-amberline/10 p-3 text-sm leading-6 text-amber-100">
-            {dailyScroll.coachingNote}
+            {buildMemoryCoachingNote({ dailyScroll, hermesMemory, weeklyInsights })}
           </p>
         </section>
 
@@ -77,10 +98,18 @@ export function HermesBrainSummary({
             <div className="mt-3 grid grid-cols-2 gap-3">
               <MiniStat label="Best asset" value={memory.bestPerformingAsset} />
               <MiniStat label="Weakest asset" value={memory.weakestAsset} />
-              <MiniStat label="Win rate" value={`${memory.winRate}%`} />
-              <MiniStat label="Common type" value={memory.commonTradeType} />
+              <MiniStat
+                label="Win rate"
+                value={`${hermesMemory?.performance.winRate ?? memory.winRate}%`}
+              />
+              <MiniStat
+                label="Common type"
+                value={hermesMemory?.strategyPreference.dominantStyle ?? memory.commonTradeType}
+              />
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-300">{memory.coachingInsight}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              {hermesMemory?.weaknesses[0] ?? memory.coachingInsight}
+            </p>
           </div>
 
           <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
@@ -88,17 +117,23 @@ export function HermesBrainSummary({
             <UserRound className="size-4 text-mint-300" aria-hidden="true" />
             <p className="text-sm font-semibold text-white">Trading Personality</p>
           </div>
-          <p className="text-2xl font-semibold text-white">{personality.archetype}</p>
+          <p className="text-2xl font-semibold text-white">{personalityTitle}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <MiniStat label="Confidence style" value={personality.confidenceStyle} />
-            <MiniStat label="Risk style" value={personality.riskStyle} />
+            <MiniStat
+              label="Confidence style"
+              value={memoryPersonality?.confidenceStyle ?? personality.confidenceStyle}
+            />
+            <MiniStat
+              label="Risk style"
+              value={memoryPersonality?.riskStyle ?? personality.riskStyle}
+            />
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <BrainList title="Strengths" items={personality.strengths} />
-            <BrainList title="Blind spots" items={personality.blindSpots} />
+            <BrainList title="Strengths" items={strengths} />
+            <BrainList title="Blind spots" items={blindSpots} />
           </div>
           <p className="mt-4 rounded-md border border-mint-300/20 bg-mint-300/10 p-3 text-sm leading-6 text-slate-200">
-            {personality.coachingPrompt}
+            {memoryPersonality?.coachingPrompt ?? personality.coachingPrompt}
           </p>
           </div>
         </section>
@@ -114,6 +149,109 @@ function MiniStat({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm font-semibold leading-5 text-slate-100">{value}</p>
     </div>
   );
+}
+
+function buildMemoryScrollPriority({
+  dailyScroll,
+  hermesMemory,
+}: {
+  dailyScroll: DailyScroll;
+  hermesMemory?: HermesMemorySnapshot;
+}) {
+  if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
+    return "Beginner wisdom: protect capital first. Define entry, stop, target, and reason before every paper trade.";
+  }
+
+  if (hermesMemory.behavior.holdingWinnersTooShort) {
+    return "Today's lesson: practice patient exits. Your recent winners are closing quickly, so let the next clean setup reach target or invalidation.";
+  }
+
+  if (hermesMemory.behavior.overtradingDetected) {
+    return "Today's lesson: reduce frequency. Your recent trades are clustered close together, so wait for a higher-quality setup.";
+  }
+
+  if (hermesMemory.performance.bestPerformingAsset !== "N/A") {
+    return `Today's lesson: lean into what is working. Your ${hermesMemory.performance.bestPerformingAsset} trades are currently the strongest part of your paper history.`;
+  }
+
+  return dailyScroll.priority;
+}
+
+function buildMemoryChecklist({
+  dailyScroll,
+  hermesMemory,
+  weeklyInsights,
+}: {
+  dailyScroll: DailyScroll;
+  hermesMemory?: HermesMemorySnapshot;
+  weeklyInsights?: PeriodInsight;
+}) {
+  if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
+    return [
+      "Write the trade thesis before entry.",
+      "Set stop-loss and take-profit before execution.",
+      "Keep position size small while building sample size.",
+    ];
+  }
+
+  return [
+    weeklyInsights?.nextActions[0] ?? dailyScroll.checklist[0],
+    hermesMemory.behavior.holdingWinnersTooShort
+      ? "Let winners work until target or invalidation."
+      : "Review whether exits match the original plan.",
+    hermesMemory.behavior.overtradingDetected
+      ? "Wait for one cleaner setup instead of trading every move."
+      : "Confirm setup quality before adding exposure.",
+  ];
+}
+
+function buildMemoryAvoid({
+  dailyScroll,
+  hermesMemory,
+}: {
+  dailyScroll: DailyScroll;
+  hermesMemory?: HermesMemorySnapshot;
+}) {
+  if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
+    return [
+      "Avoid trading without a written invalidation level.",
+      "Avoid increasing size before you have enough history.",
+      "Avoid chasing candles after the move has already stretched.",
+    ];
+  }
+
+  return [
+    hermesMemory.behavior.revengeTradingDetected
+      ? "Avoid placing follow-up trades immediately after a loss."
+      : dailyScroll.avoid[0],
+    hermesMemory.behavior.overtradingDetected
+      ? "Avoid stacking trades close together without fresh confirmation."
+      : dailyScroll.avoid[1],
+    hermesMemory.performance.worstPerformingAsset !== "N/A"
+      ? `Avoid forcing ${hermesMemory.performance.worstPerformingAsset} setups until execution improves.`
+      : "Avoid low-quality setups without a clear edge.",
+  ];
+}
+
+function buildMemoryCoachingNote({
+  dailyScroll,
+  hermesMemory,
+  weeklyInsights,
+}: {
+  dailyScroll: DailyScroll;
+  hermesMemory?: HermesMemorySnapshot;
+  weeklyInsights?: PeriodInsight;
+}) {
+  if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
+    return "Hermes Memory is ready. Close paper trades to unlock personalized coaching from your own behavior.";
+  }
+
+  const weeklyRisk = weeklyInsights?.risks.find((risk) => !risk.startsWith("No major"));
+  if (weeklyRisk) {
+    return weeklyRisk;
+  }
+
+  return hermesMemory.strengths[0] ?? dailyScroll.coachingNote;
 }
 
 function BrainList({ title, items }: { title: string; items: string[] }) {

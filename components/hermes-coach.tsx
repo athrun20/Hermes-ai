@@ -1,14 +1,17 @@
 import { GraduationCap } from "lucide-react";
 import { analyzeTrade, type HermesMemory } from "@/lib/hermes-brain";
+import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import { getDurationLabel, getTradeGrade, type ClosedTrade } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
 export function HermesCoach({
   trade,
   memory,
+  hermesMemory,
 }: {
   trade?: ClosedTrade;
   memory?: HermesMemory;
+  hermesMemory?: HermesMemorySnapshot;
 }) {
   const review = trade ? buildReview(trade) : undefined;
   const brainReview = trade ? analyzeTrade(trade) : undefined;
@@ -43,7 +46,9 @@ export function HermesCoach({
               </div>
             </div>
             <CoachRow label="Brain verdict" value={brainReview?.verdict ?? ""} />
-            {memory ? (
+            {hermesMemory ? (
+              <CoachRow label="Habit-based advice" value={buildMemoryAdvice(hermesMemory)} />
+            ) : memory ? (
               <CoachRow label="Habit-based advice" value={buildHabitAdvice(memory)} />
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -66,6 +71,33 @@ export function HermesCoach({
       </div>
     </Panel>
   );
+}
+
+function buildMemoryAdvice(memory: HermesMemorySnapshot) {
+  const bestAsset = memory.performance.bestPerformingAsset;
+  const worstAsset = memory.performance.worstPerformingAsset;
+
+  if (bestAsset !== "N/A" && worstAsset !== "N/A" && bestAsset !== worstAsset) {
+    return `Your recent ${bestAsset} trades are stronger than your ${worstAsset} trades. Favor cleaner ${bestAsset} setups and be more selective elsewhere.`;
+  }
+
+  if (memory.behavior.holdingWinnersTooShort || memory.behavior.earlyExitsFrequency >= 30) {
+    return "You are exiting winners early. Let the next planned winner work until target or invalidation unless the thesis changes.";
+  }
+
+  if (memory.behavior.overtradingDetected) {
+    return "You have taken several trades close together. Watch for overtrading and require a complete setup before the next entry.";
+  }
+
+  if (memory.behavior.revengeTradingDetected) {
+    return "Recent post-loss trade bursts suggest revenge trading risk. Pause after losses and rebuild the plan from scratch.";
+  }
+
+  if (memory.weaknesses[0] && !memory.weaknesses[0].startsWith("No major")) {
+    return memory.weaknesses[0];
+  }
+
+  return memory.strengths[0] ?? "Hermes Memory is building your personal coaching profile from completed paper trades.";
 }
 
 function buildHabitAdvice(memory: HermesMemory) {

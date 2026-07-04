@@ -325,7 +325,7 @@ export function generateTradingPersonality(memory: HermesMemoryState): TradingPe
   };
 }
 
-function toHermesMemorySnapshot(memory: HermesMemoryState): HermesMemorySnapshot {
+export function toHermesMemorySnapshot(memory: HermesMemoryState): HermesMemorySnapshot {
   const strategyPreference = detectStrategyPreference(memory.trades);
   const behavior = detectBehaviorSummary(memory);
 

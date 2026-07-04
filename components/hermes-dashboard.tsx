@@ -49,6 +49,13 @@ import {
   saveHermesState,
 } from "@/lib/local-persistence";
 import {
+  generateTradingPersonality as generateMemoryTradingPersonality,
+  generateWeeklyInsights,
+  toHermesMemorySnapshot,
+  updateHermesMemory,
+  updateMemory,
+} from "@/lib/hermes-memory";
+import {
   DEFAULT_SETTINGS,
   buildEquityCurve,
   buildPerformanceStats,
@@ -173,6 +180,22 @@ export function HermesDashboard() {
         journalEntries,
       }),
     [history, journalEntries],
+  );
+  const hermesMemoryState = useMemo(
+    () =>
+      updateMemory({
+        completedTrades: history,
+        journalEntries,
+      }),
+    [history, journalEntries],
+  );
+  const weeklyMemoryInsights = useMemo(
+    () => generateWeeklyInsights({ memory: hermesMemoryState }),
+    [hermesMemoryState],
+  );
+  const memoryTradingPersonality = useMemo(
+    () => generateMemoryTradingPersonality(hermesMemoryState),
+    [hermesMemoryState],
   );
   const brainRisk = useMemo(
     () =>
@@ -353,6 +376,7 @@ export function HermesDashboard() {
 
         setPositions(nextPositions);
         setCash((current) => current + cashReturned);
+        closedTrades.forEach((trade) => updateHermesMemory(trade));
         setHistory((current) => [...closedTrades.reverse(), ...current]);
         return undefined;
       }
@@ -397,6 +421,7 @@ export function HermesDashboard() {
 
       const exitPrice = priceMap[position.symbol] ?? position.entryPrice;
       const closed = closePosition(position, exitPrice);
+      updateHermesMemory(closed);
       setPositions((current) => current.filter((item) => item.id !== positionId));
       setCash((current) => current + position.notional + closed.pnl);
       setHistory((current) => [closed, ...current]);
@@ -504,9 +529,12 @@ export function HermesDashboard() {
         <section className="mt-4">
           <HermesBrainSummary
             dailyScroll={dailyScroll}
+            hermesMemory={toHermesMemorySnapshot(hermesMemoryState)}
             memory={memory}
+            memoryPersonality={memoryTradingPersonality}
             scanner={opportunityScanner}
             personality={tradingPersonality}
+            weeklyInsights={weeklyMemoryInsights}
           />
         </section>
 
@@ -548,7 +576,11 @@ export function HermesDashboard() {
             prices={priceMap}
             onClose={closePaperTrade}
           />
-          <HermesCoach trade={history[0]} memory={memory} />
+          <HermesCoach
+            trade={history[0]}
+            memory={memory}
+            hermesMemory={toHermesMemorySnapshot(hermesMemoryState)}
+          />
         </section>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
