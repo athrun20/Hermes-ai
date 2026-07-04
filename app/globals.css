@@ -36,3 +36,15 @@ select {
   background: rgba(121, 242, 192, 0.28);
   color: #ffffff;
 }
+
+@keyframes briefingReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

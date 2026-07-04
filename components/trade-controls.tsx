@@ -15,6 +15,7 @@ export type TradeTicket = {
   action: OrderAction;
   side: PositionSide;
   notional: number;
+  entryPrice?: number;
   stopLoss?: number;
   takeProfit?: number;
 };
@@ -23,11 +24,13 @@ export function TradeControls({
   buyingPower,
   quote,
   opportunity,
+  statusMessage,
   onSubmit,
 }: {
   buyingPower: number;
   quote: AssetQuote;
   opportunity: OpportunityScore;
+  statusMessage?: string;
   onSubmit: (ticket: TradeTicket) => string | undefined;
 }) {
   const [side, setSide] = useState<PositionSide>("Long");
@@ -54,6 +57,12 @@ export function TradeControls({
     setTakeProfit(formatInputPrice(suggestions.takeProfit.value));
   }, [planKey, suggestions.entry.value, suggestions.stopLoss.value, suggestions.takeProfit.value]);
 
+  useEffect(() => {
+    if (statusMessage) {
+      setMessage(statusMessage);
+    }
+  }, [statusMessage]);
+
   const plannedEntry = parseNumber(entryPrice) ?? suggestions.entry.value;
   const plannedStopLoss = parseNumber(stopLoss) ?? suggestions.stopLoss.value;
   const plannedTakeProfit = parseNumber(takeProfit) ?? suggestions.takeProfit.value;
@@ -72,6 +81,7 @@ export function TradeControls({
       action,
       side,
       notional: Number(notional),
+      entryPrice: parseNumber(entryPrice) ?? undefined,
       stopLoss: stopLoss ? Number(stopLoss) : undefined,
       takeProfit: takeProfit ? Number(takeProfit) : undefined,
     });

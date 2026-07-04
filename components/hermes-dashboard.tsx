@@ -7,6 +7,7 @@ import { HermesAiAnalyst } from "@/components/hermes-ai-analyst";
 import { HermesAiAnalysis } from "@/components/hermes-ai-analysis";
 import { HermesBrainSummary } from "@/components/hermes-brain-summary";
 import { HermesCoach } from "@/components/hermes-coach";
+import { HermesDecisionReview } from "@/components/hermes-decision-review";
 import { HermesIntelligencePanel } from "@/components/hermes-intelligence-panel";
 import { OpenPositions } from "@/components/open-positions";
 import { PaperPortfolio } from "@/components/paper-portfolio";
@@ -32,6 +33,8 @@ import {
   type Timeframe,
 } from "@/lib/market-data";
 import { buildHermesIntelligence } from "@/lib/hermes-intelligence";
+import { reviewPaperTradeDecision } from "@/lib/decision-engine";
+import type { DecisionReviewTicket } from "@/lib/decision-types";
 import {
   analyzePortfolio,
   calculateOpportunityScore,
@@ -56,6 +59,7 @@ import {
   updateHermesMemory,
   updateMemory,
 } from "@/lib/hermes-memory";
+import { buildMorningBriefing } from "@/lib/morning-briefing";
 import {
   DEFAULT_SETTINGS,
   buildEquityCurve,
@@ -85,6 +89,9 @@ export function HermesDashboard() {
   const [settings, setSettings] = useState<PaperSettings>(DEFAULT_SETTINGS);
   const [saveStatus, setSaveStatus] = useState("Restoring local data");
   const [hasRestored, setHasRestored] = useState(false);
+  const [pendingDecisionTicket, setPendingDecisionTicket] =
+    useState<DecisionReviewTicket | null>(null);
+  const [tradePlanMessage, setTradePlanMessage] = useState<string | undefined>();
 
   const selectedQuote =
     quotes.find((quote) => quote.symbol === selectedSymbol) ?? fallbackQuotes[0];
@@ -269,6 +276,33 @@ export function HermesDashboard() {
       }),
     [brainHabits, brainRisk],
   );
+  const morningBriefing = useMemo(
+    () => buildMorningBriefing({ memory: hermesMemorySnapshot }),
+    [hermesMemorySnapshot],
+  );
+  const decisionReview = useMemo(
+    () =>
+      pendingDecisionTicket
+        ? reviewPaperTradeDecision({
+            ticket: pendingDecisionTicket,
+            quote: selectedQuote,
+            portfolio,
+            opportunity: selectedOpportunity,
+            memory: hermesMemorySnapshot,
+            marketMood: normalizeDecisionMood(morningBriefing.market.todayMarket),
+            dailyGoal: morningBriefing.dailyGoal.text,
+          })
+        : null,
+    [
+      hermesMemorySnapshot,
+      morningBriefing.dailyGoal.text,
+      morningBriefing.market.todayMarket,
+      pendingDecisionTicket,
+      portfolio,
+      selectedOpportunity,
+      selectedQuote,
+    ],
+  );
 
   useEffect(() => {
     const restored = loadHermesState();
@@ -317,7 +351,7 @@ export function HermesDashboard() {
     timeframe,
   ]);
 
-  const handlePaperTicket = useCallback(
+  const executePaperTicket = useCallback(
     (ticket: TradeTicket) => {
       if (!Number.isFinite(ticket.notional) || ticket.notional <= 0) {
         return "Enter a valid paper position size.";
@@ -417,6 +451,27 @@ export function HermesDashboard() {
     [portfolio.buyingPower, positions, priceMap, selectedQuote],
   );
 
+  const handlePaperTicket = useCallback((ticket: TradeTicket) => {
+    setPendingDecisionTicket(ticket);
+    setTradePlanMessage("Hermes is reviewing this paper decision.");
+    return "Hermes is reviewing this paper decision.";
+  }, []);
+
+  const confirmPendingDecision = useCallback(() => {
+    if (!pendingDecisionTicket) {
+      return;
+    }
+
+    const response = executePaperTicket(pendingDecisionTicket);
+    setTradePlanMessage(response ?? getPaperTicketSuccessMessage(pendingDecisionTicket.action));
+    setPendingDecisionTicket(null);
+  }, [executePaperTicket, pendingDecisionTicket]);
+
+  const revisePendingDecision = useCallback(() => {
+    setPendingDecisionTicket(null);
+    setTradePlanMessage("Trade review closed. Revise the plan when ready.");
+  }, []);
+
   const closePaperTrade = useCallback(
     (positionId: string) => {
       const position = positions.find((item) => item.id === positionId);
@@ -478,6 +533,14 @@ export function HermesDashboard() {
   return (
     <main>
       <TopNav />
+      {decisionReview && pendingDecisionTicket ? (
+        <HermesDecisionReview
+          notional={pendingDecisionTicket.notional}
+          review={decisionReview}
+          onConfirm={confirmPendingDecision}
+          onRevise={revisePendingDecision}
+        />
+      ) : null}
       <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
         <section className="mb-5 flex flex-col justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.025] px-5 py-5 shadow-insetPanel lg:flex-row lg:items-end">
           <div className="max-w-4xl">
@@ -553,6 +616,7 @@ export function HermesDashboard() {
             buyingPower={portfolio.buyingPower}
             opportunity={selectedOpportunity}
             quote={selectedQuote}
+            statusMessage={tradePlanMessage}
             onSubmit={handlePaperTicket}
           />
         </section>
@@ -616,4 +680,16 @@ export function HermesDashboard() {
 
 function createBrowserSafeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function normalizeDecisionMood(value: string) {
+  if (value === "Bullish" || value === "Bearish") return value;
+  return "Neutral";
+}
+
+function getPaperTicketSuccessMessage(action: TradeTicket["action"]) {
+  if (action === "Buy") return "Long paper position opened.";
+  if (action === "Sell") return "Long paper position sold.";
+  if (action === "Short") return "Short paper position opened.";
+  return "Short paper position covered.";
 }
