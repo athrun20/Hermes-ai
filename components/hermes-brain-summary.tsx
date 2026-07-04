@@ -1,4 +1,7 @@
-import { BrainCircuit, ClipboardCheck, UserRound } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { BrainCircuit, ClipboardCheck, X, UserRound } from "lucide-react";
 import type {
   DailyScroll,
   HermesMemory,
@@ -11,6 +14,14 @@ import type {
   TradingPersonalityProfile,
 } from "@/lib/hermes-memory";
 import { Panel, PanelHeader } from "./ui";
+
+type LivingScroll = {
+  title: string;
+  quote: string;
+  insight: string;
+  challenge: string;
+  wisdomPoints: number;
+};
 
 export function HermesBrainSummary({
   dailyScroll,
@@ -29,23 +40,40 @@ export function HermesBrainSummary({
   weeklyInsights?: PeriodInsight;
   memoryPersonality?: TradingPersonalityProfile;
 }) {
+  const [isScrollOpen, setIsScrollOpen] = useState(false);
   const hasMemoryHistory = Boolean(hermesMemory && hermesMemory.performance.totalTrades > 0);
   const personalityTitle = memoryPersonality?.archetype ?? personality.archetype;
   const strengths = memoryPersonality?.strengths ?? personality.strengths;
   const blindSpots = memoryPersonality?.blindSpots ?? personality.blindSpots;
+  const livingScroll = buildLivingScroll({
+    dailyScroll,
+    hermesMemory,
+    weeklyInsights,
+    personalityTitle,
+  });
 
   return (
-    <Panel>
-      <PanelHeader
-        eyebrow="Hermes Brain"
-        title="Daily Scroll & Trading Personality"
-        action={<BrainCircuit className="size-5 text-mint-300" aria-hidden="true" />}
-      />
-      <div className="grid gap-4 p-5 xl:grid-cols-[1.15fr_0.85fr]">
+    <>
+      <Panel>
+        <PanelHeader
+          eyebrow="Hermes Brain"
+          title="Daily Scroll & Trading Personality"
+          action={<BrainCircuit className="size-5 text-mint-300" aria-hidden="true" />}
+        />
+        <div className="grid gap-4 p-5 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <ClipboardCheck className="size-4 text-mint-300" aria-hidden="true" />
-            <p className="text-sm font-semibold text-white">Daily Scroll Preview</p>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="size-4 text-mint-300" aria-hidden="true" />
+              <p className="text-sm font-semibold text-white">Daily Scroll Preview</p>
+            </div>
+            <button
+              className="rounded-md border border-amberline/25 bg-amberline/10 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:border-amberline/45 hover:bg-amberline/15"
+              onClick={() => setIsScrollOpen(true)}
+              type="button"
+            >
+              Open Scroll
+            </button>
           </div>
           <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
             {hasMemoryHistory ? `${hermesMemory?.personality} posture` : `${dailyScroll.marketPosture} posture`}
@@ -137,8 +165,89 @@ export function HermesBrainSummary({
           </p>
           </div>
         </section>
-      </div>
-    </Panel>
+        </div>
+      </Panel>
+
+      {isScrollOpen ? (
+        <LivingScrollModal scroll={livingScroll} onClose={() => setIsScrollOpen(false)} />
+      ) : null}
+    </>
+  );
+}
+
+function LivingScrollModal({
+  scroll,
+  onClose,
+}: {
+  scroll: LivingScroll;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-surface-950/80 px-4 py-8 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="living-scroll-title"
+    >
+      <button
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        type="button"
+        aria-label="Close Living Scroll"
+      />
+      <section className="relative w-full max-w-2xl overflow-hidden rounded-xl border border-amberline/30 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.18),transparent_32%),linear-gradient(135deg,#f5f0e6,#d8c6a3_45%,#f8f3e8)] p-[1px] shadow-2xl shadow-black/50">
+        <div className="relative rounded-xl bg-[linear-gradient(145deg,rgba(255,255,255,0.78),rgba(226,211,181,0.9)),radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.75),transparent_18%),radial-gradient(circle_at_78%_12%,rgba(177,145,82,0.18),transparent_28%)] p-6 text-surface-950 sm:p-8">
+          <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(110deg,transparent_0%,rgba(120,98,54,0.11)_34%,transparent_60%)]" />
+          <button
+            className="absolute right-4 top-4 rounded-full border border-surface-950/10 bg-white/45 p-2 text-surface-800 transition hover:bg-white/70"
+            onClick={onClose}
+            type="button"
+            aria-label="Close scroll"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+
+          <div className="relative">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-800/75">
+              Hermes Living Scroll
+            </p>
+            <h2
+              className="mt-4 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.02em] text-surface-950 sm:text-4xl"
+              id="living-scroll-title"
+            >
+              {scroll.title}
+            </h2>
+            <p className="mt-5 border-l-2 border-amber-700/45 pl-4 text-lg font-medium leading-8 text-surface-800">
+              {scroll.quote}
+            </p>
+
+            <div className="mt-7 grid gap-4 sm:grid-cols-[1fr_170px]">
+              <div className="rounded-lg border border-amber-900/10 bg-white/35 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-900/65">
+                  Personalized Insight
+                </p>
+                <p className="mt-3 text-sm leading-6 text-surface-800">{scroll.insight}</p>
+              </div>
+              <div className="rounded-lg border border-amber-900/10 bg-surface-950/90 p-4 text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amberline">
+                  Wisdom Points Earned
+                </p>
+                <p className="mt-3 text-4xl font-semibold leading-none tracking-[-0.02em]">
+                  {scroll.wisdomPoints}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-amber-900/10 bg-amber-100/45 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-900/65">
+                Today's Challenge
+              </p>
+              <p className="mt-3 text-sm leading-6 text-surface-800">{scroll.challenge}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -175,6 +284,94 @@ function buildMemoryScrollPriority({
   }
 
   return dailyScroll.priority;
+}
+
+function buildLivingScroll({
+  dailyScroll,
+  hermesMemory,
+  weeklyInsights,
+  personalityTitle,
+}: {
+  dailyScroll: DailyScroll;
+  hermesMemory?: HermesMemorySnapshot;
+  weeklyInsights?: PeriodInsight;
+  personalityTitle: string;
+}): LivingScroll {
+  if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
+    return {
+      title: "Protect Capital First",
+      quote: "The first edge is restraint. The second is repetition.",
+      insight:
+        "Hermes Memory is waiting for completed paper trades before it can study your habits. Until then, your advantage is a clean plan before every click.",
+      challenge:
+        "Before your next paper trade, write one sentence for entry, stop-loss, take-profit, and why the trade deserves risk.",
+      wisdomPoints: 10,
+    };
+  }
+
+  if (hermesMemory.behavior.overtradingDetected) {
+    return {
+      title: "Trade Less, See More",
+      quote: "A quiet trader often hears the market more clearly.",
+      insight:
+        "Your recent trades are arriving close together. That can blur the difference between opportunity and motion.",
+      challenge:
+        "Take only one paper setup today, and require the full Trade Plan to be complete before execution.",
+      wisdomPoints: calculateWisdomPoints(hermesMemory),
+    };
+  }
+
+  if (hermesMemory.behavior.holdingWinnersTooShort) {
+    return {
+      title: "Let Winners Prove Themselves",
+      quote: "Patience is not passivity. It is discipline with a clock.",
+      insight:
+        "Hermes Memory sees winners closing quickly. Your next improvement is not finding more trades, but giving good trades room to reach the plan.",
+      challenge:
+        "On the next winning paper trade, hold until target, invalidation, or a written reason changes the thesis.",
+      wisdomPoints: calculateWisdomPoints(hermesMemory),
+    };
+  }
+
+  if (hermesMemory.behavior.revengeTradingDetected) {
+    return {
+      title: "Reset After Losses",
+      quote: "A loss is information. A rushed follow-up is noise.",
+      insight:
+        "Your recent history shows trade bursts after losses. Hermes reads that as a cue to slow the next decision down.",
+      challenge:
+        "After the next losing paper trade, wait five minutes and rewrite the setup before placing another trade.",
+      wisdomPoints: calculateWisdomPoints(hermesMemory),
+    };
+  }
+
+  const bestAsset = hermesMemory.performance.bestPerformingAsset;
+  const weeklyAction = weeklyInsights?.nextActions[0];
+
+  return {
+    title: `${personalityTitle}: Refine the Edge`,
+    quote: "The market rewards clarity before confidence.",
+    insight:
+      bestAsset !== "N/A"
+        ? `Your ${bestAsset} trades are currently the strongest part of your paper history. Let that strength guide selection, not impulse.`
+        : dailyScroll.coachingNote,
+    challenge:
+      weeklyAction ??
+      "Choose one clean setup today, define the invalidation level, and review the result before taking another.",
+    wisdomPoints: calculateWisdomPoints(hermesMemory),
+  };
+}
+
+function calculateWisdomPoints(hermesMemory: HermesMemorySnapshot) {
+  return Math.max(
+    10,
+    Math.round(
+      hermesMemory.performance.totalTrades * 4 +
+        hermesMemory.scores.discipline * 0.25 +
+        hermesMemory.scores.riskManagement * 0.25 +
+        hermesMemory.scores.patience * 0.2,
+    ),
+  );
 }
 
 function buildMemoryChecklist({
