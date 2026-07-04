@@ -14,6 +14,7 @@ export type MemoryTradeRecord = {
   pnl: number;
   returnPct: number;
   rMultiple: number | null;
+  riskRewardRatio: number | null;
   holdMinutes: number;
   followedPlan: boolean;
   qualityScore: number;
@@ -125,6 +126,69 @@ export type TradingPersonalityProfile = {
   coachingPrompt: string;
 };
 
+export type HermesMemorySnapshot = {
+  kind: "hermes-memory-snapshot";
+  updatedAt: number;
+  trades: MemoryTradeRecord[];
+  performance: {
+    totalTrades: number;
+    winRate: number;
+    averageProfitLoss: number;
+    averageRMultiple: number | null;
+    averageHoldMinutes: number;
+    bestPerformingAsset: CoinSymbol | "N/A";
+    worstPerformingAsset: CoinSymbol | "N/A";
+  };
+  behavior: {
+    earlyExitsFrequency: number;
+    revengeTradingDetected: boolean;
+    overtradingDetected: boolean;
+    holdingWinnersTooShort: boolean;
+    cuttingLossesTooLate: boolean;
+    emotionalPatterns: EmotionalPattern[];
+  };
+  strategyPreference: {
+    breakoutTrader: number;
+    reversalTrader: number;
+    scalper: number;
+    swingTrader: number;
+    dominantStyle: "breakout" | "reversal" | "scalper" | "swing" | "balanced" | "unknown";
+  };
+  strengths: string[];
+  weaknesses: string[];
+  personality: string;
+  scores: MemoryScores;
+};
+
+const HERMES_MEMORY_STORAGE_KEY = "hermes-memory-v1";
+let runtimeMemory: HermesMemoryState | null = null;
+
+export function updateHermesMemory(trade: ClosedTrade): HermesMemorySnapshot {
+  const memory = updateMemory({
+    previousMemory: readPersistedMemoryState(),
+    completedTrades: [trade],
+  });
+
+  persistMemoryState(memory);
+  return toHermesMemorySnapshot(memory);
+}
+
+export function getHermesMemory(): HermesMemorySnapshot {
+  return toHermesMemorySnapshot(readPersistedMemoryState());
+}
+
+export function getWeeklyInsights(): PeriodInsight {
+  return generateWeeklyInsights({ memory: readPersistedMemoryState() });
+}
+
+export function getMonthlyInsights(): PeriodInsight {
+  return generateMonthlyInsights({ memory: readPersistedMemoryState() });
+}
+
+export function detectTradingPersonality(): TradingPersonalityProfile {
+  return generateTradingPersonality(readPersistedMemoryState());
+}
+
 export function updateMemory({
   previousMemory,
   completedTrades = [],
@@ -136,15 +200,15 @@ export function updateMemory({
   journalEntries?: JournalEntry[];
   now?: number;
 } = {}): HermesMemoryState {
-  const tradeMap = new Map<string, ClosedTrade>();
+  const tradeMap = new Map<string, MemoryTradeRecord>();
   previousMemory?.trades.forEach((trade) => {
-    tradeMap.set(trade.id, memoryRecordToClosedTrade(trade));
+    tradeMap.set(trade.id, trade);
   });
-  completedTrades.forEach((trade) => tradeMap.set(trade.id, trade));
+  completedTrades.forEach((trade) => {
+    tradeMap.set(trade.id, toMemoryTradeRecord(trade, journalEntries));
+  });
 
-  const trades = Array.from(tradeMap.values())
-    .sort((a, b) => b.closedAt - a.closedAt)
-    .map((trade) => toMemoryTradeRecord(trade, journalEntries));
+  const trades = Array.from(tradeMap.values()).sort((a, b) => b.closedAt - a.closedAt);
   const assetPerformance = rankAssetPerformance(trades);
   const preferredSetups = rankPreferredSetups(trades);
 
@@ -261,6 +325,167 @@ export function generateTradingPersonality(memory: HermesMemoryState): TradingPe
   };
 }
 
+function toHermesMemorySnapshot(memory: HermesMemoryState): HermesMemorySnapshot {
+  const strategyPreference = detectStrategyPreference(memory.trades);
+  const behavior = detectBehaviorSummary(memory);
+
+  return {
+    kind: "hermes-memory-snapshot",
+    updatedAt: memory.updatedAt,
+    trades: memory.trades,
+    performance: {
+      totalTrades: memory.tradeCount,
+      winRate: memory.metrics.winRate,
+      averageProfitLoss: memory.metrics.averagePnl,
+      averageRMultiple: memory.metrics.averageRMultiple,
+      averageHoldMinutes: memory.metrics.averageHoldMinutes,
+      bestPerformingAsset: memory.assets.best[0]?.symbol ?? "N/A",
+      worstPerformingAsset: memory.assets.worst[0]?.symbol ?? "N/A",
+    },
+    behavior,
+    strategyPreference,
+    strengths: detectTopStrengths(memory, strategyPreference).slice(0, 3),
+    weaknesses: detectTopWeaknesses(memory, behavior).slice(0, 3),
+    personality: generateTradingPersonality(memory).archetype,
+    scores: memory.scores,
+  };
+}
+
+function readPersistedMemoryState(): HermesMemoryState {
+  if (typeof window === "undefined") {
+    runtimeMemory ??= createEmptyMemory();
+    return runtimeMemory;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(HERMES_MEMORY_STORAGE_KEY);
+    if (!stored) {
+      runtimeMemory ??= createEmptyMemory();
+      return runtimeMemory;
+    }
+
+    const parsed = JSON.parse(stored) as HermesMemoryState;
+    if (parsed?.kind !== "hermes-memory-v1" || !Array.isArray(parsed.trades)) {
+      runtimeMemory ??= createEmptyMemory();
+      return runtimeMemory;
+    }
+
+    runtimeMemory = parsed;
+    return parsed;
+  } catch {
+    runtimeMemory ??= createEmptyMemory();
+    return runtimeMemory;
+  }
+}
+
+function persistMemoryState(memory: HermesMemoryState) {
+  runtimeMemory = memory;
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(HERMES_MEMORY_STORAGE_KEY, JSON.stringify(memory));
+  } catch {
+    // Memory remains available in runtime state if browser storage is unavailable.
+  }
+}
+
+function createEmptyMemory(): HermesMemoryState {
+  return updateMemory({
+    completedTrades: [],
+    now: Date.now(),
+  });
+}
+
+function detectBehaviorSummary(memory: HermesMemoryState): HermesMemorySnapshot["behavior"] {
+  const earlyExits = memory.trades.filter(
+    (trade) => trade.pnl > 0 && trade.holdMinutes < 10,
+  ).length;
+  const losingTrades = memory.trades.filter((trade) => trade.pnl < 0);
+  const lateLosses = losingTrades.filter(
+    (trade) => trade.returnPct <= -2.5 || (trade.rMultiple !== null && trade.rMultiple <= -1.2),
+  ).length;
+  const winnersHeldTooShort = memory.trades.filter(
+    (trade) => trade.pnl > 0 && trade.holdMinutes < 15,
+  ).length;
+
+  return {
+    earlyExitsFrequency: percent(earlyExits, memory.tradeCount),
+    revengeTradingDetected: countPostLossTradeBursts(memory.trades) > 0,
+    overtradingDetected: memory.tradingFrequency.cadence === "overtrading",
+    holdingWinnersTooShort: winnersHeldTooShort > Math.max(1, memory.tradeCount * 0.25),
+    cuttingLossesTooLate: lateLosses > Math.max(1, losingTrades.length * 0.35),
+    emotionalPatterns: memory.emotionalPatterns,
+  };
+}
+
+function detectStrategyPreference(trades: MemoryTradeRecord[]): HermesMemorySnapshot["strategyPreference"] {
+  const styleCounts = {
+    breakoutTrader: 0,
+    reversalTrader: 0,
+    scalper: 0,
+    swingTrader: 0,
+  };
+
+  trades.forEach((trade) => {
+    const setup = trade.setup.toLowerCase();
+    if (setup.includes("breakout") || setup.includes("momentum")) styleCounts.breakoutTrader += 1;
+    if (setup.includes("reversal") || setup.includes("reclaim")) styleCounts.reversalTrader += 1;
+    if (setup.includes("scalp") || trade.holdMinutes <= 10) styleCounts.scalper += 1;
+    if (setup.includes("swing") || trade.holdMinutes >= 240) styleCounts.swingTrader += 1;
+  });
+
+  const ranked = Object.entries(styleCounts).sort(([, a], [, b]) => b - a);
+  const [topStyle, topCount] = ranked[0] ?? ["unknown", 0];
+  const secondCount = ranked[1]?.[1] ?? 0;
+  const dominantStyle =
+    topCount === 0
+      ? "unknown"
+      : topCount === secondCount
+        ? "balanced"
+        : styleNameToPreference(topStyle);
+
+  return {
+    ...styleCounts,
+    dominantStyle,
+  };
+}
+
+function detectTopStrengths(
+  memory: HermesMemoryState,
+  strategyPreference: HermesMemorySnapshot["strategyPreference"],
+) {
+  const strengths: string[] = [];
+
+  if (memory.metrics.winRate >= 55) strengths.push("Positive win rate across completed paper trades.");
+  if ((memory.metrics.averageRMultiple ?? 0) >= 1.5) strengths.push("Average R multiple shows reward discipline.");
+  if (memory.scores.riskManagement >= 70) strengths.push("Risk management process is becoming consistent.");
+  if (memory.scores.patience >= 70) strengths.push("Average hold time suggests patient execution.");
+  if (strategyPreference.dominantStyle !== "unknown") {
+    strengths.push(`Clear ${strategyPreference.dominantStyle} strategy preference is forming.`);
+  }
+
+  return strengths.length > 0 ? strengths : ["Completed trades are creating useful coaching data."];
+}
+
+function detectTopWeaknesses(
+  memory: HermesMemoryState,
+  behavior: HermesMemorySnapshot["behavior"],
+) {
+  const weaknesses: string[] = [];
+
+  if (behavior.earlyExitsFrequency >= 30) weaknesses.push("Early exits are appearing too frequently.");
+  if (behavior.revengeTradingDetected) weaknesses.push("Post-loss trade bursts suggest possible revenge trading.");
+  if (behavior.overtradingDetected) weaknesses.push("Trade frequency is high enough to reduce selectivity.");
+  if (behavior.holdingWinnersTooShort) weaknesses.push("Winning trades are often held too briefly.");
+  if (behavior.cuttingLossesTooLate) weaknesses.push("Some losing trades are being cut too late.");
+  if (memory.scores.discipline < 65) weaknesses.push("Discipline score needs stronger plan adherence.");
+
+  return weaknesses.length > 0 ? weaknesses : ["No major rule-based weakness detected yet."];
+}
+
 function generatePeriodInsights({
   kind,
   memory,
@@ -309,6 +534,7 @@ function toMemoryTradeRecord(
     pnl: round(trade.pnl),
     returnPct: round(trade.returnPct),
     rMultiple: calculateRMultiple(trade),
+    riskRewardRatio: calculateRiskRewardRatio(trade),
     holdMinutes: Math.max(1, Math.round((trade.closedAt - trade.openedAt) / 60000)),
     followedPlan: trade.followedPlan,
     qualityScore: trade.qualityScore,
@@ -578,6 +804,43 @@ function buildPeriodNextActions({
       ? "Hold trades until invalidation or target unless the thesis clearly changes."
       : "Continue reviewing whether exits match the original plan.",
   ];
+}
+
+function styleNameToPreference(style: string): HermesMemorySnapshot["strategyPreference"]["dominantStyle"] {
+  if (style === "breakoutTrader") return "breakout";
+  if (style === "reversalTrader") return "reversal";
+  if (style === "scalper") return "scalper";
+  if (style === "swingTrader") return "swing";
+  return "unknown";
+}
+
+function countPostLossTradeBursts(trades: MemoryTradeRecord[]) {
+  let bursts = 0;
+  const sortedTrades = [...trades].sort((a, b) => a.closedAt - b.closedAt);
+
+  sortedTrades.forEach((trade, index) => {
+    if (trade.pnl >= 0) {
+      return;
+    }
+
+    const nextTrades = sortedTrades.slice(index + 1).filter(
+      (nextTrade) => nextTrade.openedAt - trade.closedAt <= 60 * 60 * 1000,
+    );
+
+    if (nextTrades.length >= 2) {
+      bursts += 1;
+    }
+  });
+
+  return bursts;
+}
+
+function calculateRiskRewardRatio(trade: ClosedTrade) {
+  if (!trade.stopLoss || !trade.takeProfit) return null;
+
+  const risk = Math.abs(trade.entryPrice - trade.stopLoss);
+  const reward = Math.abs(trade.takeProfit - trade.entryPrice);
+  return risk > 0 ? round(reward / risk) : null;
 }
 
 function calculateRMultiple(trade: ClosedTrade) {
