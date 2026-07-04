@@ -18,6 +18,7 @@ import { TradeControls, type TradeTicket } from "@/components/trade-controls";
 import { TradeHistory } from "@/components/trade-history";
 import { TradeJournal } from "@/components/trade-journal";
 import { TradePlan } from "@/components/trade-plan";
+import { TraderDna } from "@/components/trader-dna";
 import { Watchlist } from "@/components/watchlist";
 import {
   analyzeMarket,
@@ -188,6 +189,10 @@ export function HermesDashboard() {
         journalEntries,
       }),
     [history, journalEntries],
+  );
+  const hermesMemorySnapshot = useMemo(
+    () => toHermesMemorySnapshot(hermesMemoryState),
+    [hermesMemoryState],
   );
   const weeklyMemoryInsights = useMemo(
     () => generateWeeklyInsights({ memory: hermesMemoryState }),
@@ -529,13 +534,17 @@ export function HermesDashboard() {
         <section className="mt-4">
           <HermesBrainSummary
             dailyScroll={dailyScroll}
-            hermesMemory={toHermesMemorySnapshot(hermesMemoryState)}
+            hermesMemory={hermesMemorySnapshot}
             memory={memory}
             memoryPersonality={memoryTradingPersonality}
             scanner={opportunityScanner}
             personality={tradingPersonality}
             weeklyInsights={weeklyMemoryInsights}
           />
+        </section>
+
+        <section className="mt-4">
+          <TraderDna memory={hermesMemorySnapshot} />
         </section>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
@@ -579,7 +588,7 @@ export function HermesDashboard() {
           <HermesCoach
             trade={history[0]}
             memory={memory}
-            hermesMemory={toHermesMemorySnapshot(hermesMemoryState)}
+            hermesMemory={hermesMemorySnapshot}
           />
         </section>
 
