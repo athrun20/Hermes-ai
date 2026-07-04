@@ -1,16 +1,16 @@
 import { formatCurrency } from "@/lib/market-data";
 import type { PerformanceStats } from "@/lib/paper-trading";
-import { Panel, PanelHeader } from "./ui";
+import { MetricCard, Panel, PanelHeader } from "./ui";
 
 export function PerformanceDashboard({ stats }: { stats: PerformanceStats }) {
   const metrics = [
     ["Win Rate", `${stats.winRate.toFixed(0)}%`, tone(stats.winRate)],
-    ["Total Trades", String(stats.totalTrades), "text-white"],
-    ["Average Win", formatCurrency(stats.averageWin), "text-mint-300"],
-    ["Average Loss", formatCurrency(stats.averageLoss), stats.averageLoss < 0 ? "text-rose-300" : "text-slate-300"],
-    ["Largest Win", formatCurrency(stats.largestWin), "text-mint-300"],
-    ["Largest Loss", formatCurrency(stats.largestLoss), stats.largestLoss < 0 ? "text-rose-300" : "text-slate-300"],
-    ["Avg Risk/Reward", stats.averageRiskReward > 0 ? `${stats.averageRiskReward.toFixed(2)}R` : "0.00R", "text-amberline"],
+    ["Total Trades", String(stats.totalTrades), "neutral"],
+    ["Average Win", formatCurrency(stats.averageWin), "mint"],
+    ["Average Loss", formatCurrency(stats.averageLoss), stats.averageLoss < 0 ? "danger" : "muted"],
+    ["Largest Win", formatCurrency(stats.largestWin), "mint"],
+    ["Largest Loss", formatCurrency(stats.largestLoss), stats.largestLoss < 0 ? "danger" : "muted"],
+    ["Avg Risk/Reward", stats.averageRiskReward > 0 ? `${stats.averageRiskReward.toFixed(2)}R` : "0.00R", "gold"],
   ];
 
   return (
@@ -18,10 +18,12 @@ export function PerformanceDashboard({ stats }: { stats: PerformanceStats }) {
       <PanelHeader eyebrow="Performance" title="Paper Trading Stats" />
       <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map(([label, value, color]) => (
-          <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4" key={label}>
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className={`mt-2 text-lg font-semibold ${color}`}>{value}</p>
-          </div>
+          <MetricCard
+            key={label}
+            label={label}
+            tone={color as "neutral" | "mint" | "gold" | "danger" | "muted"}
+            value={value}
+          />
         ))}
       </div>
     </Panel>
@@ -30,12 +32,12 @@ export function PerformanceDashboard({ stats }: { stats: PerformanceStats }) {
 
 function tone(winRate: number) {
   if (winRate >= 55) {
-    return "text-mint-300";
+    return "mint";
   }
 
   if (winRate > 0) {
-    return "text-amberline";
+    return "gold";
   }
 
-  return "text-slate-300";
+  return "muted";
 }

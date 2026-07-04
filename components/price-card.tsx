@@ -1,5 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, BarChart3 } from "lucide-react";
 import { formatCurrency, formatPercent, type AssetQuote } from "@/lib/market-data";
+import { MetricCard, PremiumButtonCard, StatusPill } from "./ui";
 
 export function PriceCard({
   quote,
@@ -23,8 +24,8 @@ export function PriceCard({
           : "M0 32 C16 18 34 38 50 24 S78 18 94 26 S124 12 144 20";
 
   return (
-    <button
-      className={`relative overflow-hidden rounded-lg border bg-gradient-to-br ${accent} to-surface-900/90 p-5 text-left shadow-panel transition hover:-translate-y-0.5 hover:border-white/20 ${
+    <PremiumButtonCard
+      className={`relative overflow-hidden bg-gradient-to-br ${accent} to-surface-900/90 p-5 text-left ${
         isSelected ? "border-mint-300/45" : "border-white/10"
       }`}
       onClick={onSelect}
@@ -43,16 +44,10 @@ export function PriceCard({
             <h3 className="mt-1 text-2xl font-semibold text-white">{quote.symbol}</h3>
           </div>
         </div>
-        <span
-          className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-sm font-semibold ${
-            positive
-              ? "border-mint-300/20 bg-mint-300/10 text-mint-300"
-              : "border-rose-300/20 bg-rose-400/10 text-rose-300"
-          }`}
-        >
+        <StatusPill tone={positive ? "mint" : "danger"} className="text-sm">
           <Icon className="size-4" aria-hidden="true" />
           {formatPercent(quote.change24h)}
-        </span>
+        </StatusPill>
       </div>
       <p className="relative mt-6 text-3xl font-semibold tracking-tight text-white xl:text-[34px]">
         {formatCurrency(quote.price)}
@@ -73,17 +68,9 @@ export function PriceCard({
         <path d={`${spark} V48 H0 Z`} fill={positive ? "rgba(121,242,192,0.08)" : "rgba(253,164,175,0.08)"} />
       </svg>
       <div className="relative mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-md border border-white/10 bg-surface-950/45 p-3">
-          <p className="text-slate-500">Pair</p>
-          <p className="mt-1 font-medium text-slate-200">{quote.pair}</p>
-        </div>
-        <div className="rounded-md border border-white/10 bg-surface-950/45 p-3">
-          <p className="text-slate-500">Updated</p>
-          <p className="mt-1 font-medium text-slate-200">
-            {quote.lastUpdated ?? "Live"}
-          </p>
-        </div>
+        <MetricCard label="Pair" value={quote.pair} tone="muted" className="p-3" />
+        <MetricCard label="Updated" value={quote.lastUpdated ?? "Live"} tone="muted" className="p-3" />
       </div>
-    </button>
+    </PremiumButtonCard>
   );
 }

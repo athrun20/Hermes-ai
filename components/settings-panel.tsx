@@ -1,6 +1,6 @@
 import { SlidersHorizontal } from "lucide-react";
 import type { PaperSettings } from "@/lib/paper-trading";
-import { Panel, PanelHeader } from "./ui";
+import { InsightCard, MetricCard, Panel, PanelHeader, ProgressBar } from "./ui";
 
 export function SettingsPanel({
   settings,
@@ -39,23 +39,18 @@ export function SettingsPanel({
             type="range"
             value={settings.riskPerTrade}
           />
+          <div className="mt-3">
+            <ProgressBar value={(settings.riskPerTrade / 3) * 100} />
+          </div>
         </label>
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-            <p className="text-slate-500">Account mode</p>
-            <p className="mt-1 font-medium text-slate-200">Paper</p>
-          </div>
-          <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-            <p className="text-slate-500">Max daily risk</p>
-            <p className="mt-1 font-medium text-slate-200">
-              {settings.maxDailyRisk.toFixed(1)}%
-            </p>
-          </div>
+          <MetricCard label="Account mode" value="Paper" tone="muted" className="p-3" />
+          <MetricCard label="Max daily risk" value={`${settings.maxDailyRisk.toFixed(1)}%`} tone="muted" className="p-3" />
         </div>
-        <div className="rounded-lg border border-mint-300/15 bg-mint-300/10 p-4 text-sm leading-6 text-slate-300">
+        <InsightCard title="Paper Mode" tone="mint">
           Risk settings are paper-mode planning controls only. Hermes does not
           connect brokers, store keys, or place automatic trades.
-        </div>
+        </InsightCard>
         <button
           className="w-full rounded-lg border border-rose-300/25 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-200 transition hover:bg-rose-400/15"
           onClick={onReset}

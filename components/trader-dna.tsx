@@ -1,6 +1,6 @@
 import { Activity, Dna, TrendingUp } from "lucide-react";
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
-import { Panel, PanelHeader } from "./ui";
+import { ScoreRing, StatusPill, Panel, PanelHeader } from "./ui";
 
 type TraderDnaProfile = {
   style: "Scalper" | "Day Trader" | "Swing Trader" | "Position Trader";
@@ -46,9 +46,9 @@ export function TraderDna({ memory }: { memory: HermesMemorySnapshot }) {
                 {profile.style}
               </p>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300">
+            <StatusPill tone="muted">
               {profile.confidence}
-            </span>
+            </StatusPill>
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-400">
             {getStyleDescription(profile.style, memory)}
@@ -64,15 +64,7 @@ export function TraderDna({ memory }: { memory: HermesMemorySnapshot }) {
                   {profile.disciplineScore}
                 </p>
               </div>
-              <div className="relative size-16 rounded-full border border-white/10 bg-white/[0.04] p-1">
-                <div
-                  className={`h-full rounded-full ${getScoreRing(profile.disciplineScore)}`}
-                  style={{
-                    clipPath: `inset(${100 - profile.disciplineScore}% 0 0 0 round 999px)`,
-                  }}
-                />
-                <div className="absolute inset-2 rounded-full bg-surface-950" />
-              </div>
+              <ScoreRing score={profile.disciplineScore} />
             </div>
           </div>
         </section>
@@ -317,12 +309,6 @@ function getStyleDescription(style: TraderDnaProfile["style"], memory: HermesMem
   if (style === "Swing Trader") return "Longer holds with patience around broader price movement.";
   if (style === "Position Trader") return "Slow, thesis-led trades that depend on patience and conviction.";
   return "Intraday decision-making with room for structure and selectivity.";
-}
-
-function getScoreRing(score: number) {
-  if (score >= 75) return "bg-mint-300";
-  if (score >= 55) return "bg-amberline";
-  return "bg-rose-300";
 }
 
 function getGrowthColor(growthTrend: TraderDnaProfile["growthTrend"]) {

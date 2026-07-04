@@ -1,12 +1,12 @@
 import { formatCurrency } from "@/lib/market-data";
 import type { PortfolioSnapshot } from "@/lib/paper-trading";
-import { Panel, PanelHeader } from "./ui";
+import { MetricCard, Panel, PanelHeader } from "./ui";
 
 export function PaperPortfolio({ snapshot }: { snapshot: PortfolioSnapshot }) {
   const rows = [
-    ["Starting Balance", snapshot.startingBalance, "text-slate-200"],
-    ["Buying Power", snapshot.buyingPower, "text-mint-300"],
-    ["Equity", snapshot.equity, "text-white"],
+    ["Starting Balance", snapshot.startingBalance, "muted"],
+    ["Buying Power", snapshot.buyingPower, "mint"],
+    ["Equity", snapshot.equity, "neutral"],
     ["Unrealized P/L", snapshot.unrealizedPnl, tone(snapshot.unrealizedPnl)],
     ["Realized P/L", snapshot.realizedPnl, tone(snapshot.realizedPnl)],
     ["Daily P/L", snapshot.dailyPnl, tone(snapshot.dailyPnl)],
@@ -17,12 +17,12 @@ export function PaperPortfolio({ snapshot }: { snapshot: PortfolioSnapshot }) {
       <PanelHeader eyebrow="Paper Portfolio" title="Account Overview" />
       <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-3">
         {rows.map(([label, value, color]) => (
-          <div className="rounded-lg border border-white/10 bg-white/[0.035] p-4" key={label}>
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className={`mt-2 text-xl font-semibold tracking-tight ${color}`}>
-              {formatCurrency(value as number)}
-            </p>
-          </div>
+          <MetricCard
+            key={label}
+            label={label as string}
+            tone={color as "neutral" | "mint" | "gold" | "danger" | "muted"}
+            value={formatCurrency(value as number)}
+          />
         ))}
       </div>
     </Panel>
@@ -31,12 +31,12 @@ export function PaperPortfolio({ snapshot }: { snapshot: PortfolioSnapshot }) {
 
 function tone(value: number) {
   if (value > 0) {
-    return "text-mint-300";
+    return "mint";
   }
 
   if (value < 0) {
-    return "text-rose-300";
+    return "danger";
   }
 
-  return "text-slate-200";
+  return "muted";
 }
