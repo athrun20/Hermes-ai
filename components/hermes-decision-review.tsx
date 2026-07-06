@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ShieldCheck, X } from "lucide-react";
 import { DecisionChecklist } from "@/components/decision-checklist";
 import { ConfidenceBadge, MetricCard, Panel, PanelHeader, StatusPill } from "@/components/ui";
@@ -17,6 +18,8 @@ export function HermesDecisionReview({
   onConfirm: () => void;
   onRevise: () => void;
 }) {
+  const [acceptedRisk, setAcceptedRisk] = useState(false);
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-surface-950/80 px-4 py-6 backdrop-blur-sm">
       <div className="w-full max-w-4xl animate-[briefingReveal_420ms_ease-out_both]">
@@ -43,18 +46,29 @@ export function HermesDecisionReview({
                     <ShieldCheck className="size-5 text-amberline" aria-hidden="true" />
                     <StatusPill tone="gold">{review.recommendation}</StatusPill>
                   </div>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-amberline/80">
+                    Hermes Review
+                  </p>
                   <p className="mt-4 max-w-2xl text-xl font-semibold tracking-tight text-white">
                     {review.mentorNote}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-400">
                     This is a paper-trading review only. Hermes coaches the decision; you remain in control.
                   </p>
+                  {review.confidence < 100 ? (
+                    <div className="mt-4 rounded-lg border border-white/10 bg-surface-950/45 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        Why not 100?
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">{review.whyNotPerfect}</p>
+                    </div>
+                  ) : null}
                 </div>
                 <ConfidenceBadge confidence={review.confidence} label={`${review.confidence}% confidence`} />
               </div>
             </section>
 
-            <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <MetricCard
                 label="Hermes Confidence"
                 value={`${review.confidence}%`}
@@ -72,10 +86,49 @@ export function HermesDecisionReview({
                 detail={review.riskReward ? `${review.riskReward.toFixed(2)} : 1 risk/reward` : "Risk/reward incomplete"}
                 tone="muted"
               />
+              <MetricCard
+                label="Wisdom Earned"
+                value={`+${review.wisdomEarned}`}
+                detail="Based on decision quality"
+                tone={review.wisdomEarned >= 10 ? "gold" : review.wisdomEarned > 0 ? "mint" : "muted"}
+              />
             </section>
 
             <section className="mt-4">
               <DecisionChecklist items={review.checklist} />
+            </section>
+
+            <section className="mt-4 rounded-lg border border-white/10 bg-white/[0.035] p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amberline/80">
+                Hermes&apos; Final Thought
+              </p>
+              <p className="mt-3 text-sm leading-6 text-slate-300">{review.finalThought}</p>
+            </section>
+
+            <section className="mt-4 rounded-lg border border-mint-300/20 bg-mint-300/[0.055] p-5">
+              <p className="text-sm font-semibold text-white">
+                Are you emotionally prepared to accept this loss if your stop is hit?
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <button
+                  className={`rounded-lg border px-4 py-3 text-sm font-semibold transition ${
+                    acceptedRisk
+                      ? "border-mint-300/40 bg-mint-300/15 text-mint-200"
+                      : "border-white/10 bg-white/[0.04] text-slate-300 hover:text-white"
+                  }`}
+                  onClick={() => setAcceptedRisk(true)}
+                  type="button"
+                >
+                  Yes, I accept the risk
+                </button>
+                <button
+                  className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-amberline/30 hover:bg-amberline/10 hover:text-white"
+                  onClick={onRevise}
+                  type="button"
+                >
+                  I need to rethink
+                </button>
+              </div>
             </section>
 
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -87,7 +140,8 @@ export function HermesDecisionReview({
                 Revise Trade
               </button>
               <button
-                className="rounded-lg bg-mint-400 px-5 py-3 text-sm font-bold text-surface-950 transition hover:bg-mint-300"
+                className="rounded-lg bg-mint-400 px-5 py-3 text-sm font-bold text-surface-950 transition hover:bg-mint-300 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={!acceptedRisk}
                 onClick={onConfirm}
                 type="button"
               >

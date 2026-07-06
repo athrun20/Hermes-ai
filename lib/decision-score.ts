@@ -4,11 +4,22 @@ import type {
   DecisionRecommendation,
 } from "@/lib/decision-types";
 
-export function calculateDecisionConfidence(checklist: DecisionChecklistItem[]) {
+export function calculateDecisionConfidence(
+  checklist: DecisionChecklistItem[],
+  {
+    riskReward,
+  }: {
+    riskReward: number | null;
+  },
+) {
   if (checklist.length === 0) return 50;
 
   const passed = checklist.filter((item) => item.passed).length;
-  return clamp(Math.round((passed / checklist.length) * 100));
+  const base = 42 + (passed / checklist.length) * 52;
+  const riskRewardBonus = riskReward === null ? -4 : riskReward >= 3 ? 4 : riskReward >= 2 ? 1 : -5;
+  const allPassed = passed === checklist.length;
+
+  return clamp(Math.round(Math.min(allPassed && (riskReward ?? 0) >= 3 ? 98 : 95, base + riskRewardBonus)));
 }
 
 export function calculateDisciplineImpact({
@@ -27,6 +38,13 @@ export function getDecisionQuality(confidence: number): DecisionQuality {
   if (confidence >= 72) return "Good";
   if (confidence >= 55) return "Developing";
   return "Needs Patience";
+}
+
+export function calculateWisdomEarned(quality: DecisionQuality) {
+  if (quality === "Excellent") return 15;
+  if (quality === "Good") return 10;
+  if (quality === "Developing") return 5;
+  return 0;
 }
 
 export function getDecisionRecommendation({

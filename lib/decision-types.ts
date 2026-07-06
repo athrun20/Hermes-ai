@@ -1,4 +1,5 @@
 import type { OpportunityScore } from "@/lib/hermes-brain";
+import type { HermesIntelligenceLayer } from "@/lib/hermes-intelligence-layer";
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { AssetQuote } from "@/lib/market-data";
 import type { OrderAction, PositionSide, PortfolioSnapshot } from "@/lib/paper-trading";
@@ -22,10 +23,12 @@ export type DecisionContext = {
   memory: HermesMemorySnapshot;
   marketMood: DecisionMood;
   dailyGoal: string;
+  intelligence?: HermesIntelligenceLayer;
 };
 
 export type DecisionChecklistItem = {
   id: string;
+  section: "Plan" | "Risk" | "Market" | "You";
   label: string;
   passed: boolean;
   detail: string;
@@ -50,6 +53,9 @@ export type DecisionReview = {
   disciplineScoreImpact: number;
   recommendation: DecisionRecommendation;
   mentorNote: string;
+  whyNotPerfect: string;
+  finalThought: string;
+  wisdomEarned: number;
   riskReward: number | null;
   checklist: DecisionChecklistItem[];
 };

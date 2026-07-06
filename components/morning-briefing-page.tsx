@@ -13,19 +13,26 @@ import { ScrollPreviewCard } from "@/components/morning-briefing/scroll-preview-
 import { TraderDnaReminderCard } from "@/components/morning-briefing/trader-dna-reminder-card";
 import { WisdomProgressCard } from "@/components/morning-briefing/wisdom-progress-card";
 import { getHermesMemory, type HermesMemorySnapshot } from "@/lib/hermes-memory";
+import { loadHermesState } from "@/lib/local-persistence";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
+import type { ClosedTrade } from "@/lib/paper-trading";
 import { TopNav } from "./top-nav";
 import { InsightCard, Panel, PanelHeader } from "./ui";
 
 export function MorningBriefingPage() {
   const router = useRouter();
   const [memory, setMemory] = useState<HermesMemorySnapshot | undefined>();
+  const [history, setHistory] = useState<ClosedTrade[]>([]);
 
   useEffect(() => {
     setMemory(getHermesMemory());
+    setHistory(loadHermesState()?.history ?? []);
   }, []);
 
-  const briefing = useMemo(() => buildMorningBriefing({ memory }), [memory]);
+  const briefing = useMemo(
+    () => buildMorningBriefing({ memory, history }),
+    [history, memory],
+  );
   const steps = useMemo<GuidedBriefingStep[]>(
     () => [
       {
@@ -45,6 +52,17 @@ export function MorningBriefingPage() {
               <InsightCard title="Mentor Note" tone="mint">
                 {briefing.market.interpretation}
               </InsightCard>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <InsightCard title="Yesterday's Lesson" tone="gold">
+                  {briefing.intelligence.yesterdayLesson}
+                </InsightCard>
+                <InsightCard title="Discipline Streak" tone="neutral">
+                  {briefing.intelligence.disciplineStreak} planned closes
+                </InsightCard>
+                <InsightCard title="Biggest Improvement" tone="mint">
+                  {briefing.intelligence.biggestImprovement}
+                </InsightCard>
+              </div>
             </div>
           </Panel>
         ),

@@ -1,6 +1,7 @@
 import {
   calculateDecisionConfidence,
   calculateDisciplineImpact,
+  calculateWisdomEarned,
   getDecisionQuality,
   getDecisionRecommendation,
 } from "@/lib/decision-score";
@@ -21,7 +22,8 @@ export function reviewPaperTradeDecision(context: DecisionContext): DecisionRevi
     takeProfit: context.ticket.takeProfit,
   });
   const checklist = buildDecisionChecklist(context, riskReward);
-  const confidence = calculateDecisionConfidence(checklist);
+  const confidence = calculateDecisionConfidence(checklist, { riskReward });
+  const tradeQuality = getDecisionQuality(confidence);
   const recommendation = getDecisionRecommendation({
     confidence,
     riskReward,
@@ -35,10 +37,13 @@ export function reviewPaperTradeDecision(context: DecisionContext): DecisionRevi
     action: context.ticket.action,
     side: context.ticket.side,
     confidence,
-    tradeQuality: getDecisionQuality(confidence),
+    tradeQuality,
     disciplineScoreImpact: calculateDisciplineImpact({ confidence, riskReward }),
     recommendation,
     mentorNote: buildMentorNote(recommendation),
+    whyNotPerfect: buildWhyNotPerfect({ checklist, riskReward, context }),
+    finalThought: buildFinalThought({ context, riskReward, recommendation }),
+    wisdomEarned: calculateWisdomEarned(tradeQuality),
     riskReward,
     checklist,
   };
@@ -88,6 +93,7 @@ function buildDecisionChecklist(
   return [
     {
       id: "trend",
+      section: "Market",
       label: "Trend aligns with trade direction",
       passed: trendAligned,
       detail: trendAligned
@@ -96,12 +102,14 @@ function buildDecisionChecklist(
     },
     {
       id: "entry",
+      section: "Plan",
       label: "Entry price is defined",
       passed: Number.isFinite(entry) && entry > 0,
       detail: Number.isFinite(entry) && entry > 0 ? `Planned entry: ${entry.toFixed(2)}.` : "Define the entry before accepting risk.",
     },
     {
       id: "stop-loss",
+      section: "Plan",
       label: "Stop Loss is defined",
       passed: Boolean(context.ticket.stopLoss && context.ticket.stopLoss > 0),
       detail: context.ticket.stopLoss
@@ -110,6 +118,7 @@ function buildDecisionChecklist(
     },
     {
       id: "take-profit",
+      section: "Plan",
       label: "Take Profit is defined",
       passed: Boolean(context.ticket.takeProfit && context.ticket.takeProfit > 0),
       detail: context.ticket.takeProfit
@@ -118,12 +127,14 @@ function buildDecisionChecklist(
     },
     {
       id: "risk-reward",
+      section: "Risk",
       label: "Risk/Reward is at least 2:1",
       passed: riskReward !== null && riskReward >= 2,
       detail: riskReward === null ? "Risk/reward cannot be measured yet." : `Current plan offers ${riskReward.toFixed(2)} : 1.`,
     },
     {
       id: "position-size",
+      section: "Risk",
       label: "Position size is acceptable",
       passed: positionSizePct <= 10 && context.ticket.notional <= context.portfolio.buyingPower,
       detail:
@@ -133,14 +144,16 @@ function buildDecisionChecklist(
     },
     {
       id: "trader-dna",
+      section: "You",
       label: "Trader DNA compatibility",
       passed: traderDnaCompatible,
       detail: traderDnaCompatible
-        ? `${context.memory.personality} profile can practice this setup with discipline.`
+        ? `${context.memory.personality} profile can practice this setup with discipline. Current streak: ${context.intelligence?.disciplineStreak ?? 0}.`
         : "Your recent discipline score suggests a simpler setup may be better practice.",
     },
     {
       id: "market-mood",
+      section: "Market",
       label: "Current Market Mood compatibility",
       passed: marketMoodAligned,
       detail: marketMoodAligned
@@ -149,10 +162,11 @@ function buildDecisionChecklist(
     },
     {
       id: "daily-goal",
+      section: "You",
       label: "Daily Goal compatibility",
       passed: dailyGoalCompatible,
       detail: dailyGoalCompatible
-        ? "The plan respects today's coaching focus."
+        ? `The plan respects today's coaching focus: ${context.dailyGoal}`
         : `Today's focus is: ${context.dailyGoal}`,
     },
   ];
@@ -194,7 +208,7 @@ function isDailyGoalCompatible(
 
 function buildMentorNote(recommendation: DecisionReview["recommendation"]) {
   if (recommendation === "Ready to Practice") {
-    return "Hermes sees a complete paper plan. Execute only if you can accept both the stop and the outcome.";
+    return "This trade respects your current plan. Every trade carries uncertainty. This one carries discipline.";
   }
 
   if (recommendation === "Reduce Position Size") {
@@ -210,4 +224,70 @@ function buildMentorNote(recommendation: DecisionReview["recommendation"]) {
   }
 
   return "Hermes does not forbid the trade. Hermes asks whether the trade deserves risk.";
+}
+
+function buildWhyNotPerfect({
+  checklist,
+  riskReward,
+  context,
+}: {
+  checklist: DecisionChecklistItem[];
+  riskReward: number | null;
+  context: DecisionContext;
+}) {
+  const failed = checklist.find((item) => !item.passed);
+
+  if (failed) {
+    return failed.detail;
+  }
+
+  if ((riskReward ?? 0) < 2.5) {
+    return "Risk/reward meets the minimum but could improve.";
+  }
+
+  if (context.marketMood !== context.opportunity.bias && context.marketMood !== "Neutral") {
+    return "Market mood supports caution, even when the plan is complete.";
+  }
+
+  if (context.intelligence?.replayHistory.followedHermesRecommendation === "Partially") {
+    return "Recent replay history shows partial follow-through, so Hermes keeps the score grounded.";
+  }
+
+  if (Math.abs(context.quote.change24h) > 3) {
+    return "Entry is slightly extended after a larger daily move.";
+  }
+
+  return "Volume confirmation is still developing, so Hermes leaves room for uncertainty.";
+}
+
+function buildFinalThought({
+  context,
+  riskReward,
+  recommendation,
+}: {
+  context: DecisionContext;
+  riskReward: number | null;
+  recommendation: DecisionReview["recommendation"];
+}) {
+  const style = context.memory.personality.toLowerCase();
+  const strength =
+    context.memory.strengths[0]?.toLowerCase() ?? "planned paper trading";
+  const rewardText =
+    riskReward && riskReward >= 2
+      ? "your reward justifies the attempt"
+      : "the reward still needs to justify the risk";
+  const caution =
+    recommendation === "Reduce Position Size"
+      ? "The main concern is position size."
+      : recommendation === "Wait for Pullback"
+        ? "The main concern is whether the entry still offers enough patience."
+        : recommendation === "Not Beginner Friendly"
+          ? "The main concern is complexity."
+          : "The main concern is whether you can accept the stop without improvising.";
+
+  const replayReference = context.intelligence?.yesterdayLesson
+    ? `Yesterday's replay lesson: ${context.intelligence.yesterdayLesson}`
+    : "No prior replay lesson is available yet.";
+
+  return `This setup reflects your ${style} profile and your current strength in ${strength}. Your risk is defined and ${rewardText}. ${caution} ${replayReference} If price has moved too far from support, waiting may improve the plan.`;
 }

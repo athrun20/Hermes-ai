@@ -8,6 +8,7 @@ import type {
   OpportunityScannerResult,
   TradingPersonality,
 } from "@/lib/hermes-brain";
+import type { HermesIntelligenceLayer } from "@/lib/hermes-intelligence-layer";
 import type {
   HermesMemorySnapshot,
   PeriodInsight,
@@ -31,6 +32,7 @@ export function HermesBrainSummary({
   hermesMemory,
   weeklyInsights,
   memoryPersonality,
+  intelligence,
 }: {
   dailyScroll: DailyScroll;
   memory: HermesMemory;
@@ -39,6 +41,7 @@ export function HermesBrainSummary({
   hermesMemory?: HermesMemorySnapshot;
   weeklyInsights?: PeriodInsight;
   memoryPersonality?: TradingPersonalityProfile;
+  intelligence?: HermesIntelligenceLayer;
 }) {
   const [isScrollOpen, setIsScrollOpen] = useState(false);
   const hasMemoryHistory = Boolean(hermesMemory && hermesMemory.performance.totalTrades > 0);
@@ -50,6 +53,7 @@ export function HermesBrainSummary({
     hermesMemory,
     weeklyInsights,
     personalityTitle,
+    intelligence,
   });
 
   return (
@@ -79,17 +83,17 @@ export function HermesBrainSummary({
             {hasMemoryHistory ? `${hermesMemory?.personality} posture` : `${dailyScroll.marketPosture} posture`}
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-200">
-            {buildMemoryScrollPriority({ dailyScroll, hermesMemory })}
+            {buildMemoryScrollPriority({ dailyScroll, hermesMemory, intelligence })}
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <BrainList
               title="Checklist"
               items={buildMemoryChecklist({ dailyScroll, hermesMemory, weeklyInsights })}
             />
-            <BrainList title="Avoid" items={buildMemoryAvoid({ dailyScroll, hermesMemory })} />
+            <BrainList title="Avoid" items={buildMemoryAvoid({ dailyScroll, hermesMemory, intelligence })} />
           </div>
           <p className="mt-4 rounded-md border border-amberline/20 bg-amberline/10 p-3 text-sm leading-6 text-amber-100">
-            {buildMemoryCoachingNote({ dailyScroll, hermesMemory, weeklyInsights })}
+            {buildMemoryCoachingNote({ dailyScroll, hermesMemory, weeklyInsights, intelligence })}
           </p>
         </section>
 
@@ -263,16 +267,18 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function buildMemoryScrollPriority({
   dailyScroll,
   hermesMemory,
+  intelligence,
 }: {
   dailyScroll: DailyScroll;
   hermesMemory?: HermesMemorySnapshot;
+  intelligence?: HermesIntelligenceLayer;
 }) {
   if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
     return "Beginner wisdom: protect capital first. Define entry, stop, target, and reason before every paper trade.";
   }
 
   if (hermesMemory.behavior.holdingWinnersTooShort) {
-    return "Today's lesson: practice patient exits. Your recent winners are closing quickly, so let the next clean setup reach target or invalidation.";
+    return `Today's lesson: practice patient exits. ${intelligence?.mostCommonRecentMistake ?? "Your recent winners are closing quickly."}`;
   }
 
   if (hermesMemory.behavior.overtradingDetected) {
@@ -280,7 +286,7 @@ function buildMemoryScrollPriority({
   }
 
   if (hermesMemory.performance.bestPerformingAsset !== "N/A") {
-    return `Today's lesson: lean into what is working. Your ${hermesMemory.performance.bestPerformingAsset} trades are currently the strongest part of your paper history.`;
+    return `Today's lesson: lean into what is working. ${intelligence?.biggestImprovement ?? `Your ${hermesMemory.performance.bestPerformingAsset} trades are currently strongest.`}`;
   }
 
   return dailyScroll.priority;
@@ -291,11 +297,13 @@ function buildLivingScroll({
   hermesMemory,
   weeklyInsights,
   personalityTitle,
+  intelligence,
 }: {
   dailyScroll: DailyScroll;
   hermesMemory?: HermesMemorySnapshot;
   weeklyInsights?: PeriodInsight;
   personalityTitle: string;
+  intelligence?: HermesIntelligenceLayer;
 }): LivingScroll {
   if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
     return {
@@ -314,7 +322,7 @@ function buildLivingScroll({
       title: "Trade Less, See More",
       quote: "A quiet trader often hears the market more clearly.",
       insight:
-        "Your recent trades are arriving close together. That can blur the difference between opportunity and motion.",
+        `Your recent trades are arriving close together. ${intelligence?.mostCommonRecentMistake ?? "That can blur the difference between opportunity and motion."}`,
       challenge:
         "Take only one paper setup today, and require the full Trade Plan to be complete before execution.",
       wisdomPoints: calculateWisdomPoints(hermesMemory),
@@ -326,7 +334,7 @@ function buildLivingScroll({
       title: "Let Winners Prove Themselves",
       quote: "Patience is not passivity. It is discipline with a clock.",
       insight:
-        "Hermes Memory sees winners closing quickly. Your next improvement is not finding more trades, but giving good trades room to reach the plan.",
+        `Hermes Memory sees winners closing quickly. Biggest improvement: ${intelligence?.biggestImprovement ?? "give good trades room to reach the plan."}`,
       challenge:
         "On the next winning paper trade, hold until target, invalidation, or a written reason changes the thesis.",
       wisdomPoints: calculateWisdomPoints(hermesMemory),
@@ -353,7 +361,7 @@ function buildLivingScroll({
     quote: "The market rewards clarity before confidence.",
     insight:
       bestAsset !== "N/A"
-        ? `Your ${bestAsset} trades are currently the strongest part of your paper history. Let that strength guide selection, not impulse.`
+        ? `Your ${bestAsset} trades are currently the strongest part of your paper history. Discipline streak: ${intelligence?.disciplineStreak ?? 0}. Let that strength guide selection, not impulse.`
         : dailyScroll.coachingNote,
     challenge:
       weeklyAction ??
@@ -405,9 +413,11 @@ function buildMemoryChecklist({
 function buildMemoryAvoid({
   dailyScroll,
   hermesMemory,
+  intelligence,
 }: {
   dailyScroll: DailyScroll;
   hermesMemory?: HermesMemorySnapshot;
+  intelligence?: HermesIntelligenceLayer;
 }) {
   if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
     return [
@@ -426,7 +436,7 @@ function buildMemoryAvoid({
       : dailyScroll.avoid[1],
     hermesMemory.performance.worstPerformingAsset !== "N/A"
       ? `Avoid forcing ${hermesMemory.performance.worstPerformingAsset} setups until execution improves.`
-      : "Avoid low-quality setups without a clear edge.",
+      : `Avoid repeating: ${intelligence?.mostCommonRecentMistake ?? "low-quality setups without a clear edge."}`,
   ];
 }
 
@@ -434,10 +444,12 @@ function buildMemoryCoachingNote({
   dailyScroll,
   hermesMemory,
   weeklyInsights,
+  intelligence,
 }: {
   dailyScroll: DailyScroll;
   hermesMemory?: HermesMemorySnapshot;
   weeklyInsights?: PeriodInsight;
+  intelligence?: HermesIntelligenceLayer;
 }) {
   if (!hermesMemory || hermesMemory.performance.totalTrades === 0) {
     return "Hermes Memory is ready. Close paper trades to unlock personalized coaching from your own behavior.";
@@ -448,7 +460,9 @@ function buildMemoryCoachingNote({
     return weeklyRisk;
   }
 
-  return hermesMemory.strengths[0] ?? dailyScroll.coachingNote;
+  return intelligence
+    ? `${intelligence.biggestImprovement} Current discipline streak: ${intelligence.disciplineStreak}.`
+    : hermesMemory.strengths[0] ?? dailyScroll.coachingNote;
 }
 
 function BrainList({ title, items }: { title: string; items: string[] }) {

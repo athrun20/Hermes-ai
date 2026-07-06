@@ -1,5 +1,10 @@
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
+import {
+  buildHermesIntelligenceLayer,
+  type HermesIntelligenceLayer,
+} from "@/lib/hermes-intelligence-layer";
 import { buildOpportunityScanner } from "@/lib/opportunity-scanner";
+import type { ClosedTrade } from "@/lib/paper-trading";
 import type { LivingScroll } from "@/components/living-scroll-modal";
 
 export type TraderDnaBrief = {
@@ -41,23 +46,31 @@ export type MorningBriefing = {
     current: number;
     nextLevel: number;
   };
+  intelligence: HermesIntelligenceLayer;
 };
 
 export function buildMorningBriefing({
   memory,
+  history = [],
 }: {
   memory?: HermesMemorySnapshot;
+  history?: ClosedTrade[];
 } = {}): MorningBriefing {
   const scanner = buildOpportunityScanner({ memory });
   const traderDna = buildTraderDnaBrief(memory);
   const biggestRisk = detectBiggestRisk(memory);
   const dailyGoal = buildDailyGoal({ memory, biggestRisk });
   const challenge = buildDailyChallenge({ memory });
+  const intelligence = buildHermesIntelligenceLayer({
+    memory: memory ?? buildFallbackMemory(),
+    history,
+    morningGoal: dailyGoal.text,
+  });
 
   return {
     greeting: {
       userName: "Jim",
-      introduction: pickMentorIntroduction(memory),
+      introduction: pickMentorIntroduction(memory, intelligence),
     },
     market: {
       todayMarket: scanner.marketMood.todayMarket,
@@ -67,7 +80,7 @@ export function buildMorningBriefing({
       biggestRisk,
       interpretation: scanner.marketMood.interpretation,
     },
-    scroll: buildBriefingScroll({ memory, dailyGoal: dailyGoal.text }),
+    scroll: buildBriefingScroll({ memory, dailyGoal: dailyGoal.text, intelligence }),
     traderDna,
     opportunities: scanner.opportunities
       .sort((a, b) => b.confidence - a.confidence)
@@ -82,6 +95,7 @@ export function buildMorningBriefing({
       current: memory ? calculateWisdom(memory) : 120,
       nextLevel: 200,
     },
+    intelligence,
   };
 }
 
@@ -106,9 +120,11 @@ function buildTraderDnaBrief(memory?: HermesMemorySnapshot): TraderDnaBrief {
 function buildBriefingScroll({
   memory,
   dailyGoal,
+  intelligence,
 }: {
   memory?: HermesMemorySnapshot;
   dailyGoal: string;
+  intelligence: HermesIntelligenceLayer;
 }): LivingScroll {
   if (!memory || memory.performance.totalTrades === 0) {
     return {
@@ -126,7 +142,7 @@ function buildBriefingScroll({
       title: "Let Winners Breathe",
       quote: "Patience is a position, too.",
       insight:
-        "Your recent winners are closing quickly. Hermes wants you to practice letting planned trades reach target or invalidation.",
+        `${intelligence.mostCommonRecentMistake} Yesterday's lesson: ${intelligence.yesterdayLesson}`,
       challenge: dailyGoal,
       wisdomPoints: calculateWisdom(memory),
     };
@@ -137,8 +153,8 @@ function buildBriefingScroll({
     quote: "The day rewards the trader who arrives prepared.",
     insight:
       memory.performance.bestPerformingAsset !== "N/A"
-        ? `Your strongest recent work is in ${memory.performance.bestPerformingAsset}. Let that discipline guide today's selectivity.`
-        : "Your paper history is forming. Keep each decision measurable.",
+        ? `Your strongest recent work is in ${memory.performance.bestPerformingAsset}. Discipline streak: ${intelligence.disciplineStreak}. Yesterday's lesson: ${intelligence.yesterdayLesson}`
+        : `${intelligence.biggestImprovement} Keep each decision measurable.`,
     challenge: dailyGoal,
     wisdomPoints: calculateWisdom(memory),
   };
@@ -235,12 +251,18 @@ function buildDailyOath({
   return "I will not chase momentum.";
 }
 
-function pickMentorIntroduction(memory?: HermesMemorySnapshot) {
+function pickMentorIntroduction(
+  memory?: HermesMemorySnapshot,
+  intelligence?: HermesIntelligenceLayer,
+) {
   const lines = [
     "Begin with clarity.",
     "Discipline creates consistency.",
     "The market rewards preparation.",
   ];
+  if (intelligence && intelligence.disciplineStreak >= 2) {
+    return `Discipline streak: ${intelligence.disciplineStreak}. Protect it with patience.`;
+  }
   const index = memory ? memory.performance.totalTrades % lines.length : 0;
   return lines[index];
 }
@@ -275,4 +297,44 @@ function calculateWisdom(memory: HermesMemorySnapshot) {
         memory.scores.riskManagement * 0.25,
     ),
   );
+}
+
+function buildFallbackMemory(): HermesMemorySnapshot {
+  return {
+    kind: "hermes-memory-snapshot",
+    updatedAt: Date.now(),
+    trades: [],
+    performance: {
+      totalTrades: 0,
+      winRate: 0,
+      averageProfitLoss: 0,
+      averageRMultiple: null,
+      averageHoldMinutes: 0,
+      bestPerformingAsset: "N/A",
+      worstPerformingAsset: "N/A",
+    },
+    behavior: {
+      earlyExitsFrequency: 0,
+      revengeTradingDetected: false,
+      overtradingDetected: false,
+      holdingWinnersTooShort: false,
+      cuttingLossesTooLate: false,
+      emotionalPatterns: [],
+    },
+    strategyPreference: {
+      breakoutTrader: 0,
+      reversalTrader: 0,
+      scalper: 0,
+      swingTrader: 0,
+      dominantStyle: "unknown",
+    },
+    strengths: [],
+    weaknesses: [],
+    personality: "Developing Trader",
+    scores: {
+      riskManagement: 50,
+      patience: 50,
+      discipline: 50,
+    },
+  };
 }

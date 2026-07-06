@@ -1,4 +1,5 @@
 import { Activity, Dna, TrendingUp } from "lucide-react";
+import type { HermesIntelligenceLayer } from "@/lib/hermes-intelligence-layer";
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import { ScoreRing, StatusPill, Panel, PanelHeader } from "./ui";
 
@@ -23,7 +24,13 @@ type TraderDnaAnalyzer = (memory: HermesMemorySnapshot) => TraderDnaProfile;
 
 const traderDnaAnalyzer: TraderDnaAnalyzer = buildRuleBasedTraderDna;
 
-export function TraderDna({ memory }: { memory: HermesMemorySnapshot }) {
+export function TraderDna({
+  memory,
+  intelligence,
+}: {
+  memory: HermesMemorySnapshot;
+  intelligence?: HermesIntelligenceLayer;
+}) {
   const profile = traderDnaAnalyzer(memory);
 
   return (
@@ -50,9 +57,14 @@ export function TraderDna({ memory }: { memory: HermesMemorySnapshot }) {
               {profile.confidence}
             </StatusPill>
           </div>
-          <p className="mt-3 text-sm leading-6 text-slate-400">
-            {getStyleDescription(profile.style, memory)}
-          </p>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              {getStyleDescription(profile.style, memory)}
+            </p>
+            {intelligence ? (
+              <p className="mt-3 rounded-lg border border-amberline/20 bg-amberline/10 p-3 text-sm leading-6 text-amber-100">
+                Replay learning: {intelligence.yesterdayLesson}
+              </p>
+            ) : null}
 
           <div className="mt-5 rounded-lg border border-white/10 bg-surface-950/45 p-4">
             <div className="flex items-center justify-between gap-4">
@@ -95,6 +107,9 @@ export function TraderDna({ memory }: { memory: HermesMemorySnapshot }) {
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-200">
               {profile.coachingSummary}
+              {intelligence
+                ? ` Hermes also sees ${intelligence.disciplineStreak} disciplined close${intelligence.disciplineStreak === 1 ? "" : "s"} in a row and ${intelligence.replayHistory.reviewedTrades} replay-ready trade${intelligence.replayHistory.reviewedTrades === 1 ? "" : "s"}.`
+                : ""}
             </p>
           </div>
         </section>

@@ -9,6 +9,8 @@ export function TopNav() {
     { label: "Dashboard", href: "/" },
     { label: "Morning Briefing", href: "/morning-briefing" },
     { label: "Opportunity Scanner", href: "/opportunity-scanner" },
+    { label: "Learning Journey", href: "/learning-journey" },
+    { label: "Replay Mode", href: "/replay-mode" },
     { label: "Journal", href: "#" },
     { label: "Settings", href: "#" },
   ];

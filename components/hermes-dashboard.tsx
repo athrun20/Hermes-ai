@@ -277,8 +277,8 @@ export function HermesDashboard() {
     [brainHabits, brainRisk],
   );
   const morningBriefing = useMemo(
-    () => buildMorningBriefing({ memory: hermesMemorySnapshot }),
-    [hermesMemorySnapshot],
+    () => buildMorningBriefing({ memory: hermesMemorySnapshot, history }),
+    [hermesMemorySnapshot, history],
   );
   const decisionReview = useMemo(
     () =>
@@ -291,6 +291,7 @@ export function HermesDashboard() {
             memory: hermesMemorySnapshot,
             marketMood: normalizeDecisionMood(morningBriefing.market.todayMarket),
             dailyGoal: morningBriefing.dailyGoal.text,
+            intelligence: morningBriefing.intelligence,
           })
         : null,
     [
@@ -598,6 +599,7 @@ export function HermesDashboard() {
           <HermesBrainSummary
             dailyScroll={dailyScroll}
             hermesMemory={hermesMemorySnapshot}
+            intelligence={morningBriefing.intelligence}
             memory={memory}
             memoryPersonality={memoryTradingPersonality}
             scanner={opportunityScanner}
@@ -607,7 +609,10 @@ export function HermesDashboard() {
         </section>
 
         <section className="mt-4">
-          <TraderDna memory={hermesMemorySnapshot} />
+          <TraderDna
+            intelligence={morningBriefing.intelligence}
+            memory={hermesMemorySnapshot}
+          />
         </section>
 
         <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
