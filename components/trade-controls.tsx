@@ -25,12 +25,18 @@ export function TradeControls({
   quote,
   opportunity,
   statusMessage,
+  chartLevels,
   onSubmit,
 }: {
   buyingPower: number;
   quote: AssetQuote;
   opportunity: OpportunityScore;
   statusMessage?: string;
+  chartLevels?: {
+    entry?: number;
+    stop?: number;
+    target?: number;
+  };
   onSubmit: (ticket: TradeTicket) => string | undefined;
 }) {
   const [side, setSide] = useState<PositionSide>("Long");
@@ -62,6 +68,12 @@ export function TradeControls({
       setMessage(statusMessage);
     }
   }, [statusMessage]);
+
+  useEffect(() => {
+    if (chartLevels?.entry) setEntryPrice(formatInputPrice(chartLevels.entry));
+    if (chartLevels?.stop) setStopLoss(formatInputPrice(chartLevels.stop));
+    if (chartLevels?.target) setTakeProfit(formatInputPrice(chartLevels.target));
+  }, [chartLevels?.entry, chartLevels?.stop, chartLevels?.target]);
 
   const plannedEntry = parseNumber(entryPrice) ?? suggestions.entry.value;
   const plannedStopLoss = parseNumber(stopLoss) ?? suggestions.stopLoss.value;

@@ -11,7 +11,7 @@ export function TopNav() {
     { label: "Opportunity Scanner", href: "/opportunity-scanner" },
     { label: "Learning Journey", href: "/learning-journey" },
     { label: "Replay Mode", href: "/replay-mode" },
-    { label: "Journal", href: "#" },
+    { label: "Journal", href: "/decision-journal" },
     { label: "Settings", href: "#" },
   ];
 

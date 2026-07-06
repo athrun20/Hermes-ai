@@ -23,7 +23,7 @@ export type HermesIntelligence = {
   explanation: string;
 };
 
-const mockSignalProfiles: Record<CoinSymbol, Omit<HermesIntelligence, "symbol" | "score" | "bias" | "explanation">> = {
+const mockSignalProfiles: Partial<Record<CoinSymbol, Omit<HermesIntelligence, "symbol" | "score" | "bias" | "explanation">>> = {
   BTC: {
     socialSentiment: {
       label: "Social Sentiment",
@@ -181,7 +181,10 @@ export function buildHermesIntelligence({
   quote: AssetQuote;
   journalEntries: JournalEntry[];
 }): HermesIntelligence {
-  const profile = mockSignalProfiles[quote.symbol];
+  const profile = mockSignalProfiles[quote.symbol] ?? mockSignalProfiles.BTC;
+  if (!profile) {
+    throw new Error("Hermes intelligence fallback profile is missing.");
+  }
   const journalAdjustment = getJournalAdjustment(quote.symbol, journalEntries);
   const momentumAdjustment = Math.max(-8, Math.min(8, quote.change24h * 1.5));
   const baseScore =

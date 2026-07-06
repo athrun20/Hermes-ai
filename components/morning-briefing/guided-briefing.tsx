@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 export type GuidedBriefingStep = {
   id: string;
@@ -10,12 +10,22 @@ export type GuidedBriefingStep = {
 export function GuidedBriefing({
   steps,
   completion,
+  onCompleted,
 }: {
   steps: GuidedBriefingStep[];
   completion: ReactNode;
+  onCompleted?: () => void;
 }) {
   const [started, setStarted] = useState(false);
   const [visibleCount, setVisibleCount] = useState(1);
+  const [hasAnnouncedCompletion, setHasAnnouncedCompletion] = useState(false);
+  const isComplete = started && visibleCount >= steps.length;
+
+  useEffect(() => {
+    if (!isComplete || hasAnnouncedCompletion) return;
+    setHasAnnouncedCompletion(true);
+    onCompleted?.();
+  }, [hasAnnouncedCompletion, isComplete, onCompleted]);
 
   if (!started) {
     return (
@@ -41,8 +51,6 @@ export function GuidedBriefing({
   }
 
   const visibleSteps = steps.slice(0, visibleCount);
-  const isComplete = visibleCount >= steps.length;
-
   return (
     <div className="space-y-4">
       {visibleSteps.map((step, index) => (

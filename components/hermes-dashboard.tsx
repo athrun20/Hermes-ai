@@ -1,37 +1,40 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChartPanel } from "@/components/chart-panel";
 import { EquityCurve } from "@/components/equity-curve";
-import { HermesAiAnalyst } from "@/components/hermes-ai-analyst";
-import { HermesAiAnalysis } from "@/components/hermes-ai-analysis";
 import { HermesBrainSummary } from "@/components/hermes-brain-summary";
 import { HermesCoach } from "@/components/hermes-coach";
 import { HermesDecisionReview } from "@/components/hermes-decision-review";
 import { HermesIntelligencePanel } from "@/components/hermes-intelligence-panel";
+import { MarketSearch } from "@/components/workspace/market-search";
 import { OpenPositions } from "@/components/open-positions";
 import { PaperPortfolio } from "@/components/paper-portfolio";
 import { PerformanceDashboard } from "@/components/performance-dashboard";
-import { PriceCard } from "@/components/price-card";
+import { ProfessionalChart, type IndicatorVisibility } from "@/components/workspace/professional-chart";
 import { SettingsPanel } from "@/components/settings-panel";
+import { SymbolAnalysisPanel } from "@/components/workspace/symbol-analysis-panel";
 import { TopNav } from "@/components/top-nav";
 import { TradeControls, type TradeTicket } from "@/components/trade-controls";
 import { TradeHistory } from "@/components/trade-history";
 import { TradeJournal } from "@/components/trade-journal";
 import { TradePlan } from "@/components/trade-plan";
 import { TraderDna } from "@/components/trader-dna";
-import { Watchlist } from "@/components/watchlist";
+import { WorkspaceWatchlistPanel } from "@/components/workspace/watchlist-panel";
 import {
   analyzeMarket,
-  buildFallbackCandles,
-  fallbackQuotes,
-  fetchLiveQuotes,
-  fetchMarketCandles,
   type AssetQuote,
   type Candle,
   type CoinSymbol,
   type Timeframe,
 } from "@/lib/market-data";
+import {
+  buildMockWorkspaceCandles,
+  defaultWorkspaceWatchlist,
+  getMarketAsset,
+  marketUniverse,
+} from "@/lib/market-universe";
+import { analyzeWorkspaceSymbol, quoteToOpportunityInputs } from "@/lib/symbol-analysis-engine";
+import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
 import { buildHermesIntelligence } from "@/lib/hermes-intelligence";
 import { reviewPaperTradeDecision } from "@/lib/decision-engine";
 import type { DecisionReviewTicket } from "@/lib/decision-types";
@@ -60,6 +63,7 @@ import {
   updateMemory,
 } from "@/lib/hermes-memory";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
+import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import {
   DEFAULT_SETTINGS,
   buildEquityCurve,
@@ -74,13 +78,12 @@ import {
 } from "@/lib/paper-trading";
 
 export function HermesDashboard() {
-  const [quotes, setQuotes] = useState<AssetQuote[]>(fallbackQuotes);
+  const [quotes] = useState<AssetQuote[]>(marketUniverse);
   const [selectedSymbol, setSelectedSymbol] = useState<CoinSymbol>("BTC");
   const [timeframe, setTimeframe] = useState<Timeframe>("1H");
   const [candles, setCandles] = useState<Candle[]>(() =>
-    buildFallbackCandles(fallbackQuotes[0], "1H"),
+    buildMockWorkspaceCandles(getMarketAsset("BTC"), "1H"),
   );
-  const [status, setStatus] = useState<"live" | "loading" | "fallback">("loading");
   const [cash, setCash] = useState(STARTING_BALANCE);
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [history, setHistory] = useState<ClosedTrade[]>([]);
@@ -92,48 +95,33 @@ export function HermesDashboard() {
   const [pendingDecisionTicket, setPendingDecisionTicket] =
     useState<DecisionReviewTicket | null>(null);
   const [tradePlanMessage, setTradePlanMessage] = useState<string | undefined>();
+  const [watchlistSymbols, setWatchlistSymbols] = useState<CoinSymbol[]>(
+    defaultWorkspaceWatchlist,
+  );
+  const [indicators, setIndicators] = useState<IndicatorVisibility>({
+    volume: true,
+    rsi: true,
+    macd: false,
+    ema20: true,
+    ema50: false,
+    vwap: false,
+  });
+  const [selectedChartTool, setSelectedChartTool] = useState<ChartDrawingTool>("none");
+  const [chartDrawings, setChartDrawings] = useState<ChartDrawing[]>([]);
+  const [chartTradeLevelsBySymbol, setChartTradeLevelsBySymbol] = useState<
+    Partial<Record<CoinSymbol, ChartTradeLevels>>
+  >({});
 
   const selectedQuote =
-    quotes.find((quote) => quote.symbol === selectedSymbol) ?? fallbackQuotes[0];
-
-  const loadQuotes = useCallback(async () => {
-    try {
-      const nextQuotes = await fetchLiveQuotes();
-      setQuotes(nextQuotes);
-      setStatus("live");
-    } catch {
-      setStatus((current) => (current === "live" ? "live" : "fallback"));
-    }
-  }, []);
-
-  const loadCandles = useCallback(async (quote: AssetQuote, frame: Timeframe) => {
-    try {
-      const nextCandles = await fetchMarketCandles(quote.coingeckoId, frame);
-      setCandles(
-        nextCandles.length > 2 ? nextCandles : buildFallbackCandles(quote, frame),
-      );
-    } catch {
-      setCandles(buildFallbackCandles(quote, frame));
-    }
-  }, []);
+    quotes.find((quote) => quote.symbol === selectedSymbol) ?? marketUniverse[0];
+  const selectedChartTradeLevels = chartTradeLevelsBySymbol[selectedSymbol] ?? {};
+  const selectedChartDrawings = chartDrawings.filter(
+    (drawing) => drawing.symbol === selectedSymbol,
+  );
 
   useEffect(() => {
-    void loadQuotes();
-    const interval = window.setInterval(() => {
-      void loadQuotes();
-    }, 8000);
-
-    return () => window.clearInterval(interval);
-  }, [loadQuotes]);
-
-  useEffect(() => {
-    void loadCandles(selectedQuote, timeframe);
-    const interval = window.setInterval(() => {
-      void loadCandles(selectedQuote, timeframe);
-    }, 10000);
-
-    return () => window.clearInterval(interval);
-  }, [loadCandles, selectedQuote, timeframe]);
+    setCandles(buildMockWorkspaceCandles(selectedQuote, timeframe));
+  }, [selectedQuote, timeframe]);
 
   const analysis = useMemo(
     () => analyzeMarket(selectedQuote, candles),
@@ -219,22 +207,18 @@ export function HermesDashboard() {
   );
   const opportunityScores = useMemo(
     () =>
-      quotes.map((quote) =>
-        calculateOpportunityScore({
+      quotes.map((quote) => {
+        const inputs = quoteToOpportunityInputs(quote);
+        return calculateOpportunityScore({
           symbol: quote.symbol,
-          bias:
-            quote.change24h > 1
-              ? "Bullish"
-              : quote.change24h < -1
-                ? "Bearish"
-                : "Neutral",
+          bias: inputs.bias,
           confidence: Math.min(92, Math.max(52, 62 + Math.abs(quote.change24h) * 5)),
-          riskLevel: brainRisk.riskLevel,
+          riskLevel: inputs.riskLevel,
           journalAlignment: brainHabits.planAdherenceRate || 55,
           portfolioFit: brainPortfolio.healthScore,
-        }),
-      ),
-    [brainHabits.planAdherenceRate, brainPortfolio.healthScore, brainRisk.riskLevel, quotes],
+        });
+      }),
+    [brainHabits.planAdherenceRate, brainPortfolio.healthScore, quotes],
   );
   const topOpportunity = useMemo(
     () =>
@@ -248,6 +232,10 @@ export function HermesDashboard() {
       opportunityScores.find((item) => item.symbol === selectedQuote.symbol) ??
       calculateOpportunityScore({ symbol: selectedQuote.symbol }),
     [opportunityScores, selectedQuote.symbol],
+  );
+  const workspaceAnalysis = useMemo(
+    () => analyzeWorkspaceSymbol({ asset: getMarketAsset(selectedQuote.symbol), candles }),
+    [candles, selectedQuote.symbol],
   );
   const dailyScroll = useMemo(
     () =>
@@ -297,6 +285,7 @@ export function HermesDashboard() {
     [
       hermesMemorySnapshot,
       morningBriefing.dailyGoal.text,
+      morningBriefing.intelligence,
       morningBriefing.market.todayMarket,
       pendingDecisionTicket,
       portfolio,
@@ -307,18 +296,25 @@ export function HermesDashboard() {
 
   useEffect(() => {
     const restored = loadHermesState();
+    const workspace = loadWorkspaceSettings();
     if (restored) {
       setCash(restored.cash);
       setPositions(restored.positions);
       setHistory(restored.history);
       setJournalEntries(restored.journalEntries);
       setSettings(restored.settings);
-      setSelectedSymbol(restored.selectedSymbol);
-      setTimeframe(restored.timeframe);
+      setSelectedSymbol(workspace.selectedSymbol ?? restored.selectedSymbol);
+      setTimeframe(workspace.timeframe ?? restored.timeframe);
       setSaveStatus("Saved locally");
     } else {
+      if (workspace.selectedSymbol) setSelectedSymbol(workspace.selectedSymbol);
+      if (workspace.timeframe) setTimeframe(workspace.timeframe);
       setSaveStatus("Saved locally");
     }
+    if (workspace.watchlistSymbols) setWatchlistSymbols(workspace.watchlistSymbols);
+    if (workspace.indicators) setIndicators(workspace.indicators);
+    if (workspace.chartDrawings) setChartDrawings(workspace.chartDrawings);
+    if (workspace.tradeLevelsBySymbol) setChartTradeLevelsBySymbol(workspace.tradeLevelsBySymbol);
     setHasRestored(true);
   }, []);
 
@@ -351,6 +347,47 @@ export function HermesDashboard() {
     settings,
     timeframe,
   ]);
+
+  useEffect(() => {
+    if (!hasRestored) return;
+    saveWorkspaceSettings({
+      selectedSymbol,
+      watchlistSymbols,
+      indicators,
+      timeframe,
+      chartDrawings,
+      tradeLevelsBySymbol: chartTradeLevelsBySymbol,
+    });
+  }, [
+    chartDrawings,
+    chartTradeLevelsBySymbol,
+    hasRestored,
+    indicators,
+    selectedSymbol,
+    timeframe,
+    watchlistSymbols,
+  ]);
+
+  useEffect(() => {
+    if (!hasRestored) return;
+
+    const now = new Date();
+    if (now.getHours() < 16) return;
+
+    const key = `hermes-coach-end-of-day-${now.toDateString()}`;
+    if (window.sessionStorage.getItem(key)) return;
+
+    window.sessionStorage.setItem(key, "true");
+    triggerHermesCoach({
+      moment: "end-of-day",
+      context: {
+        morningGoal: morningBriefing.dailyGoal.text,
+        disciplineScore: hermesMemorySnapshot.scores.discipline,
+        disciplineStreak: morningBriefing.intelligence.disciplineStreak,
+        intelligence: morningBriefing.intelligence,
+      },
+    });
+  }, [hasRestored, hermesMemorySnapshot.scores.discipline, morningBriefing]);
 
   const executePaperTicket = useCallback(
     (ticket: TradeTicket) => {
@@ -455,8 +492,18 @@ export function HermesDashboard() {
   const handlePaperTicket = useCallback((ticket: TradeTicket) => {
     setPendingDecisionTicket(ticket);
     setTradePlanMessage("Hermes is reviewing this paper decision.");
+    triggerHermesCoach({
+      moment: "trade-plan-created",
+      context: {
+        tradeSymbol: selectedQuote.symbol,
+        morningGoal: morningBriefing.dailyGoal.text,
+        disciplineScore: hermesMemorySnapshot.scores.discipline,
+        disciplineStreak: morningBriefing.intelligence.disciplineStreak,
+        intelligence: morningBriefing.intelligence,
+      },
+    });
     return "Hermes is reviewing this paper decision.";
-  }, []);
+  }, [hermesMemorySnapshot.scores.discipline, morningBriefing, selectedQuote.symbol]);
 
   const confirmPendingDecision = useCallback(() => {
     if (!pendingDecisionTicket) {
@@ -464,14 +511,112 @@ export function HermesDashboard() {
     }
 
     const response = executePaperTicket(pendingDecisionTicket);
+    triggerHermesCoach({
+      moment: "decision-review-completed",
+      context: {
+        tradeSymbol: selectedQuote.symbol,
+        morningGoal: morningBriefing.dailyGoal.text,
+        decisionRecommendation: decisionReview?.recommendation,
+        decisionConfidence: decisionReview?.confidence,
+        disciplineScore: hermesMemorySnapshot.scores.discipline,
+        disciplineStreak: morningBriefing.intelligence.disciplineStreak,
+        intelligence: morningBriefing.intelligence,
+      },
+    });
+    if (!response) {
+      triggerHermesCoach({
+        moment: "paper-trade-executed",
+        context: {
+          tradeSymbol: selectedQuote.symbol,
+          morningGoal: morningBriefing.dailyGoal.text,
+          decisionRecommendation: decisionReview?.recommendation,
+          decisionConfidence: decisionReview?.confidence,
+          disciplineScore: hermesMemorySnapshot.scores.discipline,
+          disciplineStreak: morningBriefing.intelligence.disciplineStreak,
+          intelligence: morningBriefing.intelligence,
+        },
+      });
+    }
     setTradePlanMessage(response ?? getPaperTicketSuccessMessage(pendingDecisionTicket.action));
     setPendingDecisionTicket(null);
-  }, [executePaperTicket, pendingDecisionTicket]);
+  }, [
+    decisionReview,
+    executePaperTicket,
+    hermesMemorySnapshot.scores.discipline,
+    morningBriefing,
+    pendingDecisionTicket,
+    selectedQuote.symbol,
+  ]);
 
   const revisePendingDecision = useCallback(() => {
     setPendingDecisionTicket(null);
     setTradePlanMessage("Trade review closed. Revise the plan when ready.");
   }, []);
+
+  const selectWorkspaceSymbol = useCallback((symbol: CoinSymbol) => {
+    setSelectedSymbol(symbol);
+    setWatchlistSymbols((current) =>
+      current.includes(symbol) ? current : [symbol, ...current],
+    );
+  }, []);
+
+  const addToWatchlist = useCallback((symbol: CoinSymbol) => {
+    setWatchlistSymbols((current) =>
+      current.includes(symbol) ? current : [symbol, ...current],
+    );
+  }, []);
+
+  const removeFromWatchlist = useCallback((symbol: CoinSymbol) => {
+    setWatchlistSymbols((current) =>
+      current.length <= 1 ? current : current.filter((item) => item !== symbol),
+    );
+  }, []);
+
+  const toggleIndicator = useCallback((indicator: keyof IndicatorVisibility) => {
+    setIndicators((current) => ({
+      ...current,
+      [indicator]: !current[indicator],
+    }));
+  }, []);
+
+  const handleChartPriceSelect = useCallback(
+    (price: number) => {
+      if (selectedChartTool === "none") return;
+
+      if (
+        selectedChartTool === "entry" ||
+        selectedChartTool === "stop" ||
+        selectedChartTool === "target"
+      ) {
+        setChartTradeLevelsBySymbol((current) => ({
+          ...current,
+          [selectedSymbol]: {
+            ...(current[selectedSymbol] ?? {}),
+            [selectedChartTool]: price,
+          },
+        }));
+        return;
+      }
+
+      setChartDrawings((current) => [
+        ...current,
+        {
+          id: `${selectedSymbol}-${selectedChartTool}-${Date.now()}`,
+          symbol: selectedSymbol,
+          type: selectedChartTool,
+          price,
+          createdAt: Date.now(),
+        },
+      ]);
+    },
+    [selectedChartTool, selectedSymbol],
+  );
+
+  const clearSelectedDrawings = useCallback(() => {
+    setChartDrawings((current) =>
+      current.filter((drawing) => drawing.symbol !== selectedSymbol),
+    );
+  }, [selectedSymbol]);
 
   const closePaperTrade = useCallback(
     (positionId: string) => {
@@ -486,8 +631,19 @@ export function HermesDashboard() {
       setPositions((current) => current.filter((item) => item.id !== positionId));
       setCash((current) => current + position.notional + closed.pnl);
       setHistory((current) => [closed, ...current]);
+      triggerHermesCoach({
+        moment: "paper-trade-executed",
+        context: {
+          tradeSymbol: position.symbol,
+          tradeOutcome: closed.pnl > 0 ? "Win" : closed.pnl < 0 ? "Loss" : "Closed",
+          morningGoal: morningBriefing.dailyGoal.text,
+          disciplineScore: hermesMemorySnapshot.scores.discipline,
+          disciplineStreak: morningBriefing.intelligence.disciplineStreak,
+          intelligence: morningBriefing.intelligence,
+        },
+      });
     },
-    [positions, priceMap],
+    [hermesMemorySnapshot.scores.discipline, morningBriefing, positions, priceMap],
   );
 
   const resetPaperAccount = useCallback(() => {
@@ -580,103 +736,53 @@ export function HermesDashboard() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-5">
-          {quotes.map((quote) => (
-            <PriceCard
-              isSelected={quote.symbol === selectedSymbol}
-              key={quote.symbol}
-              quote={quote}
-              onSelect={() => setSelectedSymbol(quote.symbol)}
+        <section className="grid gap-4 xl:grid-cols-[280px_minmax(760px,1fr)_360px] xl:gap-5">
+          <div className="space-y-4">
+            <MarketSearch
+              onAdd={addToWatchlist}
+              onSelect={selectWorkspaceSymbol}
             />
-          ))}
-        </section>
-
-        <section className="mt-4">
-          <HermesAiAnalyst opportunities={opportunityScores} />
-        </section>
-
-        <section className="mt-4">
-          <HermesBrainSummary
-            dailyScroll={dailyScroll}
-            hermesMemory={hermesMemorySnapshot}
-            intelligence={morningBriefing.intelligence}
-            memory={memory}
-            memoryPersonality={memoryTradingPersonality}
-            scanner={opportunityScanner}
-            personality={tradingPersonality}
-            weeklyInsights={weeklyMemoryInsights}
-          />
-        </section>
-
-        <section className="mt-4">
-          <TraderDna
-            intelligence={morningBriefing.intelligence}
-            memory={hermesMemorySnapshot}
-          />
-        </section>
-
-        <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
-          <PaperPortfolio snapshot={portfolio} />
-          <TradeControls
-            buyingPower={portfolio.buyingPower}
-            opportunity={selectedOpportunity}
-            quote={selectedQuote}
-            statusMessage={tradePlanMessage}
-            onSubmit={handlePaperTicket}
-          />
-        </section>
-
-        <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
-          <ChartPanel
-            candles={candles}
-            quote={selectedQuote}
-            timeframe={timeframe}
-            onTimeframeChange={setTimeframe}
-          />
-          <div className="grid gap-4">
-            <Watchlist
-              quotes={quotes}
+            <WorkspaceWatchlistPanel
               selectedSymbol={selectedSymbol}
-              onSelect={setSelectedSymbol}
+              symbols={watchlistSymbols}
+              onRemove={removeFromWatchlist}
+              onSelect={selectWorkspaceSymbol}
             />
-            <HermesAiAnalysis analysis={analysis} quote={selectedQuote} />
           </div>
-        </section>
 
-        <section className="mt-4">
-          <HermesIntelligencePanel intelligence={intelligence} />
-        </section>
+          <div className="space-y-4">
+            <ProfessionalChart
+              analysis={workspaceAnalysis}
+              candles={candles}
+              drawings={selectedChartDrawings}
+              indicators={indicators}
+              quote={selectedQuote}
+              selectedTool={selectedChartTool}
+              timeframe={timeframe}
+              tradeLevels={selectedChartTradeLevels}
+              onChartPriceSelect={handleChartPriceSelect}
+              onClearDrawings={clearSelectedDrawings}
+              onTimeframeChange={setTimeframe}
+              onToolChange={setSelectedChartTool}
+              onToggleIndicator={toggleIndicator}
+            />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <PaperPortfolio snapshot={portfolio} />
+              <TradeHistory history={history.slice(0, 6)} />
+            </div>
+          </div>
 
-        <section className="mt-4 grid gap-4 xl:grid-cols-[360px_1fr_330px] xl:gap-5">
-          <TradePlan analysis={analysis} quote={selectedQuote} />
-          <OpenPositions
-            positions={positions}
-            prices={priceMap}
-            onClose={closePaperTrade}
-          />
-          <HermesCoach
-            trade={history[0]}
-            memory={memory}
-            hermesMemory={hermesMemorySnapshot}
-          />
-        </section>
-
-        <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
-          <TradeHistory history={history} />
-          <EquityCurve points={equityCurve} />
-        </section>
-
-        <section className="mt-4 grid gap-4 xl:grid-cols-[1fr_390px] xl:gap-5">
-          <PerformanceDashboard stats={performance} />
-          <SettingsPanel
-            settings={settings}
-            onSettingsChange={setSettings}
-            onReset={resetPaperAccount}
-          />
-        </section>
-
-        <section className="mt-4">
-          <TradeJournal entries={journalEntries} />
+          <div className="space-y-4">
+            <SymbolAnalysisPanel analysis={workspaceAnalysis} />
+            <TradeControls
+              buyingPower={portfolio.buyingPower}
+              opportunity={selectedOpportunity}
+              quote={selectedQuote}
+              chartLevels={selectedChartTradeLevels}
+              statusMessage={tradePlanMessage}
+              onSubmit={handlePaperTicket}
+            />
+          </div>
         </section>
       </div>
     </main>
@@ -697,4 +803,35 @@ function getPaperTicketSuccessMessage(action: TradeTicket["action"]) {
   if (action === "Sell") return "Long paper position sold.";
   if (action === "Short") return "Short paper position opened.";
   return "Short paper position covered.";
+}
+
+const WORKSPACE_STORAGE_KEY = "hermes.workspace.v1";
+
+type WorkspaceSettings = {
+  selectedSymbol?: CoinSymbol;
+  watchlistSymbols?: CoinSymbol[];
+  indicators?: IndicatorVisibility;
+  timeframe?: Timeframe;
+  chartDrawings?: ChartDrawing[];
+  tradeLevelsBySymbol?: Partial<Record<CoinSymbol, ChartTradeLevels>>;
+};
+
+function loadWorkspaceSettings(): WorkspaceSettings {
+  try {
+    const raw = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as WorkspaceSettings;
+    return {
+      ...parsed,
+      watchlistSymbols: parsed.watchlistSymbols?.filter((symbol) =>
+        marketUniverse.some((asset) => asset.symbol === symbol),
+      ),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function saveWorkspaceSettings(settings: Required<WorkspaceSettings>) {
+  window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(settings));
 }

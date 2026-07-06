@@ -1,5 +1,25 @@
-export type CoinSymbol = "BTC" | "ETH" | "SOL" | "LINK";
-export type Timeframe = "1H" | "4H" | "1D";
+export type CoinSymbol =
+  | "BTC"
+  | "ETH"
+  | "SOL"
+  | "LINK"
+  | "ADA"
+  | "AVAX"
+  | "DOGE"
+  | "XRP"
+  | "AAPL"
+  | "MSFT"
+  | "NVDA"
+  | "TSLA"
+  | "AMD"
+  | "META"
+  | "GOOGL"
+  | "AMZN"
+  | "SPY"
+  | "QQQ"
+  | "JPM"
+  | "COST";
+export type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W";
 export type Bias = "Bullish" | "Bearish" | "Neutral";
 export type SuggestedAction = "Watch" | "Wait" | "Paper Trade Setup";
 

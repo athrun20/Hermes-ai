@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ReplayChart } from "@/components/replay-mode/replay-chart";
 import { ReplayReview } from "@/components/replay-mode/replay-review";
 import { ReplaySummary } from "@/components/replay-mode/replay-summary";
@@ -12,22 +12,30 @@ import { loadHermesState } from "@/lib/local-persistence";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
 import type { ClosedTrade } from "@/lib/paper-trading";
 import { buildReplaySession } from "@/lib/replay-engine";
+import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import { TopNav } from "./top-nav";
 
 export function ReplayModePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [history, setHistory] = useState<ClosedTrade[]>([]);
   const [memory, setMemory] = useState<HermesMemorySnapshot | null>(null);
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
   const [replayKey, setReplayKey] = useState(0);
+  const announcedReplayRef = useRef<string | null>(null);
 
   useEffect(() => {
     const restored = loadHermesState();
     const trades = restored?.history ?? [];
+    const requestedTradeId = searchParams.get("trade");
     setHistory(trades);
     setMemory(getHermesMemory());
-    setSelectedTradeId(trades[0]?.id ?? null);
-  }, []);
+    setSelectedTradeId(
+      trades.some((trade) => trade.id === requestedTradeId)
+        ? requestedTradeId
+        : trades[0]?.id ?? null,
+    );
+  }, [searchParams]);
 
   const selectedTrade = useMemo(
     () => history.find((trade) => trade.id === selectedTradeId) ?? history[0],
@@ -44,6 +52,21 @@ export function ReplayModePage() {
     },
     [history, memory, selectedTrade],
   );
+
+  useEffect(() => {
+    if (!session || announcedReplayRef.current === session.trade.id) return;
+
+    announcedReplayRef.current = session.trade.id;
+    triggerHermesCoach({
+      moment: "replay-finished",
+      context: {
+        tradeSymbol: session.trade.symbol,
+        tradeOutcome: session.trade.pnl > 0 ? "Win" : session.trade.pnl < 0 ? "Loss" : "Closed",
+        replayLesson: session.summary.lessonLearned,
+        disciplineScore: memory?.scores.discipline,
+      },
+    });
+  }, [memory?.scores.discipline, session]);
 
   return (
     <main>

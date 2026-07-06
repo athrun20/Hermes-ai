@@ -13,6 +13,7 @@ import { ScrollPreviewCard } from "@/components/morning-briefing/scroll-preview-
 import { TraderDnaReminderCard } from "@/components/morning-briefing/trader-dna-reminder-card";
 import { WisdomProgressCard } from "@/components/morning-briefing/wisdom-progress-card";
 import { getHermesMemory, type HermesMemorySnapshot } from "@/lib/hermes-memory";
+import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import { loadHermesState } from "@/lib/local-persistence";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
 import type { ClosedTrade } from "@/lib/paper-trading";
@@ -121,6 +122,19 @@ export function MorningBriefingPage() {
 
         <GuidedBriefing
           steps={steps}
+          onCompleted={() =>
+            triggerHermesCoach({
+              moment: "morning-briefing-completed",
+              context: {
+                traderPersonality: briefing.traderDna.tradingStyle,
+                morningGoal: briefing.dailyGoal.text,
+                livingScrollTitle: briefing.scroll.title,
+                disciplineScore: briefing.traderDna.disciplineScore,
+                disciplineStreak: briefing.intelligence.disciplineStreak,
+                intelligence: briefing.intelligence,
+              },
+            })
+          }
           completion={
             <Panel className="p-6 text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
