@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import {
   CandlestickSeries,
   ColorType,
   createChart,
+  LineSeries,
+  LineStyle,
   type CandlestickData,
   type IChartApi,
   type ISeriesApi,
+  type LineData,
   type Time,
 } from "lightweight-charts";
 import { RotateCcw, Ruler, SlidersHorizontal } from "lucide-react";
@@ -15,6 +18,17 @@ import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/cha
 import { formatCurrency, formatPercent, type AssetQuote, type Candle } from "@/lib/market-data";
 import { type WorkspaceTimeframe } from "@/lib/market-universe";
 import type { SymbolAnalysis } from "@/lib/symbol-analysis-engine";
+import {
+  buildChartIndicatorOverlays,
+  buildChartIntelligenceContext,
+  type ChartOverlayPoint,
+} from "@/lib/chart-overlay-engine";
+import { ChartCrosshair, type ChartCrosshairState } from "@/components/workspace/chart-crosshair";
+import { ChartIndicatorLegend } from "@/components/workspace/chart-indicator-overlays";
+import { ChartTradeLevelsOverlay } from "@/components/workspace/chart-trade-levels";
+import { HermesVisionLabels } from "@/components/workspace/hermes-vision-labels";
+import { HermesVisionPanel } from "@/components/workspace/hermes-vision-panel";
+import type { HermesVisionResult } from "@/lib/hermes-vision-types";
 import { Panel, StatusPill } from "@/components/ui";
 
 export type IndicatorVisibility = {
@@ -36,6 +50,36 @@ const indicatorLabels: Array<[keyof IndicatorVisibility, string]> = [
   ["vwap", "VWAP"],
 ];
 
+type IndicatorPanelState = {
+  volume: IndicatorPanelSetting;
+  rsi: IndicatorPanelSetting;
+  macd: IndicatorPanelSetting;
+};
+
+type IndicatorPanelSetting = {
+  collapsed: boolean;
+  height: number;
+};
+
+const toolbarTools: Array<{
+  tool: ChartDrawingTool;
+  label: string;
+}> = [
+  { tool: "crosshair", label: "Crosshair" },
+  { tool: "trend-line", label: "Trend Line" },
+  { tool: "horizontal-line", label: "Horizontal Line" },
+  { tool: "ray", label: "Ray" },
+  { tool: "rectangle", label: "Rectangle" },
+  { tool: "support-zone", label: "Support Zone" },
+  { tool: "resistance-zone", label: "Resistance Zone" },
+  { tool: "risk-reward", label: "Risk/Reward Tool" },
+  { tool: "text-note", label: "Text Note" },
+  { tool: "erase", label: "Erase Drawing" },
+  { tool: "entry", label: "Set Entry" },
+  { tool: "stop", label: "Set Stop" },
+  { tool: "target", label: "Set Target" },
+];
+
 export function ProfessionalChart({
   quote,
   candles,
@@ -45,6 +89,7 @@ export function ProfessionalChart({
   tradeLevels,
   selectedTool,
   analysis,
+  vision,
   onTimeframeChange,
   onToggleIndicator,
   onToolChange,
@@ -59,6 +104,7 @@ export function ProfessionalChart({
   tradeLevels: ChartTradeLevels;
   selectedTool: ChartDrawingTool;
   analysis: SymbolAnalysis;
+  vision: HermesVisionResult;
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
   onToggleIndicator: (indicator: keyof IndicatorVisibility) => void;
   onToolChange: (tool: ChartDrawingTool) => void;
@@ -69,8 +115,23 @@ export function ProfessionalChart({
   const plotRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const ema20Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema50Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const vwapRef = useRef<ISeriesApi<"Line"> | null>(null);
   const [indicatorMenuOpen, setIndicatorMenuOpen] = useState(false);
   const [drawingMenuOpen, setDrawingMenuOpen] = useState(false);
+  const [crosshair, setCrosshair] = useState<ChartCrosshairState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    price: quote.price,
+    timeLabel: "",
+  });
+  const [indicatorPanels, setIndicatorPanels] = useState<IndicatorPanelState>({
+    volume: { collapsed: false, height: 118 },
+    rsi: { collapsed: false, height: 142 },
+    macd: { collapsed: false, height: 156 },
+  });
   const priceRange = useMemo(() => getPriceRange(candles, tradeLevels, drawings), [candles, drawings, tradeLevels]);
   const chartData = useMemo<CandlestickData<Time>[]>(
     () =>
@@ -86,6 +147,11 @@ export function ProfessionalChart({
   const rsiSeries = useMemo(() => buildRsiSeries(candles), [candles]);
   const macdSeries = useMemo(() => buildMacdSeries(candles), [candles]);
   const volumeSeries = useMemo(() => buildVolumeSeries(candles), [candles]);
+  const indicatorOverlays = useMemo(() => buildChartIndicatorOverlays(candles), [candles]);
+  const chartIntelligenceContext = useMemo(
+    () => buildChartIntelligenceContext({ drawings, tradeLevels }),
+    [drawings, tradeLevels],
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -108,7 +174,7 @@ export function ProfessionalChart({
         borderColor: "rgba(255,255,255,0.12)",
         timeVisible: true,
         secondsVisible: false,
-        barSpacing: 10,
+        barSpacing: 12,
       },
       crosshair: {
         mode: 1,
@@ -126,9 +192,33 @@ export function ProfessionalChart({
       priceLineColor: "#F5B84B",
       priceLineWidth: 1,
     });
+    const ema20 = chart.addSeries(LineSeries, {
+      color: "#79F2C0",
+      lineWidth: 2,
+      lineStyle: LineStyle.Solid,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const ema50 = chart.addSeries(LineSeries, {
+      color: "#F5B84B",
+      lineWidth: 2,
+      lineStyle: LineStyle.Dashed,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const vwap = chart.addSeries(LineSeries, {
+      color: "#7DD3FC",
+      lineWidth: 2,
+      lineStyle: LineStyle.Dotted,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
 
     chartRef.current = chart;
     seriesRef.current = series;
+    ema20Ref.current = ema20;
+    ema50Ref.current = ema50;
+    vwapRef.current = vwap;
     return () => chart.remove();
   }, []);
 
@@ -137,8 +227,14 @@ export function ProfessionalChart({
     chartRef.current?.timeScale().fitContent();
   }, [chartData]);
 
-  const handleChartClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (selectedTool === "none" || !plotRef.current) return;
+  useEffect(() => {
+    ema20Ref.current?.setData(indicators.ema20 ? toLineData(indicatorOverlays.ema20) : []);
+    ema50Ref.current?.setData(indicators.ema50 ? toLineData(indicatorOverlays.ema50) : []);
+    vwapRef.current?.setData(indicators.vwap ? toLineData(indicatorOverlays.vwap) : []);
+  }, [indicatorOverlays, indicators.ema20, indicators.ema50, indicators.vwap]);
+
+  const handleChartClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (selectedTool === "none" || selectedTool === "crosshair" || !plotRef.current) return;
 
     const rect = plotRef.current.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
@@ -146,8 +242,69 @@ export function ProfessionalChart({
     onChartPriceSelect(price);
   };
 
+  const handleChartHover = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!plotRef.current) return;
+
+    const rect = plotRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const yRatio = y / rect.height;
+    const xRatio = x / Math.max(rect.width, 1);
+    const price = priceRange.max - yRatio * (priceRange.max - priceRange.min);
+    const candleIndex = Math.max(
+      0,
+      Math.min(candles.length - 1, Math.round(xRatio * Math.max(candles.length - 1, 0))),
+    );
+
+    setCrosshair({
+      visible: true,
+      x,
+      y,
+      price,
+      timeLabel: formatCandleTime(candles[candleIndex]?.time),
+    });
+  };
+
+  const toggleIndicatorPanel = useCallback((panel: keyof IndicatorPanelState) => {
+    setIndicatorPanels((current) => ({
+      ...current,
+      [panel]: {
+        ...current[panel],
+        collapsed: !current[panel].collapsed,
+      },
+    }));
+  }, []);
+
+  const startIndicatorResize = useCallback(
+    (panel: keyof IndicatorPanelState, event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      const startY = event.clientY;
+      const startHeight = indicatorPanels[panel].height;
+
+      const handleMove = (moveEvent: MouseEvent) => {
+        const nextHeight = Math.max(88, Math.min(260, startHeight + moveEvent.clientY - startY));
+        setIndicatorPanels((current) => ({
+          ...current,
+          [panel]: {
+            ...current[panel],
+            height: Math.round(nextHeight),
+          },
+        }));
+      };
+
+      const handleUp = () => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [indicatorPanels],
+  );
+
   return (
-    <Panel className="min-h-[860px]">
+    <Panel className="min-h-[940px] overflow-hidden">
       <div className="border-b border-white/10 px-5 py-4">
         <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div>
@@ -201,10 +358,16 @@ export function ProfessionalChart({
               {drawingMenuOpen ? (
                 <ToggleMenu>
                   {[
+                    ["crosshair", "Crosshair"],
                     ["horizontal-line", "Horizontal Line"],
                     ["trend-line", "Trend Line"],
+                    ["ray", "Ray"],
+                    ["rectangle", "Rectangle"],
                     ["support-zone", "Support Zone"],
                     ["resistance-zone", "Resistance Zone"],
+                    ["risk-reward", "Risk/Reward Tool"],
+                    ["text-note", "Text Note"],
+                    ["erase", "Erase Drawing"],
                     ["entry", "Set Entry"],
                     ["stop", "Set Stop"],
                     ["target", "Set Target"],
@@ -231,30 +394,74 @@ export function ProfessionalChart({
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
-        <div
-          className="relative h-[620px] overflow-hidden rounded-lg border border-white/10 bg-[#070A0F]"
-          onClick={handleChartClick}
-          ref={plotRef}
-        >
-          <div ref={containerRef} className="absolute inset-0" />
-          <HermesChartOverlay analysis={analysis} />
-          <ChartLevelOverlay
-            drawings={drawings}
-            priceRange={priceRange}
-            tradeLevels={tradeLevels}
+      <div className="space-y-3 p-3 sm:p-4">
+        <HermesVisionPanel vision={vision} />
+        <div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3">
+          <WorkspaceToolbar
+            selectedTool={selectedTool}
+            onClearDrawings={onClearDrawings}
+            onToolChange={onToolChange}
           />
-          {selectedTool !== "none" ? (
-            <div className="pointer-events-none absolute bottom-4 left-4 rounded-md border border-amberline/25 bg-surface-950/85 px-3 py-2 text-xs font-semibold text-amberline">
-              Click chart to place {toolLabel(selectedTool)}
-            </div>
-          ) : null}
+          <div
+            className="relative h-[760px] overflow-hidden rounded-lg border border-white/10 bg-[#070A0F] 2xl:h-[820px]"
+            onClick={handleChartClick}
+            onMouseLeave={() => setCrosshair((current) => ({ ...current, visible: false }))}
+            onMouseMove={handleChartHover}
+            ref={plotRef}
+            data-support-count={chartIntelligenceContext.supportLines.length}
+            data-resistance-count={chartIntelligenceContext.resistanceLines.length}
+            data-trend-count={chartIntelligenceContext.trendLines.length}
+          >
+            <div ref={containerRef} className="absolute inset-0" />
+            <HermesChartOverlay analysis={analysis} />
+            <ChartIndicatorLegend indicators={indicators} />
+            <ChartTradeLevelsOverlay
+              drawings={drawings}
+              priceRange={priceRange}
+              tradeLevels={tradeLevels}
+            />
+            <HermesVisionLabels
+              fallbackPrice={quote.price}
+              labels={vision.labels}
+              priceRange={priceRange}
+            />
+            <ChartCrosshair state={crosshair} />
+            {selectedTool !== "none" && selectedTool !== "crosshair" ? (
+              <div className="pointer-events-none absolute bottom-4 left-4 rounded-md border border-amberline/25 bg-surface-950/85 px-3 py-2 text-xs font-semibold text-amberline">
+                Click chart to place {toolLabel(selectedTool)}
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="space-y-3">
-          {indicators.volume ? <VolumePanel data={volumeSeries} /> : null}
-          {indicators.rsi ? <RsiPanel data={rsiSeries} /> : null}
-          {indicators.macd ? <MacdPanel data={macdSeries} /> : null}
+        <div className="space-y-2.5">
+          {indicators.volume ? (
+            <VolumePanel
+              collapsed={indicatorPanels.volume.collapsed}
+              data={volumeSeries}
+              height={indicatorPanels.volume.height}
+              onResizeStart={(event) => startIndicatorResize("volume", event)}
+              onToggle={() => toggleIndicatorPanel("volume")}
+            />
+          ) : null}
+          {indicators.rsi ? (
+            <RsiPanel
+              collapsed={indicatorPanels.rsi.collapsed}
+              data={rsiSeries}
+              height={indicatorPanels.rsi.height}
+              onResizeStart={(event) => startIndicatorResize("rsi", event)}
+              onToggle={() => toggleIndicatorPanel("rsi")}
+            />
+          ) : null}
+          {indicators.macd ? (
+            <MacdPanel
+              collapsed={indicatorPanels.macd.collapsed}
+              data={macdSeries}
+              height={indicatorPanels.macd.height}
+              onResizeStart={(event) => startIndicatorResize("macd", event)}
+              onToggle={() => toggleIndicatorPanel("macd")}
+            />
+          ) : null}
         </div>
       </div>
     </Panel>
@@ -273,10 +480,10 @@ function ChartLevelOverlay({
   const levels = [
     ...drawings.map((drawing) => ({
       id: drawing.id,
-      label: drawing.type === "support-zone" ? "Support Zone" : drawing.type === "resistance-zone" ? "Resistance Zone" : drawing.type === "trend-line" ? "Trend" : "Line",
+      label: getDrawingLabel(drawing.type),
       price: drawing.price,
-      tone: drawing.type === "resistance-zone" ? "rose" : drawing.type === "support-zone" ? "mint" : "gold",
-      zone: drawing.type === "support-zone" || drawing.type === "resistance-zone",
+      tone: getDrawingTone(drawing.type),
+      zone: drawing.type === "support-zone" || drawing.type === "resistance-zone" || drawing.type === "rectangle" || drawing.type === "risk-reward",
     })),
     tradeLevels.entry ? { id: "entry", label: "Entry", price: tradeLevels.entry, tone: "mint", zone: false } : null,
     tradeLevels.stop ? { id: "stop", label: "Stop", price: tradeLevels.stop, tone: "rose", zone: false } : null,
@@ -323,11 +530,123 @@ function HermesChartOverlay({ analysis }: { analysis: SymbolAnalysis }) {
   );
 }
 
-function VolumePanel({ data }: { data: number[] }) {
+function WorkspaceToolbar({
+  selectedTool,
+  onToolChange,
+  onClearDrawings,
+}: {
+  selectedTool: ChartDrawingTool;
+  onToolChange: (tool: ChartDrawingTool) => void;
+  onClearDrawings: () => void;
+}) {
+  return (
+    <aside className="flex flex-col items-center gap-1 rounded-lg border border-white/10 bg-[#070A0F] p-1">
+      {toolbarTools.map(({ tool, label }) => (
+        <button
+          className={`grid size-9 place-items-center rounded-md border text-slate-400 transition ${
+            selectedTool === tool
+              ? "border-amberline/35 bg-amberline/15 text-amberline"
+              : "border-transparent hover:border-white/10 hover:bg-white/[0.045] hover:text-white"
+          }`}
+          key={tool}
+          onClick={() => onToolChange(selectedTool === tool ? "none" : tool)}
+          title={label}
+          type="button"
+          aria-label={label}
+        >
+          <ToolIcon tool={tool} />
+        </button>
+      ))}
+      <button
+        className="mt-2 grid size-9 place-items-center rounded-md border border-rose-300/15 bg-rose-400/10 text-rose-200 transition hover:bg-rose-400/15"
+        onClick={onClearDrawings}
+        title="Clear Drawings"
+        type="button"
+        aria-label="Clear Drawings"
+      >
+        <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </svg>
+      </button>
+    </aside>
+  );
+}
+
+function ToolIcon({ tool }: { tool: ChartDrawingTool }) {
+  if (tool === "crosshair") {
+    return (
+      <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M10 3v14M3 10h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (tool === "trend-line" || tool === "ray") {
+    return (
+      <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M4 15L16 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        {tool === "ray" ? <path d="M13 5h3v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /> : null}
+      </svg>
+    );
+  }
+
+  if (tool === "horizontal-line" || tool === "entry" || tool === "stop" || tool === "target") {
+    return (
+      <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M3 10h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        {tool !== "horizontal-line" ? <circle cx="10" cy="10" r="2" fill="currentColor" /> : null}
+      </svg>
+    );
+  }
+
+  if (tool === "rectangle" || tool === "support-zone" || tool === "resistance-zone" || tool === "risk-reward") {
+    return (
+      <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <rect x="4" y="5" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        {tool === "risk-reward" ? <path d="M10 5v10" stroke="currentColor" strokeWidth="1.2" /> : null}
+      </svg>
+    );
+  }
+
+  if (tool === "text-note") {
+    return (
+      <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M5 5h10M10 5v10M7 15h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className="size-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M6 14l8-8M8 16h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function VolumePanel({
+  data,
+  collapsed,
+  height,
+  onToggle,
+  onResizeStart,
+}: {
+  data: number[];
+  collapsed: boolean;
+  height: number;
+  onToggle: () => void;
+  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
   const max = Math.max(...data, 1);
   return (
-    <IndicatorShell title="Volume" value="Mock participation">
-      <div className="flex h-24 items-end gap-1">
+    <IndicatorShell
+      collapsed={collapsed}
+      height={height}
+      title="Volume"
+      value="Mock participation"
+      onResizeStart={onResizeStart}
+      onToggle={onToggle}
+    >
+      <div className="flex h-full items-end gap-1">
         {data.map((value, index) => (
           <div
             className="flex-1 rounded-t bg-mint-300/45"
@@ -340,20 +659,58 @@ function VolumePanel({ data }: { data: number[] }) {
   );
 }
 
-function RsiPanel({ data }: { data: number[] }) {
+function RsiPanel({
+  data,
+  collapsed,
+  height,
+  onToggle,
+  onResizeStart,
+}: {
+  data: number[];
+  collapsed: boolean;
+  height: number;
+  onToggle: () => void;
+  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
   const current = data[data.length - 1] ?? 50;
   return (
-    <IndicatorShell title="RSI" value={current.toFixed(1)}>
+    <IndicatorShell
+      collapsed={collapsed}
+      height={height}
+      title="RSI"
+      value={current.toFixed(1)}
+      onResizeStart={onResizeStart}
+      onToggle={onToggle}
+    >
       <MiniLineChart data={data} min={0} max={100} reference={[70, 30]} color="#F5B84B" />
     </IndicatorShell>
   );
 }
 
-function MacdPanel({ data }: { data: { macd: number; signal: number; histogram: number }[] }) {
+function MacdPanel({
+  data,
+  collapsed,
+  height,
+  onToggle,
+  onResizeStart,
+}: {
+  data: { macd: number; signal: number; histogram: number }[];
+  collapsed: boolean;
+  height: number;
+  onToggle: () => void;
+  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
   const current = data[data.length - 1] ?? { macd: 0, signal: 0, histogram: 0 };
   return (
-    <IndicatorShell title="MACD" value={`${current.macd.toFixed(2)} / ${current.signal.toFixed(2)}`}>
-      <div className="relative h-28">
+    <IndicatorShell
+      collapsed={collapsed}
+      height={height}
+      title="MACD"
+      value={`${current.macd.toFixed(2)} / ${current.signal.toFixed(2)}`}
+      onResizeStart={onResizeStart}
+      onToggle={onToggle}
+    >
+      <div className="relative h-full">
         <div className="absolute inset-x-0 top-1/2 border-t border-white/10" />
         <div className="absolute inset-0 flex items-center gap-1">
           {data.map((point, index) => (
@@ -398,7 +755,7 @@ function MiniLineChart({
     .join(" ");
 
   return (
-    <svg className={overlay ? "absolute inset-0 h-full w-full" : "h-28 w-full"} preserveAspectRatio="none" viewBox="0 0 100 100">
+    <svg className={overlay ? "absolute inset-0 h-full w-full" : "h-full w-full"} preserveAspectRatio="none" viewBox="0 0 100 100">
       {reference.map((value) => {
         const y = 100 - ((value - min) / (max - min)) * 100;
         return <line key={value} x1="0" x2="100" y1={y} y2={y} stroke="rgba(255,255,255,0.16)" strokeDasharray="4 4" />;
@@ -412,23 +769,52 @@ function IndicatorShell({
   title,
   value,
   children,
+  collapsed,
+  height,
+  onToggle,
+  onResizeStart,
 }: {
   title: string;
   value: string;
-  children: React.ReactNode;
+  children: ReactNode;
+  collapsed: boolean;
+  height: number;
+  onToggle: () => void;
+  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-[#070A0F] p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <section className="relative rounded-lg border border-white/10 bg-[#070A0F] p-4">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
-        <p className="text-sm font-semibold text-slate-200">{value}</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-semibold text-slate-200">{value}</p>
+          <button
+            className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1 text-[11px] font-semibold text-slate-400 transition hover:text-white"
+            onClick={onToggle}
+            type="button"
+          >
+            {collapsed ? "Show" : "Hide"}
+          </button>
+        </div>
       </div>
-      {children}
+      {collapsed ? null : (
+        <>
+          <div className="mt-3" style={{ height }}>
+            {children}
+          </div>
+          <button
+            className="absolute inset-x-4 bottom-1 h-2 cursor-row-resize rounded-full bg-white/[0.035] opacity-70 transition hover:bg-amberline/25"
+            onMouseDown={onResizeStart}
+            type="button"
+            aria-label={`Resize ${title} panel`}
+          />
+        </>
+      )}
     </section>
   );
 }
 
-function ToggleMenu({ children }: { children: React.ReactNode }) {
+function ToggleMenu({ children }: { children: ReactNode }) {
   return (
     <div className="absolute right-0 top-11 z-20 w-52 rounded-lg border border-white/10 bg-surface-950 p-2 shadow-2xl shadow-black/40">
       {children}
@@ -465,7 +851,7 @@ function ChartTool({
   onClick,
 }: {
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   onClick?: () => void;
 }) {
   return (
@@ -494,6 +880,24 @@ function getPriceRange(candles: Candle[], tradeLevels: ChartTradeLevels, drawing
   return { min: min - padding, max: max + padding };
 }
 
+function toLineData(points: ChartOverlayPoint[]): LineData<Time>[] {
+  return points.map((point) => ({
+    time: point.time as Time,
+    value: point.value,
+  }));
+}
+
+function formatCandleTime(time?: number) {
+  if (!time) return "";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(time * 1000));
+}
+
 function priceToY(price: number, range: { min: number; max: number }) {
   return 100 - ((price - range.min) / (range.max - range.min)) * 100;
 }
@@ -519,12 +923,36 @@ function buildMacdSeries(candles: Candle[]) {
 }
 
 function toolLabel(tool: ChartDrawingTool) {
+  if (tool === "crosshair") return "Crosshair";
   if (tool === "horizontal-line") return "Horizontal Line";
   if (tool === "trend-line") return "Trend Line";
+  if (tool === "ray") return "Ray";
+  if (tool === "rectangle") return "Rectangle";
   if (tool === "support-zone") return "Support Zone";
   if (tool === "resistance-zone") return "Resistance Zone";
+  if (tool === "risk-reward") return "Risk/Reward Tool";
+  if (tool === "text-note") return "Text Note";
+  if (tool === "erase") return "Nearest Drawing to Erase";
   if (tool === "entry") return "Entry";
   if (tool === "stop") return "Stop";
   if (tool === "target") return "Target";
   return "Tool";
+}
+
+function getDrawingLabel(type: ChartDrawing["type"]) {
+  if (type === "support-zone") return "Support Zone";
+  if (type === "resistance-zone") return "Resistance Zone";
+  if (type === "trend-line") return "Trend";
+  if (type === "ray") return "Ray";
+  if (type === "rectangle") return "Rectangle";
+  if (type === "risk-reward") return "Risk / Reward";
+  if (type === "text-note") return "Note";
+  return "Line";
+}
+
+function getDrawingTone(type: ChartDrawing["type"]) {
+  if (type === "resistance-zone") return "rose";
+  if (type === "support-zone") return "mint";
+  if (type === "risk-reward") return "mint";
+  return "gold";
 }

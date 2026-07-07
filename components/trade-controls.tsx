@@ -26,6 +26,7 @@ export function TradeControls({
   opportunity,
   statusMessage,
   chartLevels,
+  visionCaution,
   onSubmit,
 }: {
   buyingPower: number;
@@ -36,6 +37,10 @@ export function TradeControls({
     entry?: number;
     stop?: number;
     target?: number;
+  };
+  visionCaution?: {
+    active: boolean;
+    message: string;
   };
   onSubmit: (ticket: TradeTicket) => string | undefined;
 }) {
@@ -182,6 +187,14 @@ export function TradeControls({
         </section>
 
         <RiskRewardCard riskReward={riskReward} />
+        {visionCaution?.active ? (
+          <section className="rounded-lg border border-amberline/25 bg-amberline/[0.07] p-4">
+            <FieldLabel>Hermes Vision Caution</FieldLabel>
+            <p className="mt-2 text-sm leading-6 text-amber-100">
+              {visionCaution.message}
+            </p>
+          </section>
+        ) : null}
         <HermesNotes notes={suggestions.notes} />
         <HermesVerdict verdict={suggestions.verdict} />
 

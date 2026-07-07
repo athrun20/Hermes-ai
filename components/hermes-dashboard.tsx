@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { EquityCurve } from "@/components/equity-curve";
 import { HermesBrainSummary } from "@/components/hermes-brain-summary";
 import { HermesCoach } from "@/components/hermes-coach";
@@ -10,11 +10,12 @@ import { MarketSearch } from "@/components/workspace/market-search";
 import { OpenPositions } from "@/components/open-positions";
 import { PaperPortfolio } from "@/components/paper-portfolio";
 import { PerformanceDashboard } from "@/components/performance-dashboard";
+import { FloatingAnalysis } from "@/components/workspace/floating-analysis";
+import { FloatingTradePlan } from "@/components/workspace/floating-trade-plan";
 import { ProfessionalChart, type IndicatorVisibility } from "@/components/workspace/professional-chart";
 import { SettingsPanel } from "@/components/settings-panel";
-import { SymbolAnalysisPanel } from "@/components/workspace/symbol-analysis-panel";
 import { TopNav } from "@/components/top-nav";
-import { TradeControls, type TradeTicket } from "@/components/trade-controls";
+import { type TradeTicket } from "@/components/trade-controls";
 import { TradeHistory } from "@/components/trade-history";
 import { TradeJournal } from "@/components/trade-journal";
 import { TradePlan } from "@/components/trade-plan";
@@ -34,6 +35,8 @@ import {
   marketUniverse,
 } from "@/lib/market-universe";
 import { analyzeWorkspaceSymbol, quoteToOpportunityInputs } from "@/lib/symbol-analysis-engine";
+import { buildHermesVisionContext } from "@/lib/chart-context-builder";
+import { analyzeHermesVision } from "@/lib/hermes-vision-engine";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
 import { buildHermesIntelligence } from "@/lib/hermes-intelligence";
 import { reviewPaperTradeDecision } from "@/lib/decision-engine";
@@ -111,6 +114,12 @@ export function HermesDashboard() {
   const [chartTradeLevelsBySymbol, setChartTradeLevelsBySymbol] = useState<
     Partial<Record<CoinSymbol, ChartTradeLevels>>
   >({});
+  const [marketsCollapsed, setMarketsCollapsed] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("full");
+  const [panelWidths, setPanelWidths] = useState({
+    left: 280,
+    right: 360,
+  });
 
   const selectedQuote =
     quotes.find((quote) => quote.symbol === selectedSymbol) ?? marketUniverse[0];
@@ -268,6 +277,29 @@ export function HermesDashboard() {
     () => buildMorningBriefing({ memory: hermesMemorySnapshot, history }),
     [hermesMemorySnapshot, history],
   );
+  const hermesVision = useMemo(
+    () =>
+      analyzeHermesVision(
+        buildHermesVisionContext({
+          quote: selectedQuote,
+          candles,
+          drawings: selectedChartDrawings,
+          tradeLevels: selectedChartTradeLevels,
+          analysis: workspaceAnalysis,
+          traderDna: memoryTradingPersonality.archetype,
+          dailyGoal: morningBriefing.dailyGoal.text,
+        }),
+      ),
+    [
+      candles,
+      memoryTradingPersonality.archetype,
+      morningBriefing.dailyGoal.text,
+      selectedChartDrawings,
+      selectedChartTradeLevels,
+      selectedQuote,
+      workspaceAnalysis,
+    ],
+  );
   const decisionReview = useMemo(
     () =>
       pendingDecisionTicket
@@ -315,6 +347,11 @@ export function HermesDashboard() {
     if (workspace.indicators) setIndicators(workspace.indicators);
     if (workspace.chartDrawings) setChartDrawings(workspace.chartDrawings);
     if (workspace.tradeLevelsBySymbol) setChartTradeLevelsBySymbol(workspace.tradeLevelsBySymbol);
+    if (typeof workspace.marketsCollapsed === "boolean") {
+      setMarketsCollapsed(workspace.marketsCollapsed);
+    }
+    if (workspace.workspaceMode) setWorkspaceMode(workspace.workspaceMode);
+    if (workspace.panelWidths) setPanelWidths(workspace.panelWidths);
     setHasRestored(true);
   }, []);
 
@@ -357,15 +394,21 @@ export function HermesDashboard() {
       timeframe,
       chartDrawings,
       tradeLevelsBySymbol: chartTradeLevelsBySymbol,
+      marketsCollapsed,
+      workspaceMode,
+      panelWidths,
     });
   }, [
     chartDrawings,
     chartTradeLevelsBySymbol,
     hasRestored,
     indicators,
+    marketsCollapsed,
+    panelWidths,
     selectedSymbol,
     timeframe,
     watchlistSymbols,
+    workspaceMode,
   ]);
 
   useEffect(() => {
@@ -581,7 +624,24 @@ export function HermesDashboard() {
 
   const handleChartPriceSelect = useCallback(
     (price: number) => {
-      if (selectedChartTool === "none") return;
+      if (selectedChartTool === "none" || selectedChartTool === "crosshair") return;
+
+      if (selectedChartTool === "erase") {
+        setChartDrawings((current) => {
+          const selectedDrawings = current.filter((drawing) => drawing.symbol === selectedSymbol);
+          const drawingToRemove = selectedDrawings.reduce<ChartDrawing | null>((closest, drawing) => {
+            if (!closest) return drawing;
+            return Math.abs(drawing.price - price) < Math.abs(closest.price - price)
+              ? drawing
+              : closest;
+          }, null);
+
+          return drawingToRemove
+            ? current.filter((drawing) => drawing.id !== drawingToRemove.id)
+            : current;
+        });
+        return;
+      }
 
       if (
         selectedChartTool === "entry" ||
@@ -597,6 +657,8 @@ export function HermesDashboard() {
         }));
         return;
       }
+
+      if (!isDrawableChartTool(selectedChartTool)) return;
 
       setChartDrawings((current) => [
         ...current,
@@ -617,6 +679,31 @@ export function HermesDashboard() {
       current.filter((drawing) => drawing.symbol !== selectedSymbol),
     );
   }, [selectedSymbol]);
+
+  const startPanelResize = useCallback(
+    (panel: "left" | "right", event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = panelWidths[panel];
+
+      const handleMove = (moveEvent: MouseEvent) => {
+        const delta =
+          panel === "left" ? moveEvent.clientX - startX : startX - moveEvent.clientX;
+        setPanelWidths((current) => ({
+          ...current,
+          [panel]: clampPanelWidth(startWidth + delta, panel),
+        }));
+      };
+      const handleUp = () => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+      };
+
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [panelWidths],
+  );
 
   const closePaperTrade = useCallback(
     (positionId: string) => {
@@ -670,7 +757,7 @@ export function HermesDashboard() {
     return (
       <main>
         <TopNav />
-        <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
+        <div className="mx-auto max-w-[1920px] px-3 py-4 sm:px-5 lg:px-6 xl:px-8">
           <section className="rounded-lg border border-white/10 bg-white/[0.025] px-5 py-8 shadow-insetPanel">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
               Hermes v1.3 paper trading engine
@@ -698,17 +785,17 @@ export function HermesDashboard() {
           onRevise={revisePendingDecision}
         />
       ) : null}
-      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
+      <div className="mx-auto max-w-[1920px] px-3 py-4 sm:px-5 lg:px-6 xl:px-8">
         <section className="mb-5 flex flex-col justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.025] px-5 py-5 shadow-insetPanel lg:flex-row lg:items-end">
           <div className="max-w-4xl">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-              Hermes v1.3 local paper trading engine
+              Hermes Workspace 2.0
             </p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl xl:text-[34px]">
-              Hermes - AI-assisted market intelligence for paper trading.
+              Hermes - professional paper trading workstation.
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Live public market data, rule-based analysis, portfolio tracking,
+              Chart-first planning, rule-based analysis, portfolio tracking,
               and manual paper execution without broker connections or automation.
             </p>
           </div>
@@ -736,21 +823,68 @@ export function HermesDashboard() {
           </div>
         </section>
 
-        <section className="grid gap-4 xl:grid-cols-[280px_minmax(760px,1fr)_360px] xl:gap-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.025] px-4 py-3">
+          <div className="flex flex-wrap gap-2">
+            {(["chart-only", "chart-ai", "full"] as WorkspaceMode[]).map((mode) => (
+              <button
+                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                  workspaceMode === mode
+                    ? "border-mint-300/35 bg-mint-300/10 text-mint-200"
+                    : "border-white/10 bg-white/[0.035] text-slate-400 hover:text-white"
+                }`}
+                key={mode}
+                onClick={() => setWorkspaceMode(mode)}
+                type="button"
+              >
+                {getWorkspaceModeLabel(mode)}
+              </button>
+            ))}
+          </div>
+          <button
+            className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+            onClick={() => setMarketsCollapsed((current) => !current)}
+            type="button"
+          >
+            {marketsCollapsed ? "Expand Markets" : "Collapse Markets"}
+          </button>
+        </div>
+
+        <section
+          className="grid gap-3 overflow-x-hidden"
+          style={{
+            gridTemplateColumns: `${marketsCollapsed ? "56px" : `${panelWidths.left}px 8px`} minmax(0,1fr)${
+              workspaceMode === "chart-only" ? "" : ` 8px minmax(300px, ${panelWidths.right}px)`
+            }`,
+          }}
+        >
           <div className="space-y-4">
-            <MarketSearch
-              onAdd={addToWatchlist}
-              onSelect={selectWorkspaceSymbol}
-            />
-            <WorkspaceWatchlistPanel
-              selectedSymbol={selectedSymbol}
-              symbols={watchlistSymbols}
-              onRemove={removeFromWatchlist}
-              onSelect={selectWorkspaceSymbol}
-            />
+            {marketsCollapsed ? (
+              <CollapsedMarketsRail
+                selectedSymbol={selectedSymbol}
+                symbols={watchlistSymbols}
+                onSelect={selectWorkspaceSymbol}
+              />
+            ) : (
+              <>
+                <MarketSearch
+                  onAdd={addToWatchlist}
+                  onSelect={selectWorkspaceSymbol}
+                />
+                <WorkspaceWatchlistPanel
+                  selectedSymbol={selectedSymbol}
+                  symbols={watchlistSymbols}
+                  onRemove={removeFromWatchlist}
+                  onSelect={selectWorkspaceSymbol}
+                />
+              </>
+            )}
           </div>
 
-          <div className="space-y-4">
+          {marketsCollapsed ? null : (
+            <ResizeHandle onMouseDown={(event) => startPanelResize("left", event)} />
+          )}
+
+          <div className="min-w-0 space-y-6">
             <ProfessionalChart
               analysis={workspaceAnalysis}
               candles={candles}
@@ -760,29 +894,38 @@ export function HermesDashboard() {
               selectedTool={selectedChartTool}
               timeframe={timeframe}
               tradeLevels={selectedChartTradeLevels}
+              vision={hermesVision}
               onChartPriceSelect={handleChartPriceSelect}
               onClearDrawings={clearSelectedDrawings}
               onTimeframeChange={setTimeframe}
               onToolChange={setSelectedChartTool}
               onToggleIndicator={toggleIndicator}
             />
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 pt-1 lg:grid-cols-2">
               <PaperPortfolio snapshot={portfolio} />
               <TradeHistory history={history.slice(0, 6)} />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <SymbolAnalysisPanel analysis={workspaceAnalysis} />
-            <TradeControls
-              buyingPower={portfolio.buyingPower}
-              opportunity={selectedOpportunity}
-              quote={selectedQuote}
-              chartLevels={selectedChartTradeLevels}
-              statusMessage={tradePlanMessage}
-              onSubmit={handlePaperTicket}
-            />
-          </div>
+          {workspaceMode !== "chart-only" ? (
+            <>
+              <ResizeHandle onMouseDown={(event) => startPanelResize("right", event)} />
+              <div className="min-w-0 space-y-3">
+                <FloatingAnalysis analysis={workspaceAnalysis} />
+                {workspaceMode === "full" ? (
+                  <FloatingTradePlan
+                    buyingPower={portfolio.buyingPower}
+                    opportunity={selectedOpportunity}
+                    quote={selectedQuote}
+                    chartLevels={selectedChartTradeLevels}
+                    statusMessage={tradePlanMessage}
+                    visionCaution={hermesVision.caution}
+                    onSubmit={handlePaperTicket}
+                  />
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </section>
       </div>
     </main>
@@ -806,6 +949,7 @@ function getPaperTicketSuccessMessage(action: TradeTicket["action"]) {
 }
 
 const WORKSPACE_STORAGE_KEY = "hermes.workspace.v1";
+type WorkspaceMode = "chart-only" | "chart-ai" | "full";
 
 type WorkspaceSettings = {
   selectedSymbol?: CoinSymbol;
@@ -814,6 +958,12 @@ type WorkspaceSettings = {
   timeframe?: Timeframe;
   chartDrawings?: ChartDrawing[];
   tradeLevelsBySymbol?: Partial<Record<CoinSymbol, ChartTradeLevels>>;
+  marketsCollapsed?: boolean;
+  workspaceMode?: WorkspaceMode;
+  panelWidths?: {
+    left: number;
+    right: number;
+  };
 };
 
 function loadWorkspaceSettings(): WorkspaceSettings {
@@ -834,4 +984,87 @@ function loadWorkspaceSettings(): WorkspaceSettings {
 
 function saveWorkspaceSettings(settings: Required<WorkspaceSettings>) {
   window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(settings));
+}
+
+function ResizeHandle({
+  hidden = false,
+  onMouseDown,
+}: {
+  hidden?: boolean;
+  onMouseDown: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      className={`h-full min-h-24 cursor-col-resize rounded-full transition ${
+        hidden ? "opacity-0" : "bg-white/[0.035] hover:bg-amberline/30"
+      }`}
+      onMouseDown={onMouseDown}
+      type="button"
+      aria-label="Resize workspace panel"
+      tabIndex={hidden ? -1 : 0}
+    />
+  );
+}
+
+function CollapsedMarketsRail({
+  symbols,
+  selectedSymbol,
+  onSelect,
+}: {
+  symbols: CoinSymbol[];
+  selectedSymbol: CoinSymbol;
+  onSelect: (symbol: CoinSymbol) => void;
+}) {
+  return (
+    <aside className="rounded-lg border border-white/10 bg-white/[0.025] p-2 shadow-insetPanel">
+      <div className="grid gap-2">
+        {symbols.map((symbol) => {
+          const asset = getMarketAsset(symbol);
+          const selected = selectedSymbol === symbol;
+          return (
+            <button
+              className={`grid size-12 place-items-center rounded-lg border text-xs font-bold transition ${
+                selected
+                  ? "border-mint-300/35 bg-mint-300/10 text-mint-200"
+                  : "border-white/10 bg-white/[0.035] text-slate-400 hover:text-white"
+              }`}
+              key={symbol}
+              onClick={() => onSelect(symbol)}
+              title={asset.name}
+              type="button"
+            >
+              {symbol.length > 4 ? symbol.slice(0, 4) : symbol}
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
+function getWorkspaceModeLabel(mode: WorkspaceMode) {
+  if (mode === "chart-only") return "Chart Only";
+  if (mode === "chart-ai") return "Chart + AI";
+  return "Full Workspace";
+}
+
+function clampPanelWidth(value: number, panel: "left" | "right") {
+  const min = panel === "left" ? 220 : 320;
+  const max = panel === "left" ? 420 : 520;
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function isDrawableChartTool(
+  tool: ChartDrawingTool,
+): tool is ChartDrawing["type"] {
+  return (
+    tool === "horizontal-line" ||
+    tool === "trend-line" ||
+    tool === "ray" ||
+    tool === "rectangle" ||
+    tool === "support-zone" ||
+    tool === "resistance-zone" ||
+    tool === "risk-reward" ||
+    tool === "text-note"
+  );
 }
