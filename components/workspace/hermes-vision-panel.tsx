@@ -3,13 +3,13 @@ import { ProgressBar, StatusPill } from "@/components/ui";
 
 export function HermesVisionPanel({ vision }: { vision: HermesVisionResult }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-surface-950/55 p-4 shadow-inner shadow-black/10">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+    <section className="rounded-lg border border-white/10 bg-surface-950/55 p-3 shadow-inner shadow-black/10">
+      <div className="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
         <div className="max-w-3xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amberline/80">
             Hermes Vision
           </p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
+          <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-slate-300">
             {vision.primaryInsight}
           </p>
         </div>
@@ -21,27 +21,53 @@ export function HermesVisionPanel({ vision }: { vision: HermesVisionResult }) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2.5 lg:grid-cols-3">
-        <ScoreRead label="Structure" score={vision.setupStructureScore} />
-        <ScoreRead label="Risk" score={vision.riskScore} />
-        <ScoreRead label="Confirmation" score={vision.confirmationScore} />
+      <div className="mt-3 grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+        {vision.dimensions.map((dimension) => (
+          <ScoreRead
+            key={dimension.dimension}
+            label={dimension.dimension}
+            score={dimension.score}
+            verdict={dimension.verdict}
+            reason={dimension.reasons[0]}
+          />
+        ))}
       </div>
     </section>
   );
 }
 
-function ScoreRead({ label, score }: { label: string; score: number }) {
+function ScoreRead({
+  label,
+  score,
+  verdict,
+  reason,
+}: {
+  label: string;
+  score: number;
+  verdict: string;
+  reason?: string;
+}) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5">
-      <div className="mb-2 flex items-center justify-between gap-3">
+    <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+      <div className="flex items-center gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
           {label}
         </p>
-        <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${scoreTone(score)}`}>
+        <div className="min-w-0 flex-1">
+          <ProgressBar value={score} tone={score >= 70 ? "mint" : score >= 50 ? "gold" : "danger"} />
+        </div>
+        <span className={`rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums ${scoreTone(score)}`}>
           {score}
         </span>
       </div>
-      <ProgressBar value={score} tone={score >= 70 ? "mint" : score >= 50 ? "gold" : "danger"} />
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <p className={`text-[11px] font-semibold ${scoreText(score)}`}>{verdict}</p>
+        {reason ? (
+          <p className="max-w-[70%] truncate text-right text-[11px] text-slate-500" title={reason}>
+            {reason}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -69,6 +95,12 @@ function scoreTone(score: number) {
   if (score >= 70) return "bg-mint-300/12 text-mint-200";
   if (score >= 50) return "bg-amberline/12 text-amber-100";
   return "bg-rose-400/12 text-rose-200";
+}
+
+function scoreText(score: number) {
+  if (score >= 70) return "text-mint-300";
+  if (score >= 50) return "text-amberline";
+  return "text-rose-300";
 }
 
 function getActionTone(action: HermesVisionResult["suggestedAction"]) {

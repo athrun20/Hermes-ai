@@ -6,7 +6,7 @@ import { HermesBrainSummary } from "@/components/hermes-brain-summary";
 import { HermesCoach } from "@/components/hermes-coach";
 import { HermesDecisionReview } from "@/components/hermes-decision-review";
 import { HermesIntelligencePanel } from "@/components/hermes-intelligence-panel";
-import { MarketSearch } from "@/components/workspace/market-search";
+import { WorkspaceMarketsPanel } from "@/components/workspace/market-search";
 import { OpenPositions } from "@/components/open-positions";
 import { PaperPortfolio } from "@/components/paper-portfolio";
 import { PerformanceDashboard } from "@/components/performance-dashboard";
@@ -20,7 +20,6 @@ import { TradeHistory } from "@/components/trade-history";
 import { TradeJournal } from "@/components/trade-journal";
 import { TradePlan } from "@/components/trade-plan";
 import { TraderDna } from "@/components/trader-dna";
-import { WorkspaceWatchlistPanel } from "@/components/workspace/watchlist-panel";
 import {
   analyzeMarket,
   type AssetQuote,
@@ -107,6 +106,7 @@ export function HermesDashboard() {
     macd: false,
     ema20: true,
     ema50: false,
+    sma20: false,
     vwap: false,
   });
   const [selectedChartTool, setSelectedChartTool] = useState<ChartDrawingTool>("none");
@@ -117,7 +117,7 @@ export function HermesDashboard() {
   const [marketsCollapsed, setMarketsCollapsed] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("full");
   const [panelWidths, setPanelWidths] = useState({
-    left: 280,
+    left: 236,
     right: 360,
   });
 
@@ -865,18 +865,13 @@ export function HermesDashboard() {
                 onSelect={selectWorkspaceSymbol}
               />
             ) : (
-              <>
-                <MarketSearch
+              <WorkspaceMarketsPanel
                   onAdd={addToWatchlist}
-                  onSelect={selectWorkspaceSymbol}
-                />
-                <WorkspaceWatchlistPanel
-                  selectedSymbol={selectedSymbol}
-                  symbols={watchlistSymbols}
                   onRemove={removeFromWatchlist}
                   onSelect={selectWorkspaceSymbol}
+                  selectedSymbol={selectedSymbol}
+                  symbols={watchlistSymbols}
                 />
-              </>
             )}
           </div>
 
@@ -1049,8 +1044,8 @@ function getWorkspaceModeLabel(mode: WorkspaceMode) {
 }
 
 function clampPanelWidth(value: number, panel: "left" | "right") {
-  const min = panel === "left" ? 220 : 320;
-  const max = panel === "left" ? 420 : 520;
+  const min = panel === "left" ? 200 : 320;
+  const max = panel === "left" ? 340 : 520;
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 

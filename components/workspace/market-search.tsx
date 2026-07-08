@@ -44,6 +44,135 @@ export function MarketSearch({
   );
 }
 
+export function WorkspaceMarketsPanel({
+  symbols,
+  selectedSymbol,
+  onSelect,
+  onAdd,
+  onRemove,
+}: {
+  symbols: CoinSymbol[];
+  selectedSymbol: CoinSymbol;
+  onSelect: (symbol: CoinSymbol) => void;
+  onAdd: (symbol: CoinSymbol) => void;
+  onRemove: (symbol: CoinSymbol) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const results = useMemo(() => searchMarketAssets(query).slice(0, 6), [query]);
+
+  const selectSymbol = (symbol: CoinSymbol) => {
+    onAdd(symbol);
+    onSelect(symbol);
+    setQuery("");
+    setOpen(false);
+  };
+
+  return (
+    <Panel className="overflow-visible">
+      <div className="border-b border-white/10 px-4 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-300/75">
+          Markets
+        </p>
+        <div className="relative mt-3">
+          <label className="flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-surface-950/65 px-3 text-sm text-slate-400 transition focus-within:border-mint-300/35">
+            <Search className="size-4" aria-hidden="true" />
+            <input
+              className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
+              onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setOpen(true);
+              }}
+              onFocus={() => setOpen(true)}
+              placeholder="Search symbol"
+              value={query}
+            />
+          </label>
+          {open && query.trim().length > 0 ? (
+            <div className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-lg border border-white/10 bg-surface-950 shadow-2xl shadow-black/45">
+              {results.length > 0 ? (
+                results.map((asset) => (
+                  <button
+                    className="grid w-full grid-cols-[1fr_auto] items-center gap-2 border-b border-white/10 px-3 py-2.5 text-left last:border-b-0 hover:bg-white/[0.04]"
+                    key={asset.symbol}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      selectSymbol(asset.symbol);
+                    }}
+                    type="button"
+                  >
+                    <span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-white">{asset.symbol}</span>
+                        <span className="text-[11px] text-slate-500">{asset.assetType}</span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-slate-500">
+                        {asset.name}
+                      </span>
+                    </span>
+                    <span className={asset.change24h >= 0 ? "text-xs font-semibold text-mint-300" : "text-xs font-semibold text-rose-300"}>
+                      {formatPercent(asset.change24h)}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-3 text-xs text-slate-500">No matching markets.</div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="px-4 py-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Watchlist
+          </p>
+          <span className="text-xs text-slate-600">{symbols.length}</span>
+        </div>
+        <div className="space-y-1.5">
+          {symbols.map((symbol) => {
+            const asset = searchMarketAssets(symbol)[0];
+            const selected = selectedSymbol === symbol;
+            return (
+              <div
+                className={`grid grid-cols-[1fr_auto] items-center gap-2 rounded-lg border px-3 py-2.5 transition ${
+                  selected
+                    ? "border-mint-300/20 bg-mint-300/[0.07]"
+                    : "border-white/10 bg-white/[0.025] hover:bg-white/[0.04]"
+                }`}
+                key={symbol}
+              >
+                <button className="min-w-0 text-left" onClick={() => onSelect(symbol)} type="button">
+                  <div className="flex items-center gap-2">
+                    <span className={`size-2 rounded-full ${asset.change24h >= 0 ? "bg-mint-300" : "bg-rose-300"}`} />
+                    <span className="text-sm font-semibold text-white">{asset.symbol}</span>
+                    <span className="truncate text-xs text-slate-500">{asset.name}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-xs">
+                    <span className="font-semibold text-slate-300">{formatCurrency(asset.price)}</span>
+                    <span className={asset.change24h >= 0 ? "text-mint-300" : "text-rose-300"}>
+                      {formatPercent(asset.change24h)}
+                    </span>
+                  </div>
+                </button>
+                <button
+                  className="grid size-7 place-items-center rounded-md border border-white/10 bg-white/[0.035] text-slate-500 transition hover:text-white"
+                  onClick={() => onRemove(symbol)}
+                  title="Remove from watchlist"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 function SearchResult({
   asset,
   onSelect,

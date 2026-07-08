@@ -1,34 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import {
-  CandlestickSeries,
-  ColorType,
-  createChart,
-  LineSeries,
-  LineStyle,
-  type CandlestickData,
-  type IChartApi,
-  type ISeriesApi,
-  type LineData,
-  type Time,
-} from "lightweight-charts";
-import { RotateCcw, Ruler, SlidersHorizontal } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Bell, RotateCcw, Ruler, SlidersHorizontal } from "lucide-react";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
 import { formatCurrency, formatPercent, type AssetQuote, type Candle } from "@/lib/market-data";
 import { type WorkspaceTimeframe } from "@/lib/market-universe";
 import type { SymbolAnalysis } from "@/lib/symbol-analysis-engine";
-import {
-  buildChartIndicatorOverlays,
-  buildChartIntelligenceContext,
-  type ChartOverlayPoint,
-} from "@/lib/chart-overlay-engine";
-import { ChartCrosshair, type ChartCrosshairState } from "@/components/workspace/chart-crosshair";
-import { ChartIndicatorLegend } from "@/components/workspace/chart-indicator-overlays";
-import { ChartTradeLevelsOverlay } from "@/components/workspace/chart-trade-levels";
-import { HermesVisionLabels } from "@/components/workspace/hermes-vision-labels";
 import { HermesVisionPanel } from "@/components/workspace/hermes-vision-panel";
+import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
 import type { HermesVisionResult } from "@/lib/hermes-vision-types";
+import {
+  evaluateHermesAlert,
+  hermesAlertConditionLabels,
+  type HermesAlert,
+  type HermesAlertCondition,
+} from "@/lib/hermes-alerts";
 import { Panel, StatusPill } from "@/components/ui";
 
 export type IndicatorVisibility = {
@@ -37,6 +23,7 @@ export type IndicatorVisibility = {
   macd: boolean;
   ema20: boolean;
   ema50: boolean;
+  sma20: boolean;
   vwap: boolean;
 };
 
@@ -47,19 +34,10 @@ const indicatorLabels: Array<[keyof IndicatorVisibility, string]> = [
   ["macd", "MACD"],
   ["ema20", "EMA 20"],
   ["ema50", "EMA 50"],
+  ["sma20", "SMA 20"],
   ["vwap", "VWAP"],
 ];
-
-type IndicatorPanelState = {
-  volume: IndicatorPanelSetting;
-  rsi: IndicatorPanelSetting;
-  macd: IndicatorPanelSetting;
-};
-
-type IndicatorPanelSetting = {
-  collapsed: boolean;
-  height: number;
-};
+const ALERTS_STORAGE_KEY = "hermes.chart.alerts.v1";
 
 const toolbarTools: Array<{
   tool: ChartDrawingTool;
@@ -111,209 +89,196 @@ export function ProfessionalChart({
   onChartPriceSelect: (price: number) => void;
   onClearDrawings: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const plotRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const ema20Ref = useRef<ISeriesApi<"Line"> | null>(null);
-  const ema50Ref = useRef<ISeriesApi<"Line"> | null>(null);
-  const vwapRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const chartControlsRef = useRef<HTMLDivElement | null>(null);
   const [indicatorMenuOpen, setIndicatorMenuOpen] = useState(false);
   const [drawingMenuOpen, setDrawingMenuOpen] = useState(false);
-  const [crosshair, setCrosshair] = useState<ChartCrosshairState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    price: quote.price,
-    timeLabel: "",
-  });
-  const [indicatorPanels, setIndicatorPanels] = useState<IndicatorPanelState>({
-    volume: { collapsed: false, height: 118 },
-    rsi: { collapsed: false, height: 142 },
-    macd: { collapsed: false, height: 156 },
-  });
-  const priceRange = useMemo(() => getPriceRange(candles, tradeLevels, drawings), [candles, drawings, tradeLevels]);
-  const chartData = useMemo<CandlestickData<Time>[]>(
-    () =>
-      candles.map((candle) => ({
-        time: candle.time as Time,
-        open: candle.open,
-        high: candle.high,
-        low: candle.low,
-        close: candle.close,
-      })),
-    [candles],
-  );
+  const [alertsMenuOpen, setAlertsMenuOpen] = useState(false);
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
+  const [alerts, setAlerts] = useState<HermesAlert[]>([]);
+  const [alertCondition, setAlertCondition] = useState<HermesAlertCondition>("price-above");
+  const [alertValue, setAlertValue] = useState("");
+  const [alertNote, setAlertNote] = useState("");
+  const [alertEnabled, setAlertEnabled] = useState(true);
+  const [alertToast, setAlertToast] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState(0);
   const rsiSeries = useMemo(() => buildRsiSeries(candles), [candles]);
   const macdSeries = useMemo(() => buildMacdSeries(candles), [candles]);
   const volumeSeries = useMemo(() => buildVolumeSeries(candles), [candles]);
-  const indicatorOverlays = useMemo(() => buildChartIndicatorOverlays(candles), [candles]);
-  const chartIntelligenceContext = useMemo(
-    () => buildChartIntelligenceContext({ drawings, tradeLevels }),
-    [drawings, tradeLevels],
-  );
+  const currentRsi = rsiSeries[rsiSeries.length - 1] ?? 50;
+  const currentMacd = macdSeries[macdSeries.length - 1] ?? { macd: 0, signal: 0, histogram: 0 };
+  const previousMacd = macdSeries[macdSeries.length - 2] ?? currentMacd;
+  const currentVolume = volumeSeries[volumeSeries.length - 1] ?? 0;
+  const averageVolume = average(volumeSeries.slice(-20));
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        chartControlsRef.current &&
+        !chartControlsRef.current.contains(event.target as Node)
+      ) {
+        setIndicatorMenuOpen(false);
+        setDrawingMenuOpen(false);
+        setAlertsMenuOpen(false);
+      }
+    };
 
-    const chart = createChart(containerRef.current, {
-      autoSize: true,
-      layout: {
-        background: { type: ColorType.Solid, color: "#070A0F" },
-        textColor: "#8A96A8",
-      },
-      grid: {
-        vertLines: { color: "rgba(255,255,255,0.035)" },
-        horzLines: { color: "rgba(255,255,255,0.055)" },
-      },
-      rightPriceScale: {
-        borderColor: "rgba(255,255,255,0.12)",
-        scaleMargins: { top: 0.08, bottom: 0.08 },
-      },
-      timeScale: {
-        borderColor: "rgba(255,255,255,0.12)",
-        timeVisible: true,
-        secondsVisible: false,
-        barSpacing: 12,
-      },
-      crosshair: {
-        mode: 1,
-        vertLine: { color: "rgba(245,184,75,0.22)" },
-        horzLine: { color: "rgba(245,184,75,0.22)" },
-      },
-    });
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#33D99B",
-      downColor: "#FB7185",
-      borderUpColor: "#79F2C0",
-      borderDownColor: "#FDA4AF",
-      wickUpColor: "#79F2C0",
-      wickDownColor: "#FDA4AF",
-      priceLineColor: "#F5B84B",
-      priceLineWidth: 1,
-    });
-    const ema20 = chart.addSeries(LineSeries, {
-      color: "#79F2C0",
-      lineWidth: 2,
-      lineStyle: LineStyle.Solid,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    const ema50 = chart.addSeries(LineSeries, {
-      color: "#F5B84B",
-      lineWidth: 2,
-      lineStyle: LineStyle.Dashed,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    const vwap = chart.addSeries(LineSeries, {
-      color: "#7DD3FC",
-      lineWidth: 2,
-      lineStyle: LineStyle.Dotted,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
-    chartRef.current = chart;
-    seriesRef.current = series;
-    ema20Ref.current = ema20;
-    ema50Ref.current = ema50;
-    vwapRef.current = vwap;
-    return () => chart.remove();
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
-  useEffect(() => {
-    seriesRef.current?.setData(chartData);
-    chartRef.current?.timeScale().fitContent();
-  }, [chartData]);
-
-  useEffect(() => {
-    ema20Ref.current?.setData(indicators.ema20 ? toLineData(indicatorOverlays.ema20) : []);
-    ema50Ref.current?.setData(indicators.ema50 ? toLineData(indicatorOverlays.ema50) : []);
-    vwapRef.current?.setData(indicators.vwap ? toLineData(indicatorOverlays.vwap) : []);
-  }, [indicatorOverlays, indicators.ema20, indicators.ema50, indicators.vwap]);
-
-  const handleChartClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (selectedTool === "none" || selectedTool === "crosshair" || !plotRef.current) return;
-
-    const rect = plotRef.current.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
-    const price = priceRange.max - ratio * (priceRange.max - priceRange.min);
-    onChartPriceSelect(price);
-  };
-
-  const handleChartHover = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!plotRef.current) return;
-
-    const rect = plotRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
-    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
-    const yRatio = y / rect.height;
-    const xRatio = x / Math.max(rect.width, 1);
-    const price = priceRange.max - yRatio * (priceRange.max - priceRange.min);
-    const candleIndex = Math.max(
-      0,
-      Math.min(candles.length - 1, Math.round(xRatio * Math.max(candles.length - 1, 0))),
-    );
-
-    setCrosshair({
-      visible: true,
-      x,
-      y,
-      price,
-      timeLabel: formatCandleTime(candles[candleIndex]?.time),
-    });
-  };
-
-  const toggleIndicatorPanel = useCallback((panel: keyof IndicatorPanelState) => {
-    setIndicatorPanels((current) => ({
-      ...current,
-      [panel]: {
-        ...current[panel],
-        collapsed: !current[panel].collapsed,
-      },
-    }));
-  }, []);
-
-  const startIndicatorResize = useCallback(
-    (panel: keyof IndicatorPanelState, event: ReactMouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      const startY = event.clientY;
-      const startHeight = indicatorPanels[panel].height;
-
-      const handleMove = (moveEvent: MouseEvent) => {
-        const nextHeight = Math.max(88, Math.min(260, startHeight + moveEvent.clientY - startY));
-        setIndicatorPanels((current) => ({
-          ...current,
-          [panel]: {
-            ...current[panel],
-            height: Math.round(nextHeight),
-          },
-        }));
-      };
-
-      const handleUp = () => {
-        window.removeEventListener("mousemove", handleMove);
-        window.removeEventListener("mouseup", handleUp);
-      };
-
-      window.addEventListener("mousemove", handleMove);
-      window.addEventListener("mouseup", handleUp);
+  const selectDrawingTool = useCallback(
+    (tool: ChartDrawingTool) => {
+      onToolChange(tool);
+      setDrawingMenuOpen(false);
     },
-    [indicatorPanels],
+    [onToolChange],
   );
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(ALERTS_STORAGE_KEY);
+      if (raw) {
+        setAlerts(
+          (JSON.parse(raw) as Array<Omit<HermesAlert, "condition"> & { condition: string }>).map((alert) => ({
+            ...alert,
+            condition:
+              alert.condition === "macd-crossover"
+                ? "macd-bullish-cross"
+                : (alert.condition as HermesAlertCondition),
+          })),
+        );
+      }
+    } catch {
+      setAlerts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(ALERTS_STORAGE_KEY, JSON.stringify(alerts));
+  }, [alerts]);
+
+  useEffect(() => {
+    const snapshot = {
+      price: quote.price,
+      rsi: currentRsi,
+      previousMacd: {
+        line: previousMacd.macd,
+        signal: previousMacd.signal,
+      },
+      macd: {
+        line: currentMacd.macd,
+        signal: currentMacd.signal,
+      },
+      volume: {
+        current: currentVolume,
+        average: averageVolume,
+      },
+    };
+
+    setAlerts((current) => {
+      let changed = false;
+      const next = current.map((alert) => {
+        if (alert.symbol !== quote.symbol || alert.triggeredAt) return alert;
+        const message = evaluateHermesAlert(alert, snapshot);
+        if (!message) return alert;
+        changed = true;
+        setAlertToast(message);
+        return {
+          ...alert,
+          triggeredAt: Date.now(),
+          lastMessage: message,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [averageVolume, currentMacd.macd, currentMacd.signal, currentRsi, currentVolume, previousMacd.macd, previousMacd.signal, quote.price, quote.symbol]);
+
+  useEffect(() => {
+    if (!alertToast) return;
+    const timeout = window.setTimeout(() => setAlertToast(null), 5200);
+    return () => window.clearTimeout(timeout);
+  }, [alertToast]);
+
+  const openCreateAlert = useCallback(() => {
+    setEditingAlertId(null);
+    setAlertCondition("price-above");
+    setAlertValue("");
+    setAlertNote("");
+    setAlertEnabled(true);
+    setAlertModalOpen(true);
+  }, []);
+
+  const openEditAlert = useCallback((alert: HermesAlert) => {
+    setEditingAlertId(alert.id);
+    setAlertCondition(alert.condition);
+    setAlertValue(typeof alert.value === "number" ? String(alert.value) : "");
+    setAlertNote(alert.note ?? "");
+    setAlertEnabled(alert.enabled);
+    setAlertModalOpen(true);
+  }, []);
+
+  const saveAlert = useCallback(() => {
+    const requiresValue =
+      alertCondition === "price-above" ||
+      alertCondition === "price-below" ||
+      alertCondition === "rsi-above" ||
+      alertCondition === "rsi-below";
+    const parsedValue = Number(alertValue);
+
+    if (requiresValue && (!Number.isFinite(parsedValue) || parsedValue <= 0)) return;
+
+    setAlerts((current) => {
+      if (editingAlertId) {
+        return current.map((alert) =>
+          alert.id === editingAlertId
+            ? {
+                ...alert,
+                condition: alertCondition,
+                value: requiresValue ? parsedValue : undefined,
+                note: alertNote.trim() || undefined,
+                enabled: alertEnabled,
+                triggeredAt: undefined,
+                lastMessage: undefined,
+              }
+            : alert,
+        );
+      }
+
+      return [
+        {
+          id: `${quote.symbol}-${alertCondition}-${Date.now()}`,
+          symbol: quote.symbol,
+          condition: alertCondition,
+          value: requiresValue ? parsedValue : undefined,
+          note: alertNote.trim() || undefined,
+          enabled: alertEnabled,
+          createdAt: Date.now(),
+        },
+        ...current,
+      ];
+    });
+    setAlertValue("");
+    setAlertNote("");
+    setAlertEnabled(true);
+    setEditingAlertId(null);
+    setAlertModalOpen(false);
+    setAlertsMenuOpen(true);
+  }, [alertCondition, alertEnabled, alertNote, alertValue, editingAlertId, quote.symbol]);
+
+  const symbolAlerts = alerts.filter((alert) => alert.symbol === quote.symbol);
 
   return (
     <Panel className="min-h-[940px] overflow-hidden">
-      <div className="border-b border-white/10 px-5 py-4">
-        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
+      <div className="border-b border-white/10 px-4 py-3.5 sm:px-5" ref={chartControlsRef}>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mint-300/75">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-300/75">
               Chart Workspace
             </p>
-            <div className="mt-2 flex flex-wrap items-end gap-3">
+            <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
               <h2 className="text-2xl font-semibold tracking-tight text-white">{quote.symbol}</h2>
-              <p className="pb-1 text-sm text-slate-500">{quote.name}</p>
+              <p className="text-sm text-slate-500">{quote.name}</p>
               <StatusPill tone={quote.change24h >= 0 ? "mint" : "danger"}>
                 {formatCurrency(quote.price)} / {formatPercent(quote.change24h)}
               </StatusPill>
@@ -323,7 +288,7 @@ export function ProfessionalChart({
               </StatusPill>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-white/[0.035] p-1">
               {timeframes.map((frame) => (
                 <button
@@ -376,12 +341,15 @@ export function ProfessionalChart({
                       active={selectedTool === tool}
                       key={tool}
                       label={label}
-                      onClick={() => onToolChange(tool as ChartDrawingTool)}
+                      onClick={() => selectDrawingTool(tool as ChartDrawingTool)}
                     />
                   ))}
                   <button
                     className="mt-2 w-full rounded-md border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-left text-xs font-semibold text-rose-200"
-                    onClick={onClearDrawings}
+                    onClick={() => {
+                      onClearDrawings();
+                      setDrawingMenuOpen(false);
+                    }}
                     type="button"
                   >
                     Clear Drawings
@@ -389,9 +357,52 @@ export function ProfessionalChart({
                 </ToggleMenu>
               ) : null}
             </div>
-            <ChartTool label="Reset" icon={<RotateCcw className="size-4" />} onClick={() => chartRef.current?.timeScale().fitContent()} />
+            <div className="relative">
+              <ChartTool label="Alerts" icon={<Bell className="size-4" />} onClick={() => setAlertsMenuOpen((open) => !open)} />
+              {alertsMenuOpen ? (
+                <AlertsMenu
+                  alerts={symbolAlerts}
+                  onCreate={openCreateAlert}
+                  onEdit={openEditAlert}
+                  onRemove={(id) => setAlerts((current) => current.filter((alert) => alert.id !== id))}
+                  onToggle={(id) =>
+                    setAlerts((current) =>
+                      current.map((alert) =>
+                        alert.id === id ? { ...alert, enabled: !alert.enabled } : alert,
+                      ),
+                    )
+                  }
+                />
+              ) : null}
+            </div>
+            <ChartTool
+              label="Reset"
+              icon={<RotateCcw className="size-4" />}
+              onClick={() => {
+                setResetToken((current) => current + 1);
+              }}
+            />
           </div>
         </div>
+        {alertModalOpen ? (
+          <AlertModal
+            condition={alertCondition}
+            editing={Boolean(editingAlertId)}
+            enabled={alertEnabled}
+            note={alertNote}
+            symbol={quote.symbol}
+            value={alertValue}
+            onCancel={() => {
+              setAlertModalOpen(false);
+              setEditingAlertId(null);
+            }}
+            onConditionChange={setAlertCondition}
+            onEnabledChange={setAlertEnabled}
+            onNoteChange={setAlertNote}
+            onSave={saveAlert}
+            onValueChange={setAlertValue}
+          />
+        ) : null}
       </div>
 
       <div className="space-y-3 p-3 sm:p-4">
@@ -402,131 +413,21 @@ export function ProfessionalChart({
             onClearDrawings={onClearDrawings}
             onToolChange={onToolChange}
           />
-          <div
-            className="relative h-[760px] overflow-hidden rounded-lg border border-white/10 bg-[#070A0F] 2xl:h-[820px]"
-            onClick={handleChartClick}
-            onMouseLeave={() => setCrosshair((current) => ({ ...current, visible: false }))}
-            onMouseMove={handleChartHover}
-            ref={plotRef}
-            data-support-count={chartIntelligenceContext.supportLines.length}
-            data-resistance-count={chartIntelligenceContext.resistanceLines.length}
-            data-trend-count={chartIntelligenceContext.trendLines.length}
-          >
-            <div ref={containerRef} className="absolute inset-0" />
-            <HermesChartOverlay analysis={analysis} />
-            <ChartIndicatorLegend indicators={indicators} />
-            <ChartTradeLevelsOverlay
-              drawings={drawings}
-              priceRange={priceRange}
-              tradeLevels={tradeLevels}
-            />
-            <HermesVisionLabels
-              fallbackPrice={quote.price}
-              labels={vision.labels}
-              priceRange={priceRange}
-            />
-            <ChartCrosshair state={crosshair} />
-            {selectedTool !== "none" && selectedTool !== "crosshair" ? (
-              <div className="pointer-events-none absolute bottom-4 left-4 rounded-md border border-amberline/25 bg-surface-950/85 px-3 py-2 text-xs font-semibold text-amberline">
-                Click chart to place {toolLabel(selectedTool)}
-              </div>
-            ) : null}
-          </div>
+          <NativeHermesChart
+            alertToast={alertToast}
+            candles={candles}
+            drawings={drawings}
+            indicators={indicators}
+            resetToken={resetToken}
+            selectedTool={selectedTool}
+            tradeLevels={tradeLevels}
+            visionLabels={vision.labels}
+            onPriceSelect={onChartPriceSelect}
+          />
         </div>
 
-        <div className="space-y-2.5">
-          {indicators.volume ? (
-            <VolumePanel
-              collapsed={indicatorPanels.volume.collapsed}
-              data={volumeSeries}
-              height={indicatorPanels.volume.height}
-              onResizeStart={(event) => startIndicatorResize("volume", event)}
-              onToggle={() => toggleIndicatorPanel("volume")}
-            />
-          ) : null}
-          {indicators.rsi ? (
-            <RsiPanel
-              collapsed={indicatorPanels.rsi.collapsed}
-              data={rsiSeries}
-              height={indicatorPanels.rsi.height}
-              onResizeStart={(event) => startIndicatorResize("rsi", event)}
-              onToggle={() => toggleIndicatorPanel("rsi")}
-            />
-          ) : null}
-          {indicators.macd ? (
-            <MacdPanel
-              collapsed={indicatorPanels.macd.collapsed}
-              data={macdSeries}
-              height={indicatorPanels.macd.height}
-              onResizeStart={(event) => startIndicatorResize("macd", event)}
-              onToggle={() => toggleIndicatorPanel("macd")}
-            />
-          ) : null}
-        </div>
       </div>
     </Panel>
-  );
-}
-
-function ChartLevelOverlay({
-  drawings,
-  tradeLevels,
-  priceRange,
-}: {
-  drawings: ChartDrawing[];
-  tradeLevels: ChartTradeLevels;
-  priceRange: { min: number; max: number };
-}) {
-  const levels = [
-    ...drawings.map((drawing) => ({
-      id: drawing.id,
-      label: getDrawingLabel(drawing.type),
-      price: drawing.price,
-      tone: getDrawingTone(drawing.type),
-      zone: drawing.type === "support-zone" || drawing.type === "resistance-zone" || drawing.type === "rectangle" || drawing.type === "risk-reward",
-    })),
-    tradeLevels.entry ? { id: "entry", label: "Entry", price: tradeLevels.entry, tone: "mint", zone: false } : null,
-    tradeLevels.stop ? { id: "stop", label: "Stop", price: tradeLevels.stop, tone: "rose", zone: false } : null,
-    tradeLevels.target ? { id: "target", label: "Target", price: tradeLevels.target, tone: "gold", zone: false } : null,
-  ].filter(Boolean) as Array<{ id: string; label: string; price: number; tone: string; zone: boolean }>;
-
-  return (
-    <div className="pointer-events-none absolute inset-0">
-      {levels.map((level) => {
-        const top = `${priceToY(level.price, priceRange)}%`;
-        const color = level.tone === "mint" ? "border-mint-300 text-mint-200 bg-mint-300/10" : level.tone === "rose" ? "border-rose-300 text-rose-200 bg-rose-400/10" : "border-amberline text-amber-100 bg-amberline/10";
-        return (
-          <div className="absolute left-0 right-0" key={level.id} style={{ top }}>
-            {level.zone ? <div className={`h-10 -translate-y-5 border-y ${color}`} /> : <div className={`border-t ${color}`} />}
-            <span className={`absolute right-3 -translate-y-1/2 rounded-md border px-2 py-1 text-[11px] font-semibold ${color}`}>
-              {level.label} {formatCurrency(level.price)}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function HermesChartOverlay({ analysis }: { analysis: SymbolAnalysis }) {
-  const signal =
-    analysis.riskLevel === "High"
-      ? "Risk Elevated"
-      : analysis.marketBias === "Bullish"
-        ? "Confirmation Area"
-        : analysis.marketBias === "Bearish"
-          ? "Wait"
-          : "Study Zone";
-
-  return (
-    <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-2">
-      <span className="rounded-md border border-amberline/25 bg-surface-950/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-amberline">
-        {signal}
-      </span>
-      <span className="w-fit rounded-md border border-mint-300/20 bg-surface-950/80 px-3 py-1.5 text-xs font-semibold text-mint-200">
-        {analysis.suggestedAction}
-      </span>
-    </div>
   );
 }
 
@@ -623,201 +524,299 @@ function ToolIcon({ tool }: { tool: ChartDrawingTool }) {
   );
 }
 
-function VolumePanel({
-  data,
-  collapsed,
-  height,
-  onToggle,
-  onResizeStart,
-}: {
-  data: number[];
-  collapsed: boolean;
-  height: number;
-  onToggle: () => void;
-  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-}) {
-  const max = Math.max(...data, 1);
+function ToggleMenu({ children }: { children: ReactNode }) {
   return (
-    <IndicatorShell
-      collapsed={collapsed}
-      height={height}
-      title="Volume"
-      value="Mock participation"
-      onResizeStart={onResizeStart}
-      onToggle={onToggle}
-    >
-      <div className="flex h-full items-end gap-1">
-        {data.map((value, index) => (
-          <div
-            className="flex-1 rounded-t bg-mint-300/45"
-            key={index}
-            style={{ height: `${Math.max(8, (value / max) * 100)}%` }}
-          />
-        ))}
+    <div className="absolute right-0 top-11 z-20 w-52 rounded-lg border border-white/10 bg-surface-950 p-2 shadow-2xl shadow-black/40">
+      {children}
+    </div>
+  );
+}
+
+function AlertsMenu({
+  alerts,
+  onCreate,
+  onEdit,
+  onToggle,
+  onRemove,
+}: {
+  alerts: HermesAlert[];
+  onCreate: () => void;
+  onEdit: (alert: HermesAlert) => void;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const activeAlerts = alerts.filter((alert) => !alert.triggeredAt);
+  const triggeredAlerts = alerts.filter((alert) => alert.triggeredAt);
+
+  return (
+    <div className="absolute right-0 top-11 z-30 w-80 rounded-lg border border-white/10 bg-surface-950 p-3 shadow-2xl shadow-black/45">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amberline/80">Alerts</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Hermes watches paper conditions and reminds you to study, not react.
+          </p>
+        </div>
+        <button
+          className="shrink-0 rounded-lg border border-mint-300/25 bg-mint-300/10 px-3 py-2 text-xs font-semibold text-mint-200 transition hover:bg-mint-300/15"
+          onClick={onCreate}
+          type="button"
+        >
+          Create Alert
+        </button>
       </div>
-    </IndicatorShell>
+      <div className="mt-3 max-h-64 space-y-3 overflow-y-auto pr-1">
+        {alerts.length === 0 ? (
+          <div className="rounded-lg border border-white/10 bg-white/[0.025] px-3 py-3 text-xs leading-5 text-slate-500">
+            No alerts for this symbol yet.
+          </div>
+        ) : (
+          <>
+            <AlertGroup
+              alerts={activeAlerts}
+              empty="No active alerts."
+              title="Active Alerts"
+              onEdit={onEdit}
+              onRemove={onRemove}
+              onToggle={onToggle}
+            />
+            <AlertGroup
+              alerts={triggeredAlerts}
+              empty="No triggered alerts."
+              title="Triggered Alerts"
+              triggered
+              onEdit={onEdit}
+              onRemove={onRemove}
+              onToggle={onToggle}
+            />
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
-function RsiPanel({
-  data,
-  collapsed,
-  height,
+function AlertGroup({
+  title,
+  alerts,
+  empty,
+  triggered = false,
+  onEdit,
   onToggle,
-  onResizeStart,
+  onRemove,
 }: {
-  data: number[];
-  collapsed: boolean;
-  height: number;
-  onToggle: () => void;
-  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+  title: string;
+  alerts: HermesAlert[];
+  empty: string;
+  triggered?: boolean;
+  onEdit: (alert: HermesAlert) => void;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
 }) {
-  const current = data[data.length - 1] ?? 50;
   return (
-    <IndicatorShell
-      collapsed={collapsed}
-      height={height}
-      title="RSI"
-      value={current.toFixed(1)}
-      onResizeStart={onResizeStart}
-      onToggle={onToggle}
-    >
-      <MiniLineChart data={data} min={0} max={100} reference={[70, 30]} color="#F5B84B" />
-    </IndicatorShell>
-  );
-}
-
-function MacdPanel({
-  data,
-  collapsed,
-  height,
-  onToggle,
-  onResizeStart,
-}: {
-  data: { macd: number; signal: number; histogram: number }[];
-  collapsed: boolean;
-  height: number;
-  onToggle: () => void;
-  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-}) {
-  const current = data[data.length - 1] ?? { macd: 0, signal: 0, histogram: 0 };
-  return (
-    <IndicatorShell
-      collapsed={collapsed}
-      height={height}
-      title="MACD"
-      value={`${current.macd.toFixed(2)} / ${current.signal.toFixed(2)}`}
-      onResizeStart={onResizeStart}
-      onToggle={onToggle}
-    >
-      <div className="relative h-full">
-        <div className="absolute inset-x-0 top-1/2 border-t border-white/10" />
-        <div className="absolute inset-0 flex items-center gap-1">
-          {data.map((point, index) => (
-            <div
-              className={`flex-1 rounded-sm ${point.histogram >= 0 ? "bg-mint-300/45" : "bg-rose-300/45"}`}
-              key={index}
-              style={{
-                height: `${Math.max(6, Math.abs(point.histogram) * 28)}px`,
-                transform: point.histogram >= 0 ? "translateY(-35%)" : "translateY(35%)",
-              }}
+    <section>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
+      {alerts.length === 0 ? (
+        <div className="rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-[11px] text-slate-500">
+          {empty}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {alerts.map((alert) => (
+            <AlertRow
+              alert={alert}
+              key={alert.id}
+              triggered={triggered}
+              onEdit={onEdit}
+              onRemove={onRemove}
+              onToggle={onToggle}
             />
           ))}
         </div>
-        <MiniLineChart data={data.map((point) => point.macd)} min={-2.5} max={2.5} color="#79F2C0" overlay />
-        <MiniLineChart data={data.map((point) => point.signal)} min={-2.5} max={2.5} color="#F5B84B" overlay />
-      </div>
-    </IndicatorShell>
-  );
-}
-
-function MiniLineChart({
-  data,
-  min,
-  max,
-  color,
-  reference = [],
-  overlay = false,
-}: {
-  data: number[];
-  min: number;
-  max: number;
-  color: string;
-  reference?: number[];
-  overlay?: boolean;
-}) {
-  const points = data
-    .map((value, index) => {
-      const x = data.length <= 1 ? 0 : (index / (data.length - 1)) * 100;
-      const y = 100 - ((value - min) / (max - min)) * 100;
-      return `${x},${Math.max(0, Math.min(100, y))}`;
-    })
-    .join(" ");
-
-  return (
-    <svg className={overlay ? "absolute inset-0 h-full w-full" : "h-full w-full"} preserveAspectRatio="none" viewBox="0 0 100 100">
-      {reference.map((value) => {
-        const y = 100 - ((value - min) / (max - min)) * 100;
-        return <line key={value} x1="0" x2="100" y1={y} y2={y} stroke="rgba(255,255,255,0.16)" strokeDasharray="4 4" />;
-      })}
-      <polyline fill="none" points={points} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
-
-function IndicatorShell({
-  title,
-  value,
-  children,
-  collapsed,
-  height,
-  onToggle,
-  onResizeStart,
-}: {
-  title: string;
-  value: string;
-  children: ReactNode;
-  collapsed: boolean;
-  height: number;
-  onToggle: () => void;
-  onResizeStart: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <section className="relative rounded-lg border border-white/10 bg-[#070A0F] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
-        <div className="flex items-center gap-3">
-          <p className="text-sm font-semibold text-slate-200">{value}</p>
-          <button
-            className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1 text-[11px] font-semibold text-slate-400 transition hover:text-white"
-            onClick={onToggle}
-            type="button"
-          >
-            {collapsed ? "Show" : "Hide"}
-          </button>
-        </div>
-      </div>
-      {collapsed ? null : (
-        <>
-          <div className="mt-3" style={{ height }}>
-            {children}
-          </div>
-          <button
-            className="absolute inset-x-4 bottom-1 h-2 cursor-row-resize rounded-full bg-white/[0.035] opacity-70 transition hover:bg-amberline/25"
-            onMouseDown={onResizeStart}
-            type="button"
-            aria-label={`Resize ${title} panel`}
-          />
-        </>
       )}
     </section>
   );
 }
 
-function ToggleMenu({ children }: { children: ReactNode }) {
+function AlertRow({
+  alert,
+  triggered,
+  onEdit,
+  onToggle,
+  onRemove,
+}: {
+  alert: HermesAlert;
+  triggered: boolean;
+  onEdit: (alert: HermesAlert) => void;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
   return (
-    <div className="absolute right-0 top-11 z-20 w-52 rounded-lg border border-white/10 bg-surface-950 p-2 shadow-2xl shadow-black/40">
-      {children}
+    <div
+      className={`rounded-lg border px-3 py-2.5 ${
+        triggered ? "border-amberline/25 bg-amberline/[0.08]" : "border-white/10 bg-white/[0.025]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold text-white">
+            {hermesAlertConditionLabels[alert.condition]}
+            {typeof alert.value === "number" ? ` ${alert.value}` : ""}
+          </p>
+          <p className="mt-1 text-[11px] leading-4 text-slate-500">
+            {alert.lastMessage ?? alert.note ?? "Hermes will watch this condition."}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <button
+            className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${
+              alert.enabled
+                ? "border-mint-300/20 bg-mint-300/10 text-mint-200"
+                : "border-white/10 bg-white/[0.035] text-slate-500"
+            }`}
+            onClick={() => onToggle(alert.id)}
+            type="button"
+          >
+            {alert.enabled ? "On" : "Off"}
+          </button>
+          <button
+            className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-white"
+            onClick={() => onEdit(alert)}
+            type="button"
+          >
+            Edit
+          </button>
+          <button
+            aria-label="Delete alert"
+            className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-white"
+            onClick={() => onRemove(alert.id)}
+            type="button"
+          >
+            X
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AlertModal({
+  symbol,
+  condition,
+  value,
+  note,
+  enabled,
+  editing,
+  onConditionChange,
+  onValueChange,
+  onNoteChange,
+  onEnabledChange,
+  onCancel,
+  onSave,
+}: {
+  symbol: string;
+  condition: HermesAlertCondition;
+  value: string;
+  note: string;
+  enabled: boolean;
+  editing: boolean;
+  onConditionChange: (condition: HermesAlertCondition) => void;
+  onValueChange: (value: string) => void;
+  onNoteChange: (value: string) => void;
+  onEnabledChange: (enabled: boolean) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  const needsValue =
+    condition === "price-above" ||
+    condition === "price-below" ||
+    condition === "rsi-above" ||
+    condition === "rsi-below";
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/55 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-xl border border-white/10 bg-surface-950 p-5 shadow-2xl shadow-black/50">
+        <div className="mb-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amberline/80">
+            {editing ? "Edit Alert" : "Create Alert"}
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-white">Hermes Alert</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Rule-based paper alerts only. Hermes reminds you to review context before acting.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Symbol</span>
+            <input
+              className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 text-sm font-semibold text-white outline-none"
+              readOnly
+              value={symbol}
+            />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Condition</span>
+            <select
+              className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-surface-950 px-3 text-sm text-white outline-none"
+              onChange={(event) => onConditionChange(event.target.value as HermesAlertCondition)}
+              value={condition}
+            >
+              {Object.entries(hermesAlertConditionLabels).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {needsValue ? (
+            <label className="block">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Value</span>
+              <input
+                className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-surface-950 px-3 text-sm font-semibold text-white outline-none placeholder:text-slate-600"
+                inputMode="decimal"
+                onChange={(event) => onValueChange(event.target.value)}
+                placeholder={condition.startsWith("rsi") ? "70" : "Price level"}
+                type="number"
+                value={value}
+              />
+            </label>
+          ) : null}
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Optional note</span>
+            <input
+              className="mt-1 h-10 w-full rounded-lg border border-white/10 bg-surface-950 px-3 text-sm text-white outline-none placeholder:text-slate-600"
+              onChange={(event) => onNoteChange(event.target.value)}
+              placeholder="Example: BTC crossed planned resistance."
+              value={note}
+            />
+          </label>
+          <label className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-xs font-semibold text-slate-300">
+            Enabled
+            <input
+              checked={enabled}
+              className="accent-mint-300"
+              onChange={(event) => onEnabledChange(event.target.checked)}
+              type="checkbox"
+            />
+          </label>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            className="rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-lg border border-mint-300/25 bg-mint-300/10 px-4 py-2 text-xs font-semibold text-mint-200 transition hover:bg-mint-300/15"
+            onClick={onSave}
+            type="button"
+          >
+            Save Alert
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -866,44 +865,13 @@ function ChartTool({
   );
 }
 
-function getPriceRange(candles: Candle[], tradeLevels: ChartTradeLevels, drawings: ChartDrawing[]) {
-  const values = [
-    ...candles.flatMap((candle) => [candle.high, candle.low]),
-    ...drawings.map((drawing) => drawing.price),
-    tradeLevels.entry,
-    tradeLevels.stop,
-    tradeLevels.target,
-  ].filter((value): value is number => Number.isFinite(value));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const padding = (max - min) * 0.08 || max * 0.01;
-  return { min: min - padding, max: max + padding };
-}
-
-function toLineData(points: ChartOverlayPoint[]): LineData<Time>[] {
-  return points.map((point) => ({
-    time: point.time as Time,
-    value: point.value,
-  }));
-}
-
-function formatCandleTime(time?: number) {
-  if (!time) return "";
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(time * 1000));
-}
-
-function priceToY(price: number, range: { min: number; max: number }) {
-  return 100 - ((price - range.min) / (range.max - range.min)) * 100;
-}
-
 function buildVolumeSeries(candles: Candle[]) {
   return candles.map((candle, index) => Math.abs(candle.close - candle.open) * 1000 + 40 + (index % 7) * 12);
+}
+
+function average(values: number[]) {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function buildRsiSeries(candles: Candle[]) {
@@ -920,39 +888,4 @@ function buildMacdSeries(candles: Candle[]) {
     const signal = Math.sin(index * 0.22 - 0.5) * 1.1;
     return { macd, signal, histogram: macd - signal };
   });
-}
-
-function toolLabel(tool: ChartDrawingTool) {
-  if (tool === "crosshair") return "Crosshair";
-  if (tool === "horizontal-line") return "Horizontal Line";
-  if (tool === "trend-line") return "Trend Line";
-  if (tool === "ray") return "Ray";
-  if (tool === "rectangle") return "Rectangle";
-  if (tool === "support-zone") return "Support Zone";
-  if (tool === "resistance-zone") return "Resistance Zone";
-  if (tool === "risk-reward") return "Risk/Reward Tool";
-  if (tool === "text-note") return "Text Note";
-  if (tool === "erase") return "Nearest Drawing to Erase";
-  if (tool === "entry") return "Entry";
-  if (tool === "stop") return "Stop";
-  if (tool === "target") return "Target";
-  return "Tool";
-}
-
-function getDrawingLabel(type: ChartDrawing["type"]) {
-  if (type === "support-zone") return "Support Zone";
-  if (type === "resistance-zone") return "Resistance Zone";
-  if (type === "trend-line") return "Trend";
-  if (type === "ray") return "Ray";
-  if (type === "rectangle") return "Rectangle";
-  if (type === "risk-reward") return "Risk / Reward";
-  if (type === "text-note") return "Note";
-  return "Line";
-}
-
-function getDrawingTone(type: ChartDrawing["type"]) {
-  if (type === "resistance-zone") return "rose";
-  if (type === "support-zone") return "mint";
-  if (type === "risk-reward") return "mint";
-  return "gold";
 }

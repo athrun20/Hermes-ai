@@ -48,17 +48,36 @@ export type HermesVisionLabel = {
   priority: number;
 };
 
+export type HermesVisionDimension =
+  | "Structure"
+  | "Trend"
+  | "Momentum"
+  | "Volume"
+  | "Confirmation"
+  | "Risk";
+
+export type HermesVisionDimensionScore = {
+  dimension: HermesVisionDimension;
+  score: number;
+  verdict: "Strong" | "Constructive" | "Developing" | "Weak" | "Undefined";
+  reasons: string[];
+};
+
 export type HermesVisionResult = {
   kind: "hermes-vision";
   symbol: CoinSymbol;
   primaryInsight: string;
   setupStructureScore: number;
+  trendScore: number;
+  momentumScore: number;
+  volumeScore: number;
   riskScore: number;
   confirmationScore: number;
   confidenceAdjustment: number;
   suggestedAction: HermesVisionAction;
   labels: HermesVisionLabel[];
   reasons: string[];
+  dimensions: HermesVisionDimensionScore[];
   caution: {
     active: boolean;
     message: string;
