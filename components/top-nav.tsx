@@ -7,6 +7,7 @@ export function TopNav() {
   const pathname = usePathname();
   const navItems = [
     { label: "Dashboard", href: "/" },
+    { label: "Paper Trading", href: "/paper-trading" },
     { label: "Morning Briefing", href: "/morning-briefing" },
     { label: "Opportunity Scanner", href: "/opportunity-scanner" },
     { label: "Learning Journey", href: "/learning-journey" },

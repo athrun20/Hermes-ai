@@ -1,25 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { EquityCurve } from "@/components/equity-curve";
-import { HermesBrainSummary } from "@/components/hermes-brain-summary";
-import { HermesCoach } from "@/components/hermes-coach";
 import { HermesDecisionReview } from "@/components/hermes-decision-review";
-import { HermesIntelligencePanel } from "@/components/hermes-intelligence-panel";
+import { NewsIntelligencePanel } from "@/components/news-intelligence-panel";
 import { WorkspaceMarketsPanel } from "@/components/workspace/market-search";
-import { OpenPositions } from "@/components/open-positions";
-import { PaperPortfolio } from "@/components/paper-portfolio";
-import { PerformanceDashboard } from "@/components/performance-dashboard";
+import { buildNewsCatalystMarker } from "@/components/workspace/news-catalyst-marker";
 import { FloatingAnalysis } from "@/components/workspace/floating-analysis";
 import { FloatingTradePlan } from "@/components/workspace/floating-trade-plan";
 import { ProfessionalChart, type IndicatorVisibility } from "@/components/workspace/professional-chart";
-import { SettingsPanel } from "@/components/settings-panel";
 import { TopNav } from "@/components/top-nav";
 import { type TradeTicket } from "@/components/trade-controls";
-import { TradeHistory } from "@/components/trade-history";
-import { TradeJournal } from "@/components/trade-journal";
-import { TradePlan } from "@/components/trade-plan";
-import { TraderDna } from "@/components/trader-dna";
 import {
   analyzeMarket,
   type AssetQuote,
@@ -37,7 +27,11 @@ import { analyzeWorkspaceSymbol, quoteToOpportunityInputs } from "@/lib/symbol-a
 import { buildHermesVisionContext } from "@/lib/chart-context-builder";
 import { analyzeHermesVision } from "@/lib/hermes-vision-engine";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
-import { buildHermesIntelligence } from "@/lib/hermes-intelligence";
+import {
+  hermesAlertConditionLabels,
+  type HermesAlert,
+  type HermesAlertCondition,
+} from "@/lib/hermes-alerts";
 import { reviewPaperTradeDecision } from "@/lib/decision-engine";
 import type { DecisionReviewTicket } from "@/lib/decision-types";
 import {
@@ -65,11 +59,10 @@ import {
   updateMemory,
 } from "@/lib/hermes-memory";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
+import { buildNewsIntelligence } from "@/lib/news-intelligence-engine";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import {
   DEFAULT_SETTINGS,
-  buildEquityCurve,
-  buildPerformanceStats,
   buildPortfolioSnapshot,
   closePosition,
   STARTING_BALANCE,
@@ -116,6 +109,7 @@ export function HermesDashboard() {
   >({});
   const [marketsCollapsed, setMarketsCollapsed] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("full");
+  const [rightTab, setRightTab] = useState<RightSidebarTab>("hermes");
   const [panelWidths, setPanelWidths] = useState({
     left: 236,
     right: 360,
@@ -147,19 +141,6 @@ export function HermesDashboard() {
   const portfolio = useMemo(
     () => buildPortfolioSnapshot({ cash, positions, prices: priceMap, history }),
     [cash, history, positions, priceMap],
-  );
-  const performance = useMemo(() => buildPerformanceStats(history), [history]);
-  const equityCurve = useMemo(
-    () => buildEquityCurve(history, portfolio.equity),
-    [history, portfolio.equity],
-  );
-  const intelligence = useMemo(
-    () =>
-      buildHermesIntelligence({
-        quote: selectedQuote,
-        journalEntries,
-      }),
-    [journalEntries, selectedQuote],
   );
   const brainPortfolio = useMemo(
     () =>
@@ -246,6 +227,10 @@ export function HermesDashboard() {
     () => analyzeWorkspaceSymbol({ asset: getMarketAsset(selectedQuote.symbol), candles }),
     [candles, selectedQuote.symbol],
   );
+  const newsIntelligence = useMemo(
+    () => buildNewsIntelligence(selectedQuote.symbol),
+    [selectedQuote.symbol],
+  );
   const dailyScroll = useMemo(
     () =>
       generateDailyScroll({
@@ -300,6 +285,18 @@ export function HermesDashboard() {
       workspaceAnalysis,
     ],
   );
+  const newsCatalystMarker = useMemo(
+    () => buildNewsCatalystMarker({ candles, news: newsIntelligence }),
+    [candles, newsIntelligence],
+  );
+  const chartNewsKeywords = useMemo(
+    () => newsIntelligence.detectedKeywords.map((match) => match.keyword),
+    [newsIntelligence.detectedKeywords],
+  );
+  const tradePlanCaution = useMemo(() => {
+    if (newsIntelligence.riskCaution.active) return newsIntelligence.riskCaution;
+    return hermesVision.caution;
+  }, [hermesVision.caution, newsIntelligence.riskCaution]);
   const decisionReview = useMemo(
     () =>
       pendingDecisionTicket
@@ -883,8 +880,10 @@ export function HermesDashboard() {
             <ProfessionalChart
               analysis={workspaceAnalysis}
               candles={candles}
+              chartLabels={newsCatalystMarker ? [newsCatalystMarker, ...hermesVision.labels] : hermesVision.labels}
               drawings={selectedChartDrawings}
               indicators={indicators}
+              newsKeywords={chartNewsKeywords}
               quote={selectedQuote}
               selectedTool={selectedChartTool}
               timeframe={timeframe}
@@ -896,27 +895,32 @@ export function HermesDashboard() {
               onToolChange={setSelectedChartTool}
               onToggleIndicator={toggleIndicator}
             />
-            <div className="grid gap-4 pt-1 lg:grid-cols-2">
-              <PaperPortfolio snapshot={portfolio} />
-              <TradeHistory history={history.slice(0, 6)} />
-            </div>
           </div>
 
           {workspaceMode !== "chart-only" ? (
             <>
               <ResizeHandle onMouseDown={(event) => startPanelResize("right", event)} />
               <div className="min-w-0 space-y-3">
-                <FloatingAnalysis analysis={workspaceAnalysis} />
-                {workspaceMode === "full" ? (
+                <RightSidebarTabs activeTab={rightTab} onTabChange={setRightTab} />
+                {rightTab === "hermes" ? (
+                  <FloatingAnalysis analysis={workspaceAnalysis} />
+                ) : null}
+                {rightTab === "trade-plan" ? (
                   <FloatingTradePlan
                     buyingPower={portfolio.buyingPower}
                     opportunity={selectedOpportunity}
                     quote={selectedQuote}
                     chartLevels={selectedChartTradeLevels}
                     statusMessage={tradePlanMessage}
-                    visionCaution={hermesVision.caution}
+                    visionCaution={tradePlanCaution}
                     onSubmit={handlePaperTicket}
                   />
+                ) : null}
+                {rightTab === "news" ? (
+                  <NewsIntelligencePanel intelligence={newsIntelligence} />
+                ) : null}
+                {rightTab === "alerts" ? (
+                  <SidebarAlertsPanel symbol={selectedSymbol} />
                 ) : null}
               </div>
             </>
@@ -929,6 +933,227 @@ export function HermesDashboard() {
 
 function createBrowserSafeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+type RightSidebarTab = "hermes" | "trade-plan" | "news" | "alerts";
+
+function RightSidebarTabs({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: RightSidebarTab;
+  onTabChange: (tab: RightSidebarTab) => void;
+}) {
+  const tabs: Array<{ id: RightSidebarTab; label: string }> = [
+    { id: "hermes", label: "Hermes" },
+    { id: "trade-plan", label: "Trade Plan" },
+    { id: "news", label: "News" },
+    { id: "alerts", label: "Alerts" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
+      {tabs.map((tab) => (
+        <button
+          className={`rounded-md px-3 py-2 text-xs font-semibold transition ${
+            activeTab === tab.id
+              ? "bg-white/10 text-white shadow-insetPanel"
+              : "text-slate-500 hover:bg-white/[0.045] hover:text-slate-200"
+          }`}
+          key={tab.id}
+          onClick={() => onTabChange(tab.id)}
+          type="button"
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const DASHBOARD_ALERTS_STORAGE_KEY = "hermes.chart.alerts.v1";
+
+function SidebarAlertsPanel({ symbol }: { symbol: CoinSymbol }) {
+  const [alerts, setAlerts] = useState<HermesAlert[]>([]);
+  const [condition, setCondition] = useState<HermesAlertCondition>("price-above");
+  const [value, setValue] = useState("");
+  const [note, setNote] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(DASHBOARD_ALERTS_STORAGE_KEY);
+      if (raw) setAlerts(JSON.parse(raw) as HermesAlert[]);
+    } catch {
+      setAlerts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(DASHBOARD_ALERTS_STORAGE_KEY, JSON.stringify(alerts));
+  }, [alerts]);
+
+  const symbolAlerts = alerts.filter((alert) => alert.symbol === symbol);
+  const activeAlerts = symbolAlerts.filter((alert) => !alert.triggeredAt);
+  const triggeredAlerts = symbolAlerts.filter((alert) => alert.triggeredAt);
+  const needsValue = condition === "price-above" || condition === "price-below" || condition === "rsi-above" || condition === "rsi-below";
+
+  const saveAlert = () => {
+    const parsedValue = Number(value);
+    if (needsValue && (!Number.isFinite(parsedValue) || parsedValue <= 0)) return;
+    setAlerts((current) => [
+      {
+        id: `${symbol}-${condition}-${Date.now()}`,
+        symbol,
+        condition,
+        value: needsValue ? parsedValue : undefined,
+        note: note.trim() || undefined,
+        enabled: true,
+        createdAt: Date.now(),
+      },
+      ...current,
+    ]);
+    setValue("");
+    setNote("");
+    setCreating(false);
+  };
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-surface-950/60 p-4 shadow-xl shadow-black/15">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amberline/80">
+            Alerts
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">{symbol} Watch</h2>
+        </div>
+        <button
+          className="rounded-lg border border-mint-300/25 bg-mint-300/10 px-3 py-2 text-xs font-semibold text-mint-200 transition hover:bg-mint-300/15"
+          onClick={() => setCreating((current) => !current)}
+          type="button"
+        >
+          Create Alert
+        </button>
+      </div>
+
+      {creating ? (
+        <div className="mt-4 space-y-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <select
+            className="h-10 w-full rounded-lg border border-white/10 bg-surface-950 px-3 text-sm text-white outline-none"
+            onChange={(event) => setCondition(event.target.value as HermesAlertCondition)}
+            value={condition}
+          >
+            {Object.entries(hermesAlertConditionLabels).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {needsValue ? (
+            <input
+              className="h-10 w-full rounded-lg border border-white/10 bg-surface-950 px-3 text-sm text-white outline-none placeholder:text-slate-600"
+              inputMode="decimal"
+              onChange={(event) => setValue(event.target.value)}
+              placeholder={condition.startsWith("rsi") ? "70" : "Price level"}
+              type="number"
+              value={value}
+            />
+          ) : null}
+          <input
+            className="h-10 w-full rounded-lg border border-white/10 bg-surface-950 px-3 text-sm text-white outline-none placeholder:text-slate-600"
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Optional mentor note"
+            value={note}
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300"
+              onClick={() => setCreating(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-lg border border-mint-300/25 bg-mint-300/10 px-3 py-2 text-xs font-semibold text-mint-200"
+              onClick={saveAlert}
+              type="button"
+            >
+              Save Alert
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <AlertList
+        alerts={activeAlerts}
+        empty="No active alerts for this symbol."
+        title="Active Alerts"
+        onDelete={(id) => setAlerts((current) => current.filter((alert) => alert.id !== id))}
+      />
+      <AlertList
+        alerts={triggeredAlerts}
+        empty="No triggered alerts."
+        title="Triggered Alerts"
+        triggered
+        onDelete={(id) => setAlerts((current) => current.filter((alert) => alert.id !== id))}
+      />
+    </div>
+  );
+}
+
+function AlertList({
+  title,
+  alerts,
+  empty,
+  triggered = false,
+  onDelete,
+}: {
+  title: string;
+  alerts: HermesAlert[];
+  empty: string;
+  triggered?: boolean;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="mt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
+      <div className="mt-2 space-y-2">
+        {alerts.length === 0 ? (
+          <div className="rounded-lg border border-white/10 bg-white/[0.025] px-3 py-3 text-xs text-slate-500">
+            {empty}
+          </div>
+        ) : (
+          alerts.map((alert) => (
+            <div
+              className={`rounded-lg border px-3 py-2.5 ${
+                triggered ? "border-amberline/25 bg-amberline/[0.08]" : "border-white/10 bg-white/[0.03]"
+              }`}
+              key={alert.id}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-white">
+                    {hermesAlertConditionLabels[alert.condition]}
+                    {typeof alert.value === "number" ? ` ${alert.value}` : ""}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                    {alert.lastMessage ?? alert.note ?? "Hermes will watch this condition."}
+                  </p>
+                </div>
+                <button
+                  className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-1 text-[11px] font-semibold text-slate-500 hover:text-white"
+                  onClick={() => onDelete(alert.id)}
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
 }
 
 function normalizeDecisionMood(value: string) {

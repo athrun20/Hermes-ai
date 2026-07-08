@@ -8,7 +8,7 @@ import { type WorkspaceTimeframe } from "@/lib/market-universe";
 import type { SymbolAnalysis } from "@/lib/symbol-analysis-engine";
 import { HermesVisionPanel } from "@/components/workspace/hermes-vision-panel";
 import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
-import type { HermesVisionResult } from "@/lib/hermes-vision-types";
+import type { HermesVisionLabel, HermesVisionResult } from "@/lib/hermes-vision-types";
 import {
   evaluateHermesAlert,
   hermesAlertConditionLabels,
@@ -68,6 +68,8 @@ export function ProfessionalChart({
   selectedTool,
   analysis,
   vision,
+  chartLabels,
+  newsKeywords = [],
   onTimeframeChange,
   onToggleIndicator,
   onToolChange,
@@ -83,6 +85,8 @@ export function ProfessionalChart({
   selectedTool: ChartDrawingTool;
   analysis: SymbolAnalysis;
   vision: HermesVisionResult;
+  chartLabels?: HermesVisionLabel[];
+  newsKeywords?: string[];
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
   onToggleIndicator: (indicator: keyof IndicatorVisibility) => void;
   onToolChange: (tool: ChartDrawingTool) => void;
@@ -174,6 +178,7 @@ export function ProfessionalChart({
         current: currentVolume,
         average: averageVolume,
       },
+      newsKeywords,
     };
 
     setAlerts((current) => {
@@ -192,7 +197,7 @@ export function ProfessionalChart({
       });
       return changed ? next : current;
     });
-  }, [averageVolume, currentMacd.macd, currentMacd.signal, currentRsi, currentVolume, previousMacd.macd, previousMacd.signal, quote.price, quote.symbol]);
+  }, [averageVolume, currentMacd.macd, currentMacd.signal, currentRsi, currentVolume, newsKeywords, previousMacd.macd, previousMacd.signal, quote.price, quote.symbol]);
 
   useEffect(() => {
     if (!alertToast) return;
@@ -421,7 +426,7 @@ export function ProfessionalChart({
             resetToken={resetToken}
             selectedTool={selectedTool}
             tradeLevels={tradeLevels}
-            visionLabels={vision.labels}
+            visionLabels={chartLabels ?? vision.labels}
             onPriceSelect={onChartPriceSelect}
           />
         </div>

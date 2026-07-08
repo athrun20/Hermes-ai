@@ -1,4 +1,5 @@
 import type { CoinSymbol } from "@/lib/market-data";
+import type { NewsKeywordAlert } from "@/lib/news-types";
 
 export type HermesAlertCondition =
   | "price-above"
@@ -7,7 +8,8 @@ export type HermesAlertCondition =
   | "rsi-below"
   | "macd-bullish-cross"
   | "macd-bearish-cross"
-  | "volume-spike";
+  | "volume-spike"
+  | `news-${NewsKeywordAlert}`;
 
 export type HermesAlert = {
   id: string;
@@ -36,6 +38,7 @@ export type HermesAlertSnapshot = {
     current: number;
     average: number;
   };
+  newsKeywords?: string[];
 };
 
 export const hermesAlertConditionLabels: Record<HermesAlertCondition, string> = {
@@ -46,6 +49,13 @@ export const hermesAlertConditionLabels: Record<HermesAlertCondition, string> = 
   "macd-bullish-cross": "MACD bullish cross",
   "macd-bearish-cross": "MACD bearish cross",
   "volume-spike": "Volume spike",
+  "news-fda-approval": "News: FDA approval",
+  "news-acquisition": "News: acquisition",
+  "news-offering": "News: offering",
+  "news-earnings": "News: earnings",
+  "news-upgrade": "News: upgrade",
+  "news-downgrade": "News: downgrade",
+  "news-lawsuit": "News: lawsuit",
 };
 
 export function evaluateHermesAlert(alert: HermesAlert, snapshot: HermesAlertSnapshot) {
@@ -67,7 +77,9 @@ export function evaluateHermesAlert(alert: HermesAlert, snapshot: HermesAlertSna
               : alert.condition === "macd-bearish-cross"
                 ? snapshot.previousMacd.line >= snapshot.previousMacd.signal &&
                   snapshot.macd.line < snapshot.macd.signal
-                : snapshot.volume.current >= snapshot.volume.average * 1.18;
+                : alert.condition === "volume-spike"
+                  ? snapshot.volume.current >= snapshot.volume.average * 1.18
+                  : matchesNewsKeyword(alert.condition, snapshot.newsKeywords ?? []);
 
   if (!triggered) return null;
   return buildAlertMessage(alert, snapshot);
@@ -100,5 +112,15 @@ function buildAlertMessage(alert: HermesAlert, snapshot: HermesAlertSnapshot) {
     return "MACD crossed downward. Momentum is cooling; let structure guide the next decision.";
   }
 
+  if (alert.condition.startsWith("news-")) {
+    return `${alert.symbol} news keyword detected. Study the catalyst, then wait for price and volume confirmation.`;
+  }
+
   return "Volume expanded. Confirmation may be developing.";
+}
+
+function matchesNewsKeyword(condition: HermesAlertCondition, keywords: string[]) {
+  if (!condition.startsWith("news-")) return false;
+  const target = condition.replace("news-", "").replaceAll("-", " ");
+  return keywords.some((keyword) => keyword.toLowerCase().includes(target));
 }

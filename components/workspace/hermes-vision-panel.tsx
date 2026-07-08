@@ -1,7 +1,21 @@
+"use client";
+
+import { useState } from "react";
 import type { HermesVisionResult } from "@/lib/hermes-vision-types";
 import { ProgressBar, StatusPill } from "@/components/ui";
 
 export function HermesVisionPanel({ vision }: { vision: HermesVisionResult }) {
+  const [expanded, setExpanded] = useState(false);
+  const overallScore = Math.round(
+    (vision.setupStructureScore +
+      vision.trendScore +
+      vision.momentumScore +
+      vision.volumeScore +
+      vision.confirmationScore +
+      vision.riskScore) /
+      6,
+  );
+
   return (
     <section className="rounded-lg border border-white/10 bg-surface-950/55 p-3 shadow-inner shadow-black/10">
       <div className="flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
@@ -14,24 +28,36 @@ export function HermesVisionPanel({ vision }: { vision: HermesVisionResult }) {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <StatusPill tone={overallScore >= 70 ? "mint" : overallScore >= 50 ? "gold" : "danger"}>
+            Score {overallScore}
+          </StatusPill>
           <ImpactPill value={vision.confidenceAdjustment} />
           <StatusPill tone={getActionTone(vision.suggestedAction)}>
             {vision.suggestedAction}
           </StatusPill>
+          <button
+            className="rounded-md border border-white/10 bg-white/[0.035] px-2.5 py-1 text-xs font-semibold text-slate-300 transition hover:text-white"
+            onClick={() => setExpanded((current) => !current)}
+            type="button"
+          >
+            {expanded ? "Collapse Vision" : "Expand Vision"}
+          </button>
         </div>
       </div>
 
-      <div className="mt-3 grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
-        {vision.dimensions.map((dimension) => (
-          <ScoreRead
-            key={dimension.dimension}
-            label={dimension.dimension}
-            score={dimension.score}
-            verdict={dimension.verdict}
-            reason={dimension.reasons[0]}
-          />
-        ))}
-      </div>
+      {expanded ? (
+        <div className="mt-3 grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+          {vision.dimensions.map((dimension) => (
+            <ScoreRead
+              key={dimension.dimension}
+              label={dimension.dimension}
+              score={dimension.score}
+              verdict={dimension.verdict}
+              reason={dimension.reasons[0]}
+            />
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
