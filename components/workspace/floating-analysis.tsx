@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronUp, Minimize2 } from "lucide-react";
 import { formatCurrency } from "@/lib/market-data";
 import type { SymbolAnalysis } from "@/lib/symbol-analysis-engine";
@@ -11,16 +11,15 @@ import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { HermesMemorySnapshot, PeriodInsight, TradingPersonalityProfile } from "@/lib/hermes-memory";
 import type { ClosedTrade } from "@/lib/paper-trading";
-import type { HermesVisionResult } from "@/lib/hermes-vision-types";
+import { HermesLiveTimelinePanel } from "@/components/workspace/timeline-panel";
+import type { HermesLiveIntelligence } from "@/lib/hermes-live-engine";
 import {
-  buildHermesTimeline,
   buildRiskMeter,
   buildSessionReport,
   buildSmartMarketEvents,
   buildTraderDnaEvolution,
   buildWeeklyMentorReview,
   buildWeightedConfidenceEngine,
-  type HermesTimelineItem,
   type MentorReport,
   type RiskMeterResult,
   type SmartMarketEvent,
@@ -34,7 +33,7 @@ export function FloatingAnalysis({
   analysis,
   hermesScore,
   newsIntelligence,
-  vision,
+  liveIntelligence,
   memory,
   weeklyInsights,
   tradingPersonality,
@@ -43,7 +42,7 @@ export function FloatingAnalysis({
   analysis: SymbolAnalysis;
   hermesScore: HermesScoreResult;
   newsIntelligence: NewsIntelligenceResult;
-  vision: HermesVisionResult;
+  liveIntelligence: HermesLiveIntelligence;
   memory: HermesMemorySnapshot;
   weeklyInsights: PeriodInsight;
   tradingPersonality: TradingPersonalityProfile;
@@ -52,7 +51,6 @@ export function FloatingAnalysis({
   const [mode, setMode] = useState<DockMode>("compact");
   const confidence = buildWeightedConfidenceEngine({ hermesScore, news: newsIntelligence });
   const riskMeter = buildRiskMeter({ confidence, news: newsIntelligence, memory });
-  const timeline = buildHermesTimeline({ confidence, vision, news: newsIntelligence, memory });
   const smartEvents = buildSmartMarketEvents(newsIntelligence);
   const traderDna = buildTraderDnaEvolution({ memory, personality: tradingPersonality });
   const sessionReport = buildSessionReport({ history, memory });
@@ -113,7 +111,7 @@ export function FloatingAnalysis({
         </InsightCard>
         <HermesConfidenceEnginePanel confidence={confidence} />
         <RiskMeterPanel meter={riskMeter} />
-        <HermesTimelinePanel items={timeline} />
+        <HermesLiveTimelinePanel intelligence={liveIntelligence} />
 
         {mode === "expanded" ? (
           <>
@@ -229,38 +227,6 @@ function RiskMeterPanel({ meter }: { meter: RiskMeterResult }) {
             </div>
             <ProgressBar value={item.score} tone={item.score >= 70 ? "mint" : item.score >= 50 ? "gold" : "danger"} />
             <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.reason}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HermesTimelinePanel({ items }: { items: HermesTimelineItem[] }) {
-  const [feed, setFeed] = useState<HermesTimelineItem[]>(items);
-
-  useEffect(() => {
-    setFeed((current) => {
-      const incoming = items.filter((item) => !current.some((existing) => existing.id === item.id));
-      if (incoming.length === 0) return current;
-      return [...incoming, ...current].slice(0, 8);
-    });
-  }, [items]);
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-surface-950/40 p-3.5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-300/80">
-        Live Hermes Timeline
-      </p>
-      <div className="mt-3 space-y-2.5">
-        {feed.map((item) => (
-          <div className="rounded-lg border border-white/10 bg-white/[0.025] p-3 transition duration-300 hover:-translate-y-0.5 hover:border-white/20" key={item.id}>
-            <div className="flex items-center justify-between gap-3">
-              <StatusPill tone={item.tone}>{item.category}</StatusPill>
-              <span className="font-mono text-[10px] text-slate-600">{item.time}</span>
-            </div>
-            <p className="mt-2 text-xs font-semibold text-white">{item.title}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-400">{item.message}</p>
           </div>
         ))}
       </div>

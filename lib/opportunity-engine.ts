@@ -4,6 +4,7 @@ import { ruleBasedLessonGenerator } from "@/lib/opportunity-lesson-generator";
 import { mockMarketDataProvider } from "@/lib/opportunity-market-data";
 import { ruleBasedTraderDnaMatcher } from "@/lib/opportunity-trader-dna-matching";
 import { calculateOpportunityHermesScore } from "@/lib/hermes-score-engine";
+import { scoreCandidateStrategy } from "@/lib/strategy-scoring";
 import type {
   ConfidenceEngine,
   LessonGenerator,
@@ -49,6 +50,7 @@ export function buildOpportunityScanner({
       confidence: confidence.score,
       traderDnaMatch: dnaMatch.traderDnaMatch,
     });
+    const strategy = scoreCandidateStrategy(candidate, memory);
 
     return {
       ticker: candidate.ticker,
@@ -60,6 +62,9 @@ export function buildOpportunityScanner({
       riskLevel: candidate.riskLevel,
       potentialRewardPct: candidate.potentialRewardPct,
       setupType: candidate.setupType,
+      strategyType: strategy.strategy,
+      strategyScore: strategy.score,
+      strategyQuality: strategy.quality,
       reasons: services.lessonGenerator.generateReasons(candidate),
       cautions: services.lessonGenerator.generateCautions(candidate),
       lesson: services.lessonGenerator.generateLesson(candidate),
@@ -70,7 +75,7 @@ export function buildOpportunityScanner({
       ),
       ...dnaMatch,
     } satisfies OpportunityStudy;
-  });
+  }).sort((a, b) => b.strategyScore - a.strategyScore || b.confidence - a.confidence);
 
   return {
     summary: buildScannerSummary({

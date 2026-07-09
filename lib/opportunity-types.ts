@@ -1,5 +1,6 @@
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
+import type { StrategyQuality, StrategyType } from "@/lib/strategy-types";
 
 export type OpportunityTrend = "Bullish" | "Neutral" | "Bearish";
 export type OpportunityRisk = "Low" | "Medium" | "High";
@@ -78,6 +79,9 @@ export type OpportunityStudy = {
   riskLevel: OpportunityRisk;
   potentialRewardPct: number;
   setupType: SetupType;
+  strategyType: StrategyType;
+  strategyScore: number;
+  strategyQuality: StrategyQuality;
   reasons: string[];
   cautions: string[];
   lesson: string;

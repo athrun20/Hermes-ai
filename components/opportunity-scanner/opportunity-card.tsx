@@ -47,6 +47,8 @@ export function OpportunityCard({ opportunity }: { opportunity: OpportunityStudy
           <StudyMetric label="Risk Level" value={opportunity.riskLevel} tone={riskTone(opportunity.riskLevel)} />
           <StudyMetric label="Potential Reward" value={`${opportunity.potentialRewardPct.toFixed(1)}%`} tone="gold" />
           <StudyMetric label="Setup Type" value={opportunity.setupType} tone="muted" />
+          <StudyMetric label="Strategy" value={`${opportunity.strategyType} · ${opportunity.strategyScore}`} tone={opportunity.strategyScore >= 70 ? "mint" : opportunity.strategyScore >= 52 ? "gold" : "danger"} />
+          <StudyMetric label="Strategy Quality" value={opportunity.strategyQuality} tone={opportunity.strategyScore >= 70 ? "mint" : opportunity.strategyScore >= 52 ? "gold" : "danger"} />
         </div>
 
         <div className="rounded-lg border border-white/10 bg-white/[0.035]">

@@ -5,13 +5,17 @@ import type { HermesVisionResult } from "@/lib/hermes-vision-types";
 import { ProgressBar, StatusPill } from "@/components/ui";
 import { HermesScoreBreakdown } from "@/components/hermes-score-breakdown";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
+import type { StrategyIntelligenceResult } from "@/lib/strategy-types";
+import { StrategyPanel } from "@/components/workspace/strategy-panel";
 
 export function HermesVisionPanel({
   vision,
   hermesScore,
+  strategy,
 }: {
   vision: HermesVisionResult;
   hermesScore: HermesScoreResult;
+  strategy: StrategyIntelligenceResult;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -42,6 +46,10 @@ export function HermesVisionPanel({
             {expanded ? "Collapse Vision" : "Expand Vision"}
           </button>
         </div>
+      </div>
+
+      <div className="mt-3">
+        <StrategyPanel strategy={strategy} />
       </div>
 
       {expanded ? (

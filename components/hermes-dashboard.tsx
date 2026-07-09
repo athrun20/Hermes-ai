@@ -61,6 +61,8 @@ import {
 import { buildMorningBriefing } from "@/lib/morning-briefing";
 import { buildNewsIntelligence } from "@/lib/news-intelligence-engine";
 import { calculateHermesScore } from "@/lib/hermes-score-engine";
+import { buildHermesLiveIntelligence } from "@/lib/hermes-live-engine";
+import { analyzeStrategyIntelligence } from "@/lib/strategy-engine";
 import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import {
@@ -292,6 +294,36 @@ export function HermesDashboard() {
   const hermesScore = useMemo(
     () => calculateHermesScore({ context: hermesVisionContext, vision: hermesVision }),
     [hermesVision, hermesVisionContext],
+  );
+  const liveIntelligence = useMemo(
+    () =>
+      buildHermesLiveIntelligence({
+        context: hermesVisionContext,
+        vision: hermesVision,
+        hermesScore,
+        news: newsIntelligence,
+        memory: hermesMemorySnapshot,
+      }),
+    [hermesMemorySnapshot, hermesScore, hermesVision, hermesVisionContext, newsIntelligence],
+  );
+  const strategyIntelligence = useMemo(
+    () =>
+      analyzeStrategyIntelligence({
+        context: hermesVisionContext,
+        vision: hermesVision,
+        news: newsIntelligence,
+        traderMemory: hermesMemorySnapshot,
+        confidence: liveIntelligence.confidence.score,
+        timeframe,
+      }),
+    [
+      hermesMemorySnapshot,
+      hermesVision,
+      hermesVisionContext,
+      liveIntelligence.confidence.score,
+      newsIntelligence,
+      timeframe,
+    ],
   );
   const newsCatalystMarker = useMemo(
     () => buildNewsCatalystMarker({ candles, news: newsIntelligence }),
@@ -898,6 +930,7 @@ export function HermesDashboard() {
               newsKeywords={chartNewsKeywords}
               quote={selectedQuote}
               selectedTool={selectedChartTool}
+              strategy={strategyIntelligence}
               timeframe={timeframe}
               tradeLevels={selectedChartTradeLevels}
               vision={hermesVision}
@@ -919,10 +952,10 @@ export function HermesDashboard() {
                     analysis={workspaceAnalysis}
                     history={history}
                     hermesScore={hermesScore}
+                    liveIntelligence={liveIntelligence}
                     memory={hermesMemorySnapshot}
                     newsIntelligence={newsIntelligence}
                     tradingPersonality={memoryTradingPersonality}
-                    vision={hermesVision}
                     weeklyInsights={weeklyMemoryInsights}
                   />
                 ) : null}

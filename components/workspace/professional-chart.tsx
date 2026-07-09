@@ -11,6 +11,7 @@ import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
 import type { HermesVisionLabel, HermesVisionResult } from "@/lib/hermes-vision-types";
 import { HermesScoreBadge } from "@/components/hermes-score-badge";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
+import type { StrategyIntelligenceResult } from "@/lib/strategy-types";
 import {
   evaluateHermesAlert,
   hermesAlertConditionLabels,
@@ -71,6 +72,7 @@ export function ProfessionalChart({
   analysis,
   vision,
   hermesScore,
+  strategy,
   chartLabels,
   newsKeywords = [],
   onTimeframeChange,
@@ -89,6 +91,7 @@ export function ProfessionalChart({
   analysis: SymbolAnalysis;
   vision: HermesVisionResult;
   hermesScore: HermesScoreResult;
+  strategy: StrategyIntelligenceResult;
   chartLabels?: HermesVisionLabel[];
   newsKeywords?: string[];
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
@@ -425,7 +428,7 @@ export function ProfessionalChart({
       </div>
 
       <div className="space-y-3 p-3 sm:p-4">
-        <HermesVisionPanel hermesScore={hermesScore} vision={vision} />
+        <HermesVisionPanel hermesScore={hermesScore} strategy={strategy} vision={vision} />
         <div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3">
           <WorkspaceToolbar
             selectedTool={selectedTool}
