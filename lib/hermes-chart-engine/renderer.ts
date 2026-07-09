@@ -42,7 +42,7 @@ export function renderHermesChart(input: HermesChartRenderInput) {
   }
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#070A0F";
+  context.fillStyle = "#060910";
   context.fillRect(0, 0, width, height);
 
   const bounds = buildChartBounds(width, height, indicators);
@@ -53,10 +53,10 @@ export function renderHermesChart(input: HermesChartRenderInput) {
   drawGrid(context, bounds.plot);
   drawHermesZones(context, buildHermesZones({ candles, labels: visionLabels, tradeLevels }), bounds.plot, priceRange);
   drawCandles(context, candles, viewport, bounds.plot, priceRange, selectedCandleIndex ?? null);
-  if (indicators.ema20) drawLine(context, series.ema20, viewport, bounds.plot, priceRange, "#79F2C0", 2);
-  if (indicators.ema50) drawLine(context, series.ema50, viewport, bounds.plot, priceRange, "#F5B84B", 2, [5, 5]);
-  if (indicators.sma20) drawLine(context, series.sma20, viewport, bounds.plot, priceRange, "#C4B5FD", 2, [2, 4]);
-  if (indicators.vwap) drawLine(context, series.vwap, viewport, bounds.plot, priceRange, "#7DD3FC", 2, [1, 5]);
+  if (indicators.ema20) drawLine(context, series.ema20, viewport, bounds.plot, priceRange, "#8CF7CA", 1.85);
+  if (indicators.ema50) drawLine(context, series.ema50, viewport, bounds.plot, priceRange, "#F4C066", 1.85, [7, 5]);
+  if (indicators.sma20) drawLine(context, series.sma20, viewport, bounds.plot, priceRange, "#C4B5FD", 1.65, [2, 5]);
+  if (indicators.vwap) drawLine(context, series.vwap, viewport, bounds.plot, priceRange, "#8DDFFC", 1.8, [1, 6]);
   drawDrawings(context, drawings, bounds.plot, priceRange);
   drawTradeLevels(context, tradeLevels, bounds.plot, priceRange);
   drawVisionLabels(context, visionLabels, bounds.plot, priceRange);
@@ -71,16 +71,16 @@ export function renderHermesChart(input: HermesChartRenderInput) {
 }
 
 function drawGrid(context: CanvasRenderingContext2D, rect: ChartRect) {
-  context.strokeStyle = "rgba(255,255,255,0.045)";
-  context.lineWidth = 1;
+  context.lineWidth = 0.75;
   for (let i = 0; i <= 5; i += 1) {
     const y = rect.y + (rect.height / 5) * i;
+    context.strokeStyle = i === 0 || i === 5 ? "rgba(255,255,255,0.052)" : "rgba(255,255,255,0.032)";
     context.beginPath();
     context.moveTo(rect.x, y);
     context.lineTo(rect.x + rect.width, y);
     context.stroke();
   }
-  context.strokeStyle = "rgba(255,255,255,0.028)";
+  context.strokeStyle = "rgba(255,255,255,0.02)";
   for (let i = 0; i <= 8; i += 1) {
     const x = rect.x + (rect.width / 8) * i;
     context.beginPath();
@@ -100,7 +100,7 @@ function drawCandles(
 ) {
   const count = Math.max(1, viewport.end - viewport.start + 1);
   const slot = rect.width / count;
-  const bodyWidth = Math.max(4, Math.min(18, slot * 0.68));
+  const bodyWidth = Math.max(4.5, Math.min(17, slot * 0.72));
   for (let index = viewport.start; index <= viewport.end; index += 1) {
     const candle = candles[index];
     if (!candle) continue;
@@ -110,14 +110,17 @@ function drawCandles(
     const highY = priceToY(candle.high, range, rect);
     const lowY = priceToY(candle.low, range, rect);
     const up = candle.close >= candle.open;
-    context.strokeStyle = up ? "rgba(121,242,192,0.9)" : "rgba(253,164,175,0.9)";
-    context.fillStyle = up ? "#28C98D" : "#EF5E78";
-    context.lineWidth = 1.1;
+    context.strokeStyle = up ? "rgba(140,247,202,0.92)" : "rgba(253,164,175,0.92)";
+    context.fillStyle = up ? "#2FD49A" : "#F25F7A";
+    context.lineWidth = 1;
+    context.lineCap = "round";
     context.beginPath();
     context.moveTo(x, highY);
     context.lineTo(x, lowY);
     context.stroke();
-    context.fillRect(x - bodyWidth / 2, Math.min(openY, closeY), bodyWidth, Math.max(2, Math.abs(openY - closeY)));
+    context.beginPath();
+    context.roundRect(x - bodyWidth / 2, Math.min(openY, closeY), bodyWidth, Math.max(2, Math.abs(openY - closeY)), 1.8);
+    context.fill();
     if (selectedIndex === index) {
       context.strokeStyle = "rgba(245,184,75,0.9)";
       context.lineWidth = 1.5;
@@ -153,6 +156,10 @@ function drawLine(context: CanvasRenderingContext2D, values: number[], viewport:
   context.save();
   context.strokeStyle = color;
   context.lineWidth = width;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.shadowColor = color;
+  context.shadowBlur = 2;
   context.setLineDash(dash);
   context.beginPath();
   let started = false;
@@ -230,15 +237,15 @@ function drawCurrentPrice(
   if (typeof price !== "number") return;
   const y = priceToY(price, range, rect);
   context.save();
-  context.strokeStyle = "rgba(245,184,75,0.52)";
-  context.lineWidth = 1.15;
-  context.setLineDash([2, 4]);
+  context.strokeStyle = "rgba(245,184,75,0.58)";
+  context.lineWidth = 1;
+  context.setLineDash([3, 5]);
   context.beginPath();
   context.moveTo(rect.x, y);
   context.lineTo(rect.x + rect.width, y);
   context.stroke();
   context.restore();
-  drawTag(context, formatCurrency(price), width - 78, y - 11, "#F5B84B");
+  drawPriceTag(context, formatCurrency(price), width - 88, y - 12, "#F5B84B");
 }
 
 function drawVisionLabels(context: CanvasRenderingContext2D, labels: HermesChartRenderInput["visionLabels"], rect: ChartRect, range: { min: number; max: number }) {
@@ -250,8 +257,8 @@ function drawVisionLabels(context: CanvasRenderingContext2D, labels: HermesChart
 }
 
 function drawPriceAxis(context: CanvasRenderingContext2D, rect: ChartRect, range: { min: number; max: number }, width: number) {
-  context.fillStyle = "#8A96A8";
-  context.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.fillStyle = "rgba(203,213,225,0.72)";
+  context.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
   for (let i = 0; i <= 5; i += 1) {
     const value = range.max - ((range.max - range.min) / 5) * i;
     const y = rect.y + (rect.height / 5) * i;
@@ -260,8 +267,8 @@ function drawPriceAxis(context: CanvasRenderingContext2D, rect: ChartRect, range
 }
 
 function drawTimeAxis(context: CanvasRenderingContext2D, candles: Candle[], viewport: { start: number; end: number }, rect: ChartRect, height: number) {
-  context.fillStyle = "#8A96A8";
-  context.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.fillStyle = "rgba(138,150,168,0.78)";
+  context.font = "500 11px ui-monospace, SFMono-Regular, Menlo, monospace";
   for (let i = 0; i <= 4; i += 1) {
     const index = Math.round(viewport.start + ((viewport.end - viewport.start) / 4) * i);
     const candle = candles[index];
@@ -284,13 +291,13 @@ function drawVolume(context: CanvasRenderingContext2D, volume: number[], candles
     const avg = visibleAverage[offset] ?? value;
     const ratio = avg > 0 ? value / avg : 1;
     const isUp = candle && candle.close >= candle.open;
-    const alpha = ratio >= 1.35 ? 0.72 : ratio <= 0.65 ? 0.22 : 0.45;
+    const alpha = ratio >= 1.35 ? 0.78 : ratio <= 0.65 ? 0.2 : 0.48;
     context.fillStyle = isUp ? `rgba(121,242,192,${alpha})` : `rgba(253,164,175,${alpha})`;
     const height = Math.max(2, (value / max) * (rect.height - 30));
-    const barWidth = Math.max(2, slot * 0.62);
-    context.fillRect(rect.x + offset * slot + (slot - barWidth) / 2, rect.y + rect.height - height - 6, barWidth, height);
+    const barWidth = Math.max(2, slot * 0.58);
+    context.fillRect(rect.x + offset * slot + (slot - barWidth) / 2, rect.y + rect.height - height - 8, barWidth, height);
   });
-  drawPanelLine(context, average, viewport, rect, { min: 0, max }, "rgba(245,184,75,0.8)", 1.35);
+  drawPanelLine(context, average, viewport, rect, { min: 0, max }, "rgba(245,184,75,0.82)", 1.25);
 
   const current = volume[viewport.end] ?? 0;
   const currentAverage = average[viewport.end] ?? current;
@@ -306,13 +313,13 @@ function drawVolume(context: CanvasRenderingContext2D, volume: number[], candles
 
 function drawRsi(context: CanvasRenderingContext2D, rsi: number[], viewport: { start: number; end: number }, rect: ChartRect) {
   drawPanelShell(context, rect, "RSI");
-  shadeBand(context, rect, 70, 100, "rgba(253,164,175,0.06)");
-  shadeBand(context, rect, 0, 30, "rgba(121,242,192,0.055)");
+  shadeBand(context, rect, 70, 100, "rgba(253,164,175,0.045)");
+  shadeBand(context, rect, 0, 30, "rgba(121,242,192,0.045)");
   drawReference(context, rect, 70, 0, 100, "70");
   drawReference(context, rect, 50, 0, 100, "50");
   drawReference(context, rect, 30, 0, 100, "30");
-  drawPanelLine(context, buildRsiSignal(rsi), viewport, rect, { min: 0, max: 100 }, "rgba(125,211,252,0.62)", 1);
-  drawPanelLine(context, rsi, viewport, rect, { min: 0, max: 100 }, "#F5B84B", 1.8);
+  drawPanelLine(context, buildRsiSignal(rsi), viewport, rect, { min: 0, max: 100 }, "rgba(141,223,252,0.58)", 1);
+  drawPanelLine(context, rsi, viewport, rect, { min: 0, max: 100 }, "#F4C066", 1.75);
   drawPanelValue(context, rect, `RSI ${Math.round(rsi[viewport.end] ?? 50)}`, "#F5B84B");
 }
 
@@ -323,35 +330,42 @@ function drawMacd(context: CanvasRenderingContext2D, macd: Array<{ macd: number;
   const max = Math.max(...visible.map((value) => Math.abs(value)), 1);
   const slot = rect.width / Math.max(1, visible.length);
   const zero = rect.y + rect.height / 2;
-  context.strokeStyle = "rgba(255,255,255,0.16)";
+  context.strokeStyle = "rgba(255,255,255,0.12)";
+  context.lineWidth = 0.8;
   context.beginPath();
   context.moveTo(rect.x, zero);
   context.lineTo(rect.x + rect.width, zero);
   context.stroke();
   visible.forEach((value, offset) => {
-    context.fillStyle = value >= 0 ? "rgba(121,242,192,0.55)" : "rgba(253,164,175,0.55)";
+    context.fillStyle = value >= 0 ? "rgba(121,242,192,0.56)" : "rgba(253,164,175,0.54)";
     const height = Math.max(2, (Math.abs(value) / max) * (rect.height * 0.42));
-    const barWidth = Math.max(2, slot * 0.56);
+    const barWidth = Math.max(2, slot * 0.52);
     context.fillRect(rect.x + offset * slot + (slot - barWidth) / 2, value >= 0 ? zero - height : zero, barWidth, height);
   });
-  drawPanelLine(context, macd.map((point) => point.macd), viewport, rect, { min: -2.5, max: 2.5 }, "#79F2C0", 1.7);
-  drawPanelLine(context, macd.map((point) => point.signal), viewport, rect, { min: -2.5, max: 2.5 }, "#F5B84B", 1.45);
+  drawPanelLine(context, macd.map((point) => point.macd), viewport, rect, { min: -2.5, max: 2.5 }, "#8CF7CA", 1.7);
+  drawPanelLine(context, macd.map((point) => point.signal), viewport, rect, { min: -2.5, max: 2.5 }, "#F4C066", 1.45);
   drawMacdCrossovers(context, macd, viewport, rect, { min: -2.5, max: 2.5 });
   const current = macd[viewport.end] ?? { macd: 0, signal: 0 };
   drawPanelValue(context, rect, `MACD ${current.macd.toFixed(2)} | Signal ${current.signal.toFixed(2)}`, "#CBD5E1");
 }
 
 function drawPanelShell(context: CanvasRenderingContext2D, rect: ChartRect, title: string) {
-  context.strokeStyle = "rgba(255,255,255,0.085)";
+  context.save();
+  context.fillStyle = "rgba(255,255,255,0.012)";
+  context.fillRect(rect.x, rect.y, rect.width, rect.height);
+  context.strokeStyle = "rgba(255,255,255,0.07)";
+  context.lineWidth = 0.8;
   context.strokeRect(rect.x, rect.y, rect.width, rect.height);
-  context.fillStyle = "#8A96A8";
-  context.font = "11px Inter, sans-serif";
-  context.fillText(title, rect.x + 8, rect.y + 15);
+  context.fillStyle = "rgba(203,213,225,0.76)";
+  context.font = "600 11px Inter, sans-serif";
+  context.fillText(title, rect.x + 10, rect.y + 17);
+  context.restore();
 }
 
 function drawReference(context: CanvasRenderingContext2D, rect: ChartRect, value: number, min: number, max: number, label?: string) {
   const y = valueToY(value, { min, max }, rect);
-  context.strokeStyle = "rgba(255,255,255,0.16)";
+  context.strokeStyle = "rgba(255,255,255,0.12)";
+  context.lineWidth = 0.75;
   context.setLineDash([4, 4]);
   context.beginPath();
   context.moveTo(rect.x, y);
@@ -359,8 +373,8 @@ function drawReference(context: CanvasRenderingContext2D, rect: ChartRect, value
   context.stroke();
   context.setLineDash([]);
   if (label) {
-    context.fillStyle = "#697386";
-    context.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+    context.fillStyle = "rgba(138,150,168,0.72)";
+    context.font = "500 10px ui-monospace, SFMono-Regular, Menlo, monospace";
     context.fillText(label, rect.x + rect.width - 22, y - 3);
   }
 }
@@ -369,6 +383,8 @@ function drawPanelLine(context: CanvasRenderingContext2D, values: number[], view
   context.save();
   context.strokeStyle = color;
   context.lineWidth = width;
+  context.lineCap = "round";
+  context.lineJoin = "round";
   context.beginPath();
   let started = false;
   for (let index = viewport.start; index <= viewport.end; index += 1) {
@@ -397,22 +413,27 @@ function drawCrosshair(
   width: number,
   height: number,
 ) {
-  context.strokeStyle = "rgba(245,184,75,0.25)";
+  context.save();
+  context.strokeStyle = "rgba(245,184,75,0.34)";
+  context.lineWidth = 0.85;
+  context.setLineDash([4, 5]);
   context.beginPath();
   context.moveTo(x, rect.y);
   context.lineTo(x, height - 28);
   context.moveTo(rect.x, y);
   context.lineTo(rect.x + rect.width, y);
   context.stroke();
+  context.setLineDash([]);
   const price = range.max - ((y - rect.y) / rect.height) * (range.max - range.min);
-  drawTag(context, formatCurrency(price), width - 70, y - 11, "#F5B84B");
+  drawPriceTag(context, formatCurrency(price), width - 88, y - 12, "#F5B84B");
   const ratioX = Math.max(0, Math.min(1, (x - rect.x) / rect.width));
   const index = Math.round(viewport.start + ratioX * Math.max(0, viewport.end - viewport.start));
   const candle = candles[index];
   if (candle) {
     const label = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(candle.time * 1000));
-    drawTag(context, label, Math.max(rect.x, Math.min(rect.x + rect.width - 70, x - 35)), height - 27, "#F5B84B");
+    drawPriceTag(context, label, Math.max(rect.x, Math.min(rect.x + rect.width - 78, x - 39)), height - 27, "#F5B84B");
   }
+  context.restore();
 }
 
 function shadeBand(context: CanvasRenderingContext2D, rect: ChartRect, min: number, max: number, color: string) {
@@ -423,15 +444,15 @@ function shadeBand(context: CanvasRenderingContext2D, rect: ChartRect, min: numb
 }
 
 function drawPanelValue(context: CanvasRenderingContext2D, rect: ChartRect, text: string, color: string) {
-  context.font = "11px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
   const width = context.measureText(text).width;
   context.fillStyle = color;
   context.fillText(text, rect.x + rect.width - width - 10, rect.y + 15);
 }
 
 function drawRightScale(context: CanvasRenderingContext2D, rect: ChartRect, values: number[], format: (value: number) => string) {
-  context.fillStyle = "#697386";
-  context.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.fillStyle = "rgba(105,115,134,0.85)";
+  context.font = "500 10px ui-monospace, SFMono-Regular, Menlo, monospace";
   values.forEach((value, index) => {
     const y = rect.y + 24 + ((rect.height - 34) / Math.max(1, values.length - 1)) * index;
     context.fillText(format(value), rect.x + rect.width - 46, y);
@@ -485,4 +506,23 @@ function drawTag(context: CanvasRenderingContext2D, text: string, x: number, y: 
   context.stroke();
   context.fillStyle = color;
   context.fillText(text, x + 7, y + 15);
+}
+
+function drawPriceTag(context: CanvasRenderingContext2D, text: string, x: number, y: number, color: string) {
+  context.save();
+  context.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+  const width = Math.min(122, context.measureText(text).width + 16);
+  context.fillStyle = "rgba(6,9,16,0.94)";
+  context.strokeStyle = color;
+  context.lineWidth = 1;
+  context.shadowColor = "rgba(0,0,0,0.35)";
+  context.shadowBlur = 8;
+  context.beginPath();
+  context.roundRect(x, y, width, 24, 6);
+  context.fill();
+  context.shadowBlur = 0;
+  context.stroke();
+  context.fillStyle = color;
+  context.fillText(text, x + 8, y + 16);
+  context.restore();
 }

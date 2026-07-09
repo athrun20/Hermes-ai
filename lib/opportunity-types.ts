@@ -1,4 +1,5 @@
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
+import type { HermesScoreResult } from "@/lib/hermes-score-types";
 
 export type OpportunityTrend = "Bullish" | "Neutral" | "Bearish";
 export type OpportunityRisk = "Low" | "Medium" | "High";
@@ -71,6 +72,7 @@ export type OpportunityStudy = {
   ticker: string;
   companyName: string;
   confidence: number;
+  hermesScore: HermesScoreResult;
   confidenceBreakdown: ConfidenceBreakdownItem[];
   trend: OpportunityTrend;
   riskLevel: OpportunityRisk;

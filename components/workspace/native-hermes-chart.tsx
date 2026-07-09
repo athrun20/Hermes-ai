@@ -147,11 +147,11 @@ export function NativeHermesChart({
 
   return (
     <div
-      className="relative h-[900px] overflow-hidden rounded-lg border border-white/10 bg-[#070A0F] 2xl:h-[980px]"
+      className="relative h-[920px] overflow-hidden rounded-xl border border-white/10 bg-[#060910] shadow-inner shadow-black/40 transition-[height,border-color] duration-300 2xl:h-[1000px]"
       ref={wrapperRef}
     >
       <canvas
-        className="size-full cursor-crosshair"
+        className="size-full cursor-crosshair select-none"
         onClick={handleClick}
         onMouseDown={(event) => {
           if (event.button === 1 || event.altKey || event.shiftKey) {
@@ -175,7 +175,7 @@ export function NativeHermesChart({
           Click chart to place {toolLabel(selectedTool)}
         </div>
       ) : null}
-      <div className="pointer-events-none absolute bottom-4 right-4 rounded-md border border-white/10 bg-surface-950/80 px-3 py-2 text-[11px] font-semibold text-slate-400">
+      <div className="pointer-events-none absolute bottom-4 right-4 rounded-md border border-white/10 bg-surface-950/80 px-3 py-2 text-[11px] font-semibold text-slate-400 backdrop-blur-md">
         Wheel to zoom · Shift-drag to pan
       </div>
       {alertToast ? (
@@ -197,7 +197,7 @@ function buildInitialViewport(length: number): HermesChartViewport {
 
 function zoomViewport(viewport: HermesChartViewport, length: number, direction: number) {
   const current = viewport.end - viewport.start + 1;
-  const next = Math.max(20, Math.min(length, Math.round(current * (direction > 0 ? 1.16 : 0.86))));
+  const next = Math.max(28, Math.min(length, Math.round(current * (direction > 0 ? 1.12 : 0.9))));
   const center = Math.round((viewport.start + viewport.end) / 2);
   const start = Math.max(0, Math.min(length - next, center - Math.floor(next / 2)));
   return { start, end: Math.min(length - 1, start + next - 1) };

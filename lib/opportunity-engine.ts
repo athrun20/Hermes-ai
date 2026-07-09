@@ -3,6 +3,7 @@ import { ruleBasedConfidenceEngine } from "@/lib/opportunity-confidence-engine";
 import { ruleBasedLessonGenerator } from "@/lib/opportunity-lesson-generator";
 import { mockMarketDataProvider } from "@/lib/opportunity-market-data";
 import { ruleBasedTraderDnaMatcher } from "@/lib/opportunity-trader-dna-matching";
+import { calculateOpportunityHermesScore } from "@/lib/hermes-score-engine";
 import type {
   ConfidenceEngine,
   LessonGenerator,
@@ -43,11 +44,17 @@ export function buildOpportunityScanner({
   const opportunities = candidates.map((candidate) => {
     const dnaMatch = services.traderDnaMatcher.match(candidate, memory);
     const confidence = services.confidenceEngine.analyzeConfidence(candidate);
+    const hermesScore = calculateOpportunityHermesScore({
+      candidate,
+      confidence: confidence.score,
+      traderDnaMatch: dnaMatch.traderDnaMatch,
+    });
 
     return {
       ticker: candidate.ticker,
       companyName: candidate.companyName,
-      confidence: confidence.score,
+      confidence: hermesScore.score,
+      hermesScore,
       confidenceBreakdown: confidence.breakdown,
       trend: candidate.trend,
       riskLevel: candidate.riskLevel,

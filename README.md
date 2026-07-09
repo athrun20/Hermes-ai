@@ -17,7 +17,7 @@ Then open `http://localhost:3000`.
 ## Scope
 
 - Uses public no-key CoinGecko market data for BTC/USD, ETH/USD, SOL/USD, and LINK/USD.
-- Uses TradingView lightweight-charts for the candlestick chart.
+- Uses the native Hermes chart workspace for candlesticks, overlays, indicators, alerts, and mentor reads.
 - Uses rule-based mock AI analysis only; no OpenAI API is connected yet.
 - Includes a paper portfolio, manual trade controls, open positions, trade history, performance stats, equity curve, and Hermes Coach reviews.
 - Saves paper account state, positions, history, journal entries, and settings to localStorage.

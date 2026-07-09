@@ -7,6 +7,8 @@ import { Panel, StatusPill } from "@/components/ui";
 import { formatCurrency, type AssetQuote } from "@/lib/market-data";
 import type { OpportunityScore } from "@/lib/hermes-brain";
 import type { ChartTradeLevels } from "@/lib/chart-types";
+import { HermesScoreBadge } from "@/components/hermes-score-badge";
+import type { HermesScoreResult } from "@/lib/hermes-score-types";
 
 type DockMode = "compact" | "expanded" | "collapsed";
 
@@ -14,6 +16,7 @@ export function FloatingTradePlan({
   buyingPower,
   quote,
   opportunity,
+  hermesScore,
   chartLevels,
   statusMessage,
   visionCaution,
@@ -22,6 +25,7 @@ export function FloatingTradePlan({
   buyingPower: number;
   quote: AssetQuote;
   opportunity: OpportunityScore;
+  hermesScore: HermesScoreResult;
   chartLevels: ChartTradeLevels;
   statusMessage?: string;
   visionCaution?: {
@@ -84,8 +88,9 @@ export function FloatingTradePlan({
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           <MiniMetric label="Bias" value={opportunity.bias} />
-          <MiniMetric label="Score" value={`${opportunity.score}%`} />
+          <MiniMetric label="Hermes Score" value={`${hermesScore.score}`} />
         </div>
+        <HermesScoreBadge score={hermesScore} />
         {visionCaution?.active ? (
           <div className="rounded-lg border border-amberline/20 bg-amberline/[0.07] px-3 py-2 text-xs leading-5 text-amber-100">
             {visionCaution.message}

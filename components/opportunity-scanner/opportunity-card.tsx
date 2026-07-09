@@ -10,6 +10,8 @@ import {
   Panel,
   StatusPill,
 } from "@/components/ui";
+import { HermesScoreBadge } from "@/components/hermes-score-badge";
+import { HermesScoreBreakdown } from "@/components/hermes-score-breakdown";
 
 export function OpportunityCard({ opportunity }: { opportunity: OpportunityStudy }) {
   const [isBreakdownOpen, setIsBreakdownOpen] = useState(false);
@@ -30,7 +32,8 @@ export function OpportunityCard({ opportunity }: { opportunity: OpportunityStudy
             </div>
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
-            <ConfidenceBadge confidence={opportunity.confidence} />
+            <HermesScoreBadge score={opportunity.hermesScore} />
+            <ConfidenceBadge confidence={opportunity.confidence} label={`${opportunity.confidence}% setup score`} />
             <StatusPill tone={verdictTone(opportunity.hermesVerdict)}>
               {opportunity.hermesVerdict}
             </StatusPill>
@@ -66,13 +69,16 @@ export function OpportunityCard({ opportunity }: { opportunity: OpportunityStudy
             />
           </button>
           {isBreakdownOpen ? (
-            <div className="grid gap-3 border-t border-white/10 p-4 sm:grid-cols-5">
-              {opportunity.confidenceBreakdown.map((item) => (
-                <div className="rounded-md border border-white/10 bg-surface-950/45 p-3" key={item.label}>
-                  <p className="text-xs text-slate-500">{item.label}</p>
-                  <p className="mt-2 text-lg font-semibold text-white">{item.score}%</p>
-                </div>
-              ))}
+            <div className="space-y-4 border-t border-white/10 p-4">
+              <HermesScoreBreakdown score={opportunity.hermesScore} />
+              <div className="grid gap-3 sm:grid-cols-5">
+                {opportunity.confidenceBreakdown.map((item) => (
+                  <div className="rounded-md border border-white/10 bg-surface-950/45 p-3" key={item.label}>
+                    <p className="text-xs text-slate-500">{item.label}</p>
+                    <p className="mt-2 text-lg font-semibold text-white">{item.score}%</p>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>

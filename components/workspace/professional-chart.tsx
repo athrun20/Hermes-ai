@@ -9,6 +9,8 @@ import type { SymbolAnalysis } from "@/lib/symbol-analysis-engine";
 import { HermesVisionPanel } from "@/components/workspace/hermes-vision-panel";
 import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
 import type { HermesVisionLabel, HermesVisionResult } from "@/lib/hermes-vision-types";
+import { HermesScoreBadge } from "@/components/hermes-score-badge";
+import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import {
   evaluateHermesAlert,
   hermesAlertConditionLabels,
@@ -68,6 +70,7 @@ export function ProfessionalChart({
   selectedTool,
   analysis,
   vision,
+  hermesScore,
   chartLabels,
   newsKeywords = [],
   onTimeframeChange,
@@ -85,6 +88,7 @@ export function ProfessionalChart({
   selectedTool: ChartDrawingTool;
   analysis: SymbolAnalysis;
   vision: HermesVisionResult;
+  hermesScore: HermesScoreResult;
   chartLabels?: HermesVisionLabel[];
   newsKeywords?: string[];
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
@@ -274,31 +278,40 @@ export function ProfessionalChart({
   const symbolAlerts = alerts.filter((alert) => alert.symbol === quote.symbol);
 
   return (
-    <Panel className="min-h-[940px] overflow-hidden">
-      <div className="border-b border-white/10 px-4 py-3.5 sm:px-5" ref={chartControlsRef}>
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-300/75">
-              Chart Workspace
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
-              <h2 className="text-2xl font-semibold tracking-tight text-white">{quote.symbol}</h2>
-              <p className="text-sm text-slate-500">{quote.name}</p>
-              <StatusPill tone={quote.change24h >= 0 ? "mint" : "danger"}>
-                {formatCurrency(quote.price)} / {formatPercent(quote.change24h)}
-              </StatusPill>
+    <Panel className="min-h-[940px] overflow-hidden transition-all duration-300">
+      <div className="border-b border-white/10 bg-surface-950/35 px-4 py-3.5 sm:px-5" ref={chartControlsRef}>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amberline/70">
+                Hermes Chart Workspace
+              </p>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+                <h2 className="text-[28px] font-semibold leading-none tracking-tight text-white">{quote.symbol}</h2>
+                <p className="text-sm font-medium text-slate-500">{quote.name}</p>
+                <span className="font-mono text-sm font-semibold tabular-nums text-white">
+                  {formatCurrency(quote.price)}
+                </span>
+                <span className={quote.change24h >= 0 ? "text-xs font-semibold text-mint-300" : "text-xs font-semibold text-rose-300"}>
+                  {formatPercent(quote.change24h)}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <StatusPill tone="muted">{timeframe}</StatusPill>
               <StatusPill tone={analysis.marketBias === "Bullish" ? "mint" : analysis.marketBias === "Bearish" ? "danger" : "gold"}>
                 {analysis.marketBias} / {analysis.confidence}%
               </StatusPill>
+              <HermesScoreBadge score={hermesScore} />
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-white/[0.035] p-1">
+
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-[#070A0F]/80 p-2 shadow-inner shadow-black/30">
+            <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-white/[0.025] p-1">
               {timeframes.map((frame) => (
                 <button
-                  className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition ${
-                    timeframe === frame ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-200"
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition duration-200 ${
+                    timeframe === frame ? "bg-white/10 text-white shadow-sm shadow-black/20" : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-200"
                   }`}
                   key={frame}
                   onClick={() => onTimeframeChange(frame)}
@@ -308,6 +321,7 @@ export function ProfessionalChart({
                 </button>
               ))}
             </div>
+            <div className="h-7 w-px bg-white/10" />
             <div className="relative">
               <ChartTool label="Indicators" icon={<SlidersHorizontal className="size-4" />} onClick={() => setIndicatorMenuOpen((open) => !open)} />
               {indicatorMenuOpen ? (
@@ -411,7 +425,7 @@ export function ProfessionalChart({
       </div>
 
       <div className="space-y-3 p-3 sm:p-4">
-        <HermesVisionPanel vision={vision} />
+        <HermesVisionPanel hermesScore={hermesScore} vision={vision} />
         <div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3">
           <WorkspaceToolbar
             selectedTool={selectedTool}
@@ -531,7 +545,7 @@ function ToolIcon({ tool }: { tool: ChartDrawingTool }) {
 
 function ToggleMenu({ children }: { children: ReactNode }) {
   return (
-    <div className="absolute right-0 top-11 z-20 w-52 rounded-lg border border-white/10 bg-surface-950 p-2 shadow-2xl shadow-black/40">
+    <div className="absolute right-0 top-11 z-20 w-52 rounded-xl border border-white/10 bg-surface-950/95 p-2 shadow-2xl shadow-black/45 backdrop-blur-xl">
       {children}
     </div>
   );
@@ -554,7 +568,7 @@ function AlertsMenu({
   const triggeredAlerts = alerts.filter((alert) => alert.triggeredAt);
 
   return (
-    <div className="absolute right-0 top-11 z-30 w-80 rounded-lg border border-white/10 bg-surface-950 p-3 shadow-2xl shadow-black/45">
+    <div className="absolute right-0 top-11 z-30 w-80 rounded-xl border border-white/10 bg-surface-950/95 p-3 shadow-2xl shadow-black/45 backdrop-blur-xl">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amberline/80">Alerts</p>
@@ -860,7 +874,7 @@ function ChartTool({
 }) {
   return (
     <button
-      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 transition duration-200 hover:border-amberline/25 hover:bg-white/[0.06] hover:text-white"
       onClick={onClick}
       type="button"
     >

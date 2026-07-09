@@ -22,7 +22,10 @@ export function reviewPaperTradeDecision(context: DecisionContext): DecisionRevi
     takeProfit: context.ticket.takeProfit,
   });
   const checklist = buildDecisionChecklist(context, riskReward);
-  const confidence = calculateDecisionConfidence(checklist, { riskReward });
+  const checklistConfidence = calculateDecisionConfidence(checklist, { riskReward });
+  const confidence = context.hermesScore
+    ? Math.round(checklistConfidence * 0.45 + context.hermesScore.score * 0.55)
+    : checklistConfidence;
   const tradeQuality = getDecisionQuality(confidence);
   const recommendation = getDecisionRecommendation({
     confidence,
@@ -37,6 +40,7 @@ export function reviewPaperTradeDecision(context: DecisionContext): DecisionRevi
     action: context.ticket.action,
     side: context.ticket.side,
     confidence,
+    hermesScore: context.hermesScore,
     tradeQuality,
     disciplineScoreImpact: calculateDisciplineImpact({ confidence, riskReward }),
     recommendation,

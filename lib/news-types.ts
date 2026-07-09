@@ -1,6 +1,6 @@
 import type { CoinSymbol } from "@/lib/market-data";
 
-export type NewsSourceType = "press-release" | "market-news" | "filing" | "rss";
+export type NewsSourceType = "press-release" | "market-news" | "filing" | "rss" | "macro-event";
 export type NewsKeywordTone = "positive" | "watch" | "risk";
 export type NewsSentiment = "Positive" | "Neutral" | "Negative";
 export type NewsUrgency = "Low" | "Medium" | "High";

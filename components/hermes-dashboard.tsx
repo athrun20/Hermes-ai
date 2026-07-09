@@ -60,6 +60,8 @@ import {
 } from "@/lib/hermes-memory";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
 import { buildNewsIntelligence } from "@/lib/news-intelligence-engine";
+import { calculateHermesScore } from "@/lib/hermes-score-engine";
+import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import {
   DEFAULT_SETTINGS,
@@ -262,19 +264,17 @@ export function HermesDashboard() {
     () => buildMorningBriefing({ memory: hermesMemorySnapshot, history }),
     [hermesMemorySnapshot, history],
   );
-  const hermesVision = useMemo(
+  const hermesVisionContext = useMemo<HermesVisionContext>(
     () =>
-      analyzeHermesVision(
-        buildHermesVisionContext({
-          quote: selectedQuote,
-          candles,
-          drawings: selectedChartDrawings,
-          tradeLevels: selectedChartTradeLevels,
-          analysis: workspaceAnalysis,
-          traderDna: memoryTradingPersonality.archetype,
-          dailyGoal: morningBriefing.dailyGoal.text,
-        }),
-      ),
+      buildHermesVisionContext({
+        quote: selectedQuote,
+        candles,
+        drawings: selectedChartDrawings,
+        tradeLevels: selectedChartTradeLevels,
+        analysis: workspaceAnalysis,
+        traderDna: memoryTradingPersonality.archetype,
+        dailyGoal: morningBriefing.dailyGoal.text,
+      }),
     [
       candles,
       memoryTradingPersonality.archetype,
@@ -284,6 +284,14 @@ export function HermesDashboard() {
       selectedQuote,
       workspaceAnalysis,
     ],
+  );
+  const hermesVision = useMemo(
+    () => analyzeHermesVision(hermesVisionContext),
+    [hermesVisionContext],
+  );
+  const hermesScore = useMemo(
+    () => calculateHermesScore({ context: hermesVisionContext, vision: hermesVision }),
+    [hermesVision, hermesVisionContext],
   );
   const newsCatalystMarker = useMemo(
     () => buildNewsCatalystMarker({ candles, news: newsIntelligence }),
@@ -308,6 +316,7 @@ export function HermesDashboard() {
             memory: hermesMemorySnapshot,
             marketMood: normalizeDecisionMood(morningBriefing.market.todayMarket),
             dailyGoal: morningBriefing.dailyGoal.text,
+            hermesScore,
             intelligence: morningBriefing.intelligence,
           })
         : null,
@@ -320,6 +329,7 @@ export function HermesDashboard() {
       portfolio,
       selectedOpportunity,
       selectedQuote,
+      hermesScore,
     ],
   );
 
@@ -776,6 +786,7 @@ export function HermesDashboard() {
       <TopNav />
       {decisionReview && pendingDecisionTicket ? (
         <HermesDecisionReview
+          hermesScore={hermesScore}
           notional={pendingDecisionTicket.notional}
           review={decisionReview}
           onConfirm={confirmPendingDecision}
@@ -882,6 +893,7 @@ export function HermesDashboard() {
               candles={candles}
               chartLabels={newsCatalystMarker ? [newsCatalystMarker, ...hermesVision.labels] : hermesVision.labels}
               drawings={selectedChartDrawings}
+              hermesScore={hermesScore}
               indicators={indicators}
               newsKeywords={chartNewsKeywords}
               quote={selectedQuote}
@@ -903,11 +915,21 @@ export function HermesDashboard() {
               <div className="min-w-0 space-y-3">
                 <RightSidebarTabs activeTab={rightTab} onTabChange={setRightTab} />
                 {rightTab === "hermes" ? (
-                  <FloatingAnalysis analysis={workspaceAnalysis} />
+                  <FloatingAnalysis
+                    analysis={workspaceAnalysis}
+                    history={history}
+                    hermesScore={hermesScore}
+                    memory={hermesMemorySnapshot}
+                    newsIntelligence={newsIntelligence}
+                    tradingPersonality={memoryTradingPersonality}
+                    vision={hermesVision}
+                    weeklyInsights={weeklyMemoryInsights}
+                  />
                 ) : null}
                 {rightTab === "trade-plan" ? (
                   <FloatingTradePlan
                     buyingPower={portfolio.buyingPower}
+                    hermesScore={hermesScore}
                     opportunity={selectedOpportunity}
                     quote={selectedQuote}
                     chartLevels={selectedChartTradeLevels}

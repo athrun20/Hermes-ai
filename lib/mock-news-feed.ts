@@ -4,8 +4,10 @@ import type { NewsItem } from "@/lib/news-types";
 const mockNewsFeed: NewsItem[] = [
   item("BTC-pr-1", "BTC", "press-release", "Bitcoin Treasury Desk", "Institutional partnership expands Bitcoin custody access", "A new partnership is designed to improve institutional custody workflows while SEC policy discussions remain active.", 12),
   item("BTC-news-1", "BTC", "market-news", "Market Wire", "Bitcoin volume improves as traders watch SEC comments", "Analysts note stronger participation, but confirmation is still developing near resistance.", 3),
+  item("BTC-macro-1", "BTC", "macro-event", "Macro Desk", "Traders await Fed inflation commentary before adding risk", "A macroeconomic event may affect dollar liquidity and crypto volatility during the session.", 1),
   item("ETH-pr-1", "ETH", "press-release", "Ethereum Foundation", "Ethereum ecosystem reports revenue growth across scaling partners", "Network activity and partnership announcements are improving sentiment, though price remains near a key range.", 9),
   item("ETH-news-1", "ETH", "market-news", "Crypto Desk", "Analyst upgrade lifts focus on Ethereum staking names", "The analyst upgrade cites stronger fee trends and institutional demand.", 2),
+  item("ETH-filing-1", "ETH", "filing", "SEC Monitor", "SEC filing references staking product disclosure updates", "The filing does not create a trade by itself, but it may shape headline risk around staking products.", 4),
   item("SOL-pr-1", "SOL", "press-release", "Solana Labs", "Solana announces payments partnership with commerce platform", "The partnership may expand developer adoption, but traders are watching whether volume confirms.", 7),
   item("SOL-news-1", "SOL", "market-news", "Market Wire", "Solana slips as lawsuit headlines pressure risk assets", "A lawsuit tied to a major ecosystem participant has raised short-term volatility concerns.", 1),
   item("LINK-pr-1", "LINK", "press-release", "Chainlink Labs", "Chainlink wins data contract with global financial infrastructure firm", "The contract expands oracle usage and may support revenue growth over time.", 10),
@@ -23,6 +25,7 @@ const mockNewsFeed: NewsItem[] = [
   item("JPM-news-1", "JPM", "market-news", "Bank Desk", "JPMorgan announces dividend increase after stress test", "The dividend increase is constructive, but banks remain sensitive to macro conditions.", 5),
   item("COST-news-1", "COST", "market-news", "Retail Wire", "Costco announces special dividend", "The dividend is shareholder friendly, though price confirmation still matters.", 6),
   item("SPY-news-1", "SPY", "market-news", "Macro Wire", "S&P 500 breadth improves as traders await earnings", "Market breadth is constructive, but earnings season can raise headline risk.", 2),
+  item("SPY-macro-1", "SPY", "macro-event", "Economic Calendar", "Jobs data and Fed speakers may influence market breadth", "Macroeconomic events can change risk appetite before chart structure confirms.", 1),
   item("QQQ-news-1", "QQQ", "market-news", "Macro Wire", "Nasdaq momentum improves after analyst upgrades across AI leaders", "Analyst upgrades support sentiment, but extended entries still need patience.", 2),
 ];
 

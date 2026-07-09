@@ -1,6 +1,7 @@
 import { Newspaper } from "lucide-react";
 import { Panel, StatusPill } from "@/components/ui";
 import type { NewsIntelligenceItem, NewsIntelligenceResult, NewsKeywordMatch } from "@/lib/news-types";
+import { buildSmartMarketEvents, type SmartMarketEvent } from "@/lib/hermes-mentor-intelligence";
 
 export function NewsIntelligencePanel({
   intelligence,
@@ -9,6 +10,8 @@ export function NewsIntelligencePanel({
   intelligence: NewsIntelligenceResult;
   onCreateKeywordAlert?: (keyword: string) => void;
 }) {
+  const smartEvents = buildSmartMarketEvents(intelligence);
+
   return (
     <Panel className="overflow-hidden bg-surface-950/60 shadow-xl shadow-black/15">
       <div className="border-b border-white/10 px-4 py-3.5">
@@ -61,10 +64,34 @@ export function NewsIntelligencePanel({
         <InsightBlock title="Hermes Interpretation">
           {intelligence.hermesInterpretation}
         </InsightBlock>
+        <SmartEventsList events={smartEvents} />
         <NewsList title="Latest Press Releases" items={intelligence.pressReleases} />
         <NewsList title="Latest News" items={intelligence.news} />
       </div>
     </Panel>
+  );
+}
+
+function SmartEventsList({ events }: { events: SmartMarketEvent[] }) {
+  return (
+    <section>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Smart Market Events
+      </p>
+      <div className="mt-2 space-y-2">
+        {events.slice(0, 3).map((event) => (
+          <article className="rounded-lg border border-white/10 bg-white/[0.03] p-3" key={event.id}>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill tone={urgencyTone(event.urgency)}>{event.eventType}</StatusPill>
+              <StatusPill tone={sentimentTone(event.sentiment)}>{event.sentiment}</StatusPill>
+            </div>
+            <p className="mt-2 text-sm font-semibold leading-5 text-white">{event.headline}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-400">{event.summary}</p>
+            <p className="mt-2 text-[11px] leading-4 text-slate-500">{event.impact}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

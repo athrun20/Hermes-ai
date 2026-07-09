@@ -6,14 +6,18 @@ import { DecisionChecklist } from "@/components/decision-checklist";
 import { ConfidenceBadge, MetricCard, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import type { DecisionReview } from "@/lib/decision-types";
 import { formatCurrency } from "@/lib/market-data";
+import { HermesScoreBadge } from "@/components/hermes-score-badge";
+import type { HermesScoreResult } from "@/lib/hermes-score-types";
 
 export function HermesDecisionReview({
   review,
+  hermesScore,
   notional,
   onConfirm,
   onRevise,
 }: {
   review: DecisionReview;
+  hermesScore: HermesScoreResult;
   notional: number;
   onConfirm: () => void;
   onRevise: () => void;
@@ -64,11 +68,20 @@ export function HermesDecisionReview({
                     </div>
                   ) : null}
                 </div>
-                <ConfidenceBadge confidence={review.confidence} label={`${review.confidence}% confidence`} />
+                <div className="flex flex-col items-start gap-2 lg:items-end">
+                  <HermesScoreBadge score={hermesScore} />
+                  <ConfidenceBadge confidence={review.confidence} label={`${review.confidence}% confidence`} />
+                </div>
               </div>
             </section>
 
-            <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+              <MetricCard
+                label="Hermes Score"
+                value={`${hermesScore.score}`}
+                detail={hermesScore.label}
+                tone={hermesScore.score >= 80 ? "mint" : hermesScore.score >= 60 ? "gold" : "danger"}
+              />
               <MetricCard
                 label="Hermes Confidence"
                 value={`${review.confidence}%`}

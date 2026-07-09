@@ -3,18 +3,17 @@
 import { useState } from "react";
 import type { HermesVisionResult } from "@/lib/hermes-vision-types";
 import { ProgressBar, StatusPill } from "@/components/ui";
+import { HermesScoreBreakdown } from "@/components/hermes-score-breakdown";
+import type { HermesScoreResult } from "@/lib/hermes-score-types";
 
-export function HermesVisionPanel({ vision }: { vision: HermesVisionResult }) {
+export function HermesVisionPanel({
+  vision,
+  hermesScore,
+}: {
+  vision: HermesVisionResult;
+  hermesScore: HermesScoreResult;
+}) {
   const [expanded, setExpanded] = useState(false);
-  const overallScore = Math.round(
-    (vision.setupStructureScore +
-      vision.trendScore +
-      vision.momentumScore +
-      vision.volumeScore +
-      vision.confirmationScore +
-      vision.riskScore) /
-      6,
-  );
 
   return (
     <section className="rounded-lg border border-white/10 bg-surface-950/55 p-3 shadow-inner shadow-black/10">
@@ -28,8 +27,8 @@ export function HermesVisionPanel({ vision }: { vision: HermesVisionResult }) {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <StatusPill tone={overallScore >= 70 ? "mint" : overallScore >= 50 ? "gold" : "danger"}>
-            Score {overallScore}
+          <StatusPill tone={hermesScore.score >= 80 ? "mint" : hermesScore.score >= 60 ? "gold" : "danger"}>
+            Hermes Score {hermesScore.score}
           </StatusPill>
           <ImpactPill value={vision.confidenceAdjustment} />
           <StatusPill tone={getActionTone(vision.suggestedAction)}>
@@ -46,16 +45,19 @@ export function HermesVisionPanel({ vision }: { vision: HermesVisionResult }) {
       </div>
 
       {expanded ? (
-        <div className="mt-3 grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
-          {vision.dimensions.map((dimension) => (
-            <ScoreRead
-              key={dimension.dimension}
-              label={dimension.dimension}
-              score={dimension.score}
-              verdict={dimension.verdict}
-              reason={dimension.reasons[0]}
-            />
-          ))}
+        <div className="mt-3 space-y-3">
+          <HermesScoreBreakdown score={hermesScore} />
+          <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+            {vision.dimensions.map((dimension) => (
+              <ScoreRead
+                key={dimension.dimension}
+                label={dimension.dimension}
+                score={dimension.score}
+                verdict={dimension.verdict}
+                reason={dimension.reasons[0]}
+              />
+            ))}
+          </div>
         </div>
       ) : null}
     </section>
