@@ -5,6 +5,7 @@ import {
   Activity,
   ClipboardCheck,
   GitBranch,
+  Landmark,
   Newspaper,
   ShieldAlert,
   TrendingUp,
@@ -127,6 +128,7 @@ function categoryIcon(category: LiveTimelineCategory): ReactNode {
   if (category === "News") return <Newspaper className={className} aria-hidden="true" />;
   if (category === "Structure") return <GitBranch className={className} aria-hidden="true" />;
   if (category === "Trader Behavior") return <UserRound className={className} aria-hidden="true" />;
+  if (category === "Footprint") return <Landmark className={className} aria-hidden="true" />;
   return <ClipboardCheck className={className} aria-hidden="true" />;
 }
 

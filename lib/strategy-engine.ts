@@ -1,6 +1,8 @@
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-vision-types";
+import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import { scoreStrategy, type StrategyScoringContext } from "@/lib/strategy-scoring";
 import type { StrategyIntelligenceResult, StrategyType } from "@/lib/strategy-types";
 
@@ -24,6 +26,8 @@ export function analyzeStrategyIntelligence({
   traderMemory,
   confidence,
   timeframe,
+  multiTimeframe,
+  footprint,
 }: {
   context: HermesVisionContext;
   vision: HermesVisionResult;
@@ -31,6 +35,8 @@ export function analyzeStrategyIntelligence({
   traderMemory: HermesMemorySnapshot;
   confidence: number;
   timeframe: string;
+  multiTimeframe?: MultiTimeframeIntelligence;
+  footprint?: InstitutionalFootprintResult;
 }): StrategyIntelligenceResult {
   const scoringContext: StrategyScoringContext = {
     context,
@@ -39,6 +45,8 @@ export function analyzeStrategyIntelligence({
     traderMemory,
     confidence,
     timeframe,
+    multiTimeframe,
+    footprint,
   };
   const strategies = supportedStrategies
     .map((strategy) => scoreStrategy(strategy, scoringContext))

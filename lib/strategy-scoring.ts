@@ -2,6 +2,8 @@ import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { MarketCandidate } from "@/lib/opportunity-types";
 import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-vision-types";
+import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import { getStrategyDefinition } from "@/lib/strategy-library";
 import type { StrategyQuality, StrategySignal, StrategyType } from "@/lib/strategy-types";
 
@@ -12,6 +14,8 @@ export type StrategyScoringContext = {
   traderMemory: HermesMemorySnapshot;
   confidence: number;
   timeframe: string;
+  multiTimeframe?: MultiTimeframeIntelligence;
+  footprint?: InstitutionalFootprintResult;
 };
 
 export function scoreStrategy(type: StrategyType, input: StrategyScoringContext): StrategySignal {
@@ -101,6 +105,59 @@ export function scoreStrategy(type: StrategyType, input: StrategyScoringContext)
   if (input.news.urgency === "High") {
     score -= input.news.sentiment === "Negative" ? 12 : 5;
     riskNotes.add("High-urgency news can distort clean strategy reads.");
+  }
+
+  if (input.multiTimeframe) {
+    if (type === "Trend Pullback" || type === "Trend Continuation") {
+      if (input.multiTimeframe.higherTimeframeDirection.includes("Bullish")) {
+        score += 10;
+        whyItFits.push("Higher timeframes support the trend strategy.");
+      } else if (input.multiTimeframe.higherTimeframeDirection.includes("Bearish")) {
+        score -= 14;
+        riskNotes.add("Higher timeframes do not support a bullish trend strategy.");
+      }
+    }
+
+    if (type === "Momentum Breakout" && input.multiTimeframe.countertrendWarning) {
+      score -= 12;
+      riskNotes.add("Breakout idea conflicts with higher-timeframe structure.");
+    }
+
+    if (type === "Reversal" && input.multiTimeframe.countertrendWarning) {
+      whyItFits.push("This is a countertrend reversal study, not a trend-following setup.");
+      riskNotes.add("Reversal setup is countertrend and needs stricter confirmation.");
+    }
+
+    if (input.multiTimeframe.status === "Conflict" || input.multiTimeframe.status === "No Clear Alignment") {
+      score += type === "No Valid Strategy" ? 10 : -8;
+      riskNotes.add("Timeframes are not cleanly aligned.");
+    } else if (input.multiTimeframe.status === "Strong Alignment") {
+      score += 8;
+      whyItFits.push("Multi-timeframe alignment supports the strategy.");
+    }
+  }
+
+  if (input.footprint) {
+    if (type === "Trend Continuation" && input.footprint.type === "Supply Absorbed") {
+      score += 8;
+      whyItFits.push("Supply appears to be absorbed, which can support continuation.");
+    }
+    if (type === "Support Bounce" && input.footprint.type === "Buyer Absorption") {
+      score += 10;
+      whyItFits.push("Buyer absorption supports the support-bounce thesis.");
+    }
+    if (type === "Momentum Breakout" && input.footprint.type === "Failed Breakout") {
+      score -= 14;
+      riskNotes.add("Failed breakout footprint weakens momentum-breakout quality.");
+    }
+    if (type === "Reversal" && (input.footprint.type === "Exhaustion" || input.footprint.type === "Liquidity Sweep")) {
+      score += 9;
+      whyItFits.push("Exhaustion or a liquidity sweep can support a reversal study.");
+    }
+    if (input.footprint.type === "Distribution" && ["Trend Pullback", "Trend Continuation"].includes(type)) {
+      score -= 10;
+      riskNotes.add("Distribution risk conflicts with long-biased trend strategy.");
+    }
   }
 
   score += traderDnaAdjustment(type, input.traderMemory);

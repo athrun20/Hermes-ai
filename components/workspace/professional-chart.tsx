@@ -12,6 +12,8 @@ import type { HermesVisionLabel, HermesVisionResult } from "@/lib/hermes-vision-
 import { HermesScoreBadge } from "@/components/hermes-score-badge";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { StrategyIntelligenceResult } from "@/lib/strategy-types";
+import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import {
   evaluateHermesAlert,
   hermesAlertConditionLabels,
@@ -73,6 +75,8 @@ export function ProfessionalChart({
   vision,
   hermesScore,
   strategy,
+  multiTimeframe,
+  footprint,
   chartLabels,
   newsKeywords = [],
   onTimeframeChange,
@@ -92,6 +96,8 @@ export function ProfessionalChart({
   vision: HermesVisionResult;
   hermesScore: HermesScoreResult;
   strategy: StrategyIntelligenceResult;
+  multiTimeframe: MultiTimeframeIntelligence;
+  footprint: InstitutionalFootprintResult;
   chartLabels?: HermesVisionLabel[];
   newsKeywords?: string[];
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
@@ -428,7 +434,13 @@ export function ProfessionalChart({
       </div>
 
       <div className="space-y-3 p-3 sm:p-4">
-        <HermesVisionPanel hermesScore={hermesScore} strategy={strategy} vision={vision} />
+        <HermesVisionPanel
+          hermesScore={hermesScore}
+          footprint={footprint}
+          multiTimeframe={multiTimeframe}
+          strategy={strategy}
+          vision={vision}
+        />
         <div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3">
           <WorkspaceToolbar
             selectedTool={selectedTool}

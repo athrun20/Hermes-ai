@@ -8,6 +8,7 @@ import { scoreCandidateStrategy } from "@/lib/strategy-scoring";
 import type {
   ConfidenceEngine,
   LessonGenerator,
+  MarketCandidate,
   MarketDataProvider,
   OpportunityScannerResult,
   OpportunityStudy,
@@ -51,6 +52,7 @@ export function buildOpportunityScanner({
       traderDnaMatch: dnaMatch.traderDnaMatch,
     });
     const strategy = scoreCandidateStrategy(candidate, memory);
+    const alignment = inferCandidateAlignment(candidate);
 
     return {
       ticker: candidate.ticker,
@@ -65,6 +67,9 @@ export function buildOpportunityScanner({
       strategyType: strategy.strategy,
       strategyScore: strategy.score,
       strategyQuality: strategy.quality,
+      alignmentScore: alignment.score,
+      higherTimeframeDirection: alignment.direction,
+      countertrendWarning: alignment.warning,
       reasons: services.lessonGenerator.generateReasons(candidate),
       cautions: services.lessonGenerator.generateCautions(candidate),
       lesson: services.lessonGenerator.generateLesson(candidate),
@@ -86,6 +91,31 @@ export function buildOpportunityScanner({
     marketMood: services.marketDataProvider.getMarketMood(),
     opportunities,
   };
+}
+
+function inferCandidateAlignment(candidate: MarketCandidate) {
+  let score = candidate.aboveMovingAverages ? 72 : 48;
+  if (candidate.trend === "Bullish") score += 10;
+  if (candidate.trend === "Bearish") score -= 10;
+  if (candidate.supportHeld) score += 7;
+  if (candidate.volumeTrend === "Increasing") score += 6;
+  if (candidate.priceExtended) score -= 8;
+  if (candidate.riskLevel === "High") score -= 6;
+
+  const direction =
+    score >= 62 ? "Bullish" : score <= 42 ? "Bearish" : "Neutral";
+  const warning =
+    candidate.trend === "Bullish" && direction === "Bearish"
+      ? "Candidate setup conflicts with higher-timeframe pressure."
+      : candidate.trend === "Bearish" && direction === "Bullish"
+        ? "Short-term bounce may be countertrend versus higher-timeframe structure."
+        : null;
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    direction,
+    warning,
+  } as const;
 }
 
 function buildScannerSummary({

@@ -49,7 +49,15 @@ export function OpportunityCard({ opportunity }: { opportunity: OpportunityStudy
           <StudyMetric label="Setup Type" value={opportunity.setupType} tone="muted" />
           <StudyMetric label="Strategy" value={`${opportunity.strategyType} · ${opportunity.strategyScore}`} tone={opportunity.strategyScore >= 70 ? "mint" : opportunity.strategyScore >= 52 ? "gold" : "danger"} />
           <StudyMetric label="Strategy Quality" value={opportunity.strategyQuality} tone={opportunity.strategyScore >= 70 ? "mint" : opportunity.strategyScore >= 52 ? "gold" : "danger"} />
+          <StudyMetric label="Timeframe Alignment" value={`${opportunity.alignmentScore}`} tone={opportunity.alignmentScore >= 72 ? "mint" : opportunity.alignmentScore >= 50 ? "gold" : "danger"} />
+          <StudyMetric label="HTF Direction" value={opportunity.higherTimeframeDirection} tone={opportunity.higherTimeframeDirection === "Bullish" ? "mint" : opportunity.higherTimeframeDirection === "Bearish" ? "danger" : "gold"} />
         </div>
+
+        {opportunity.countertrendWarning ? (
+          <div className="rounded-lg border border-amberline/20 bg-amberline/[0.07] p-3 text-sm leading-6 text-amber-100">
+            {opportunity.countertrendWarning}
+          </div>
+        ) : null}
 
         <div className="rounded-lg border border-white/10 bg-white/[0.035]">
           <button

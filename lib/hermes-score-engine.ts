@@ -1,5 +1,7 @@
 import type { MarketCandidate, TraderDnaMatch } from "@/lib/opportunity-types";
 import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-vision-types";
+import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import type {
   HermesScoreBreakdownItem,
   HermesScoreCategory,
@@ -11,9 +13,13 @@ import type {
 export function calculateHermesScore({
   context,
   vision,
+  multiTimeframe,
+  footprint,
 }: {
   context: HermesVisionContext;
   vision: HermesVisionResult;
+  multiTimeframe?: MultiTimeframeIntelligence;
+  footprint?: InstitutionalFootprintResult;
 }): HermesScoreResult {
   const trend = scoreTrend(context);
   const momentum = scoreMomentum(context, vision.momentumScore);
@@ -22,15 +28,34 @@ export function calculateHermesScore({
   const risk = scoreRisk(context, vision.riskScore);
   const confirmation = buildItem("Confirmation", vision.confirmationScore, vision.dimensions.find((item) => item.dimension === "Confirmation")?.reasons[0] ?? "Confirmation combines trend, momentum, and participation.");
   const traderFit = scoreTraderFit(context);
-  const breakdown = [trend, momentum, volume, structure, risk, confirmation, traderFit];
+  const timeframeAlignment = multiTimeframe
+    ? buildItem("Timeframe Alignment", multiTimeframe.alignmentScore + multiTimeframe.alignmentImpact, `${multiTimeframe.mentorSummary} Alignment impact: ${multiTimeframe.alignmentImpact >= 0 ? "+" : ""}${multiTimeframe.alignmentImpact}.`)
+    : null;
+  const footprintItem = footprint
+    ? buildItem("Institutional Footprint", footprint.confidence + footprint.confidenceImpact, `${footprint.explanation} Footprint impact: ${footprint.confidenceImpact >= 0 ? "+" : ""}${footprint.confidenceImpact}.`)
+    : null;
+  const hasContext = Boolean(multiTimeframe || footprint);
+  const breakdown = [
+    trend,
+    momentum,
+    volume,
+    structure,
+    risk,
+    confirmation,
+    traderFit,
+    ...(timeframeAlignment ? [timeframeAlignment] : []),
+    ...(footprintItem ? [footprintItem] : []),
+  ];
   const score = weightedAverage(breakdown, {
-    Trend: 0.16,
-    Momentum: 0.14,
-    Volume: 0.12,
-    Structure: 0.16,
-    Risk: 0.18,
-    Confirmation: 0.14,
-    "Trader Fit": 0.1,
+    Trend: hasContext ? 0.13 : 0.16,
+    Momentum: hasContext ? 0.11 : 0.14,
+    Volume: hasContext ? 0.1 : 0.12,
+    Structure: hasContext ? 0.13 : 0.16,
+    Risk: hasContext ? 0.15 : 0.18,
+    Confirmation: hasContext ? 0.11 : 0.14,
+    "Trader Fit": hasContext ? 0.07 : 0.1,
+    "Timeframe Alignment": multiTimeframe ? 0.1 : 0,
+    "Institutional Footprint": footprint ? 0.1 : 0,
   });
   const label = getHermesScoreLabel(score);
 
@@ -88,6 +113,8 @@ export function calculateOpportunityHermesScore({
     Risk: 0.18,
     Confirmation: 0.14,
     "Trader Fit": 0.1,
+    "Timeframe Alignment": 0,
+    "Institutional Footprint": 0,
   });
   const label = getHermesScoreLabel(score);
 
@@ -229,7 +256,8 @@ function weightedAverage(
   weights: Record<HermesScoreCategory, number>,
 ) {
   const total = breakdown.reduce((sum, item) => sum + item.score * weights[item.category], 0);
-  return clamp(Math.round(total));
+  const totalWeight = breakdown.reduce((sum, item) => sum + weights[item.category], 0);
+  return clamp(Math.round(total / Math.max(0.01, totalWeight)));
 }
 
 function buildExplanation(score: number, label: HermesScoreLabel, breakdown: HermesScoreBreakdownItem[]) {

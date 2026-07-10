@@ -2,6 +2,7 @@ import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-vision-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import { buildLiveConfidenceSnapshot, type LiveConfidenceSnapshot } from "@/lib/confidence-engine";
 import { buildLiveMentorMessage } from "@/lib/live-mentor";
 import { buildTimelineEvents } from "@/lib/timeline-engine";
@@ -23,6 +24,7 @@ export function buildHermesLiveIntelligence({
   news,
   memory,
   previousConfidence,
+  footprint,
 }: {
   context: HermesVisionContext;
   vision: HermesVisionResult;
@@ -30,6 +32,7 @@ export function buildHermesLiveIntelligence({
   news: NewsIntelligenceResult;
   memory: HermesMemorySnapshot;
   previousConfidence?: number;
+  footprint?: InstitutionalFootprintResult;
 }): HermesLiveIntelligence {
   const confidence = buildLiveConfidenceSnapshot({
     hermesScore,
@@ -42,6 +45,7 @@ export function buildHermesLiveIntelligence({
     confidence,
     news,
     memory,
+    footprint,
   });
 
   return {

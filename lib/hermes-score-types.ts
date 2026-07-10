@@ -7,7 +7,9 @@ export type HermesScoreCategory =
   | "Structure"
   | "Risk"
   | "Confirmation"
-  | "Trader Fit";
+  | "Trader Fit"
+  | "Timeframe Alignment"
+  | "Institutional Footprint";
 
 export type HermesScoreLabel =
   | "Elite Setup"

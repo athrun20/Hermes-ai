@@ -8,6 +8,8 @@ import {
   type TradeTicketSuggestions,
 } from "@/lib/hermes-brain";
 import { formatCurrency, type AssetQuote } from "@/lib/market-data";
+import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import type { OrderAction, PositionSide } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
@@ -26,6 +28,8 @@ export function TradeControls({
   opportunity,
   statusMessage,
   chartLevels,
+  multiTimeframe,
+  footprint,
   visionCaution,
   onSubmit,
 }: {
@@ -38,6 +42,8 @@ export function TradeControls({
     stop?: number;
     target?: number;
   };
+  multiTimeframe?: MultiTimeframeIntelligence;
+  footprint?: InstitutionalFootprintResult;
   visionCaution?: {
     active: boolean;
     message: string;
@@ -187,6 +193,8 @@ export function TradeControls({
         </section>
 
         <RiskRewardCard riskReward={riskReward} />
+        {multiTimeframe ? <MultiTimeframeTradeContext intelligence={multiTimeframe} side={side} /> : null}
+        {footprint ? <InstitutionalTradeContext footprint={footprint} side={side} /> : null}
         {visionCaution?.active ? (
           <section className="rounded-lg border border-amberline/25 bg-amberline/[0.07] p-4">
             <FieldLabel>Hermes Vision Caution</FieldLabel>
@@ -241,6 +249,75 @@ export function TradeControls({
       </div>
     </Panel>
   );
+}
+
+function InstitutionalTradeContext({
+  footprint,
+  side,
+}: {
+  footprint: InstitutionalFootprintResult;
+  side: PositionSide;
+}) {
+  const conflicts =
+    (side === "Long" && footprint.direction === "Bearish") ||
+    (side === "Short" && footprint.direction === "Bullish");
+
+  return (
+    <section className={`rounded-lg border p-4 ${conflicts ? "border-amberline/25 bg-amberline/[0.07]" : "border-white/10 bg-white/[0.035]"}`}>
+      <FieldLabel>Institutional Context</FieldLabel>
+      <p className="mt-2 text-sm leading-6 text-slate-300">
+        {footprint.type === "No clear institutional footprint"
+          ? "Hermes does not see enough footprint evidence to adjust the plan."
+          : conflicts
+            ? `${footprint.type} risk conflicts with this ${side.toLowerCase()} trade. Reduce size or wait.`
+            : `${footprint.type} may support this ${side.toLowerCase()} idea, but confirmation is still required.`}
+      </p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{footprint.confirmationNeeded}</p>
+    </section>
+  );
+}
+
+function MultiTimeframeTradeContext({
+  intelligence,
+  side,
+}: {
+  intelligence: MultiTimeframeIntelligence;
+  side: PositionSide;
+}) {
+  const agreesWithLong =
+    side === "Long" && intelligence.higherTimeframeDirection.includes("Bullish");
+  const agreesWithShort =
+    side === "Short" && intelligence.higherTimeframeDirection.includes("Bearish");
+  const agrees = agreesWithLong || agreesWithShort;
+
+  return (
+    <section className={`rounded-lg border p-4 ${agrees ? "border-mint-300/20 bg-mint-300/[0.06]" : intelligence.countertrendWarning ? "border-amberline/25 bg-amberline/[0.07]" : "border-white/10 bg-white/[0.035]"}`}>
+      <FieldLabel>Multi-Timeframe Context</FieldLabel>
+      <div className="mt-3 grid grid-cols-5 gap-1.5">
+        {intelligence.rows.map((row) => (
+          <div className="rounded-md border border-white/10 bg-surface-950/45 px-2 py-1.5 text-center" key={row.timeframe}>
+            <p className="text-[10px] font-semibold text-slate-500">{row.timeframe}</p>
+            <p className={row.direction.includes("Bullish") ? "mt-1 text-[10px] font-semibold text-mint-300" : row.direction.includes("Bearish") ? "mt-1 text-[10px] font-semibold text-rose-300" : "mt-1 text-[10px] font-semibold text-slate-300"}>
+              {shortDirection(row.direction)}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-300">
+        {agrees
+          ? `The proposed ${side.toLowerCase()} trade agrees with the higher-timeframe trend.`
+          : intelligence.countertrendWarning ?? intelligence.mentorSummary}
+      </p>
+    </section>
+  );
+}
+
+function shortDirection(direction: MultiTimeframeIntelligence["rows"][number]["direction"]) {
+  if (direction === "Strong Bullish") return "S Bull";
+  if (direction === "Strong Bearish") return "S Bear";
+  if (direction === "Bullish") return "Bull";
+  if (direction === "Bearish") return "Bear";
+  return "Neutral";
 }
 
 function AssessmentGrid({ suggestions }: { suggestions: TradeTicketSuggestions }) {

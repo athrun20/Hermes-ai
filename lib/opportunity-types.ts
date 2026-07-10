@@ -82,6 +82,9 @@ export type OpportunityStudy = {
   strategyType: StrategyType;
   strategyScore: number;
   strategyQuality: StrategyQuality;
+  alignmentScore: number;
+  higherTimeframeDirection: "Bullish" | "Neutral" | "Bearish";
+  countertrendWarning: string | null;
   reasons: string[];
   cautions: string[];
   lesson: string;

@@ -1,6 +1,7 @@
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-vision-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import { applyConfidenceDelta, type LiveConfidenceSnapshot } from "@/lib/confidence-engine";
 import type { LiveTimelineCategory, LiveTimelineEvent, LiveTimelineTone } from "@/lib/timeline-events";
 
@@ -10,6 +11,7 @@ export type TimelineEngineInput = {
   confidence: LiveConfidenceSnapshot;
   news: NewsIntelligenceResult;
   memory: HermesMemorySnapshot;
+  footprint?: InstitutionalFootprintResult;
 };
 
 export function buildTimelineEvents(input: TimelineEngineInput): LiveTimelineEvent[] {
@@ -22,6 +24,7 @@ export function buildTimelineEvents(input: TimelineEngineInput): LiveTimelineEve
     detectNewsEvent(input),
     detectTraderBehaviorEvent(input),
     detectTradePlanEvent(input),
+    detectFootprintEvent(input),
   ].filter((event): event is LiveTimelineEvent => Boolean(event));
 
   return dedupeEvents(events)
@@ -248,6 +251,19 @@ function detectTradePlanEvent({ context, vision, confidence }: TimelineEngineInp
     });
   }
   return null;
+}
+
+function detectFootprintEvent({ footprint, confidence }: TimelineEngineInput) {
+  if (!footprint || footprint.type === "No clear institutional footprint" || footprint.confidence < 56) return null;
+  return event({
+    category: "Footprint",
+    title: `Possible ${footprint.type.toLowerCase()}`,
+    explanation: footprint.explanation,
+    delta: footprint.confidenceImpact,
+    confidence,
+    signature: `footprint-${footprint.type}-${footprint.confirmationStatus}`,
+    tone: footprint.direction === "Bullish" ? "mint" : footprint.direction === "Bearish" ? "danger" : "gold",
+  });
 }
 
 function event({

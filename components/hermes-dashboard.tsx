@@ -63,6 +63,8 @@ import { buildNewsIntelligence } from "@/lib/news-intelligence-engine";
 import { calculateHermesScore } from "@/lib/hermes-score-engine";
 import { buildHermesLiveIntelligence } from "@/lib/hermes-live-engine";
 import { analyzeStrategyIntelligence } from "@/lib/strategy-engine";
+import { analyzeMultiTimeframeIntelligence } from "@/lib/multi-timeframe-engine";
+import { analyzeInstitutionalFootprint } from "@/lib/institutional-footprint-engine";
 import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import {
@@ -291,9 +293,89 @@ export function HermesDashboard() {
     () => analyzeHermesVision(hermesVisionContext),
     [hermesVisionContext],
   );
+  const multiTimeframe = useMemo(
+    () =>
+      analyzeMultiTimeframeIntelligence({
+        quote: selectedQuote,
+        activeTimeframe: timeframe,
+        drawings: selectedChartDrawings,
+        tradeLevels: selectedChartTradeLevels,
+        traderMemory: hermesMemorySnapshot,
+        traderDna: memoryTradingPersonality.archetype,
+        dailyGoal: morningBriefing.dailyGoal.text,
+      }),
+    [
+      hermesMemorySnapshot,
+      memoryTradingPersonality.archetype,
+      morningBriefing.dailyGoal.text,
+      selectedChartDrawings,
+      selectedChartTradeLevels,
+      selectedQuote,
+      timeframe,
+    ],
+  );
+  const preliminaryHermesScore = useMemo(
+    () => calculateHermesScore({ context: hermesVisionContext, vision: hermesVision, multiTimeframe }),
+    [hermesVision, hermesVisionContext, multiTimeframe],
+  );
+  const preliminaryStrategy = useMemo(
+    () =>
+      analyzeStrategyIntelligence({
+        context: hermesVisionContext,
+        vision: hermesVision,
+        news: newsIntelligence,
+        traderMemory: hermesMemorySnapshot,
+        confidence: preliminaryHermesScore.score,
+        timeframe,
+        multiTimeframe,
+      }),
+    [
+      hermesMemorySnapshot,
+      hermesVision,
+      hermesVisionContext,
+      multiTimeframe,
+      newsIntelligence,
+      preliminaryHermesScore.score,
+      timeframe,
+    ],
+  );
+  const footprint = useMemo(
+    () =>
+      analyzeInstitutionalFootprint({
+        candles,
+        context: hermesVisionContext,
+        multiTimeframe,
+        strategy: preliminaryStrategy,
+        news: newsIntelligence,
+      }),
+    [candles, hermesVisionContext, multiTimeframe, preliminaryStrategy, newsIntelligence],
+  );
+  const strategyIntelligence = useMemo(
+    () =>
+      analyzeStrategyIntelligence({
+        context: hermesVisionContext,
+        vision: hermesVision,
+        news: newsIntelligence,
+        traderMemory: hermesMemorySnapshot,
+        confidence: preliminaryHermesScore.score,
+        timeframe,
+        multiTimeframe,
+        footprint,
+      }),
+    [
+      footprint,
+      hermesMemorySnapshot,
+      hermesVision,
+      hermesVisionContext,
+      multiTimeframe,
+      newsIntelligence,
+      preliminaryHermesScore.score,
+      timeframe,
+    ],
+  );
   const hermesScore = useMemo(
-    () => calculateHermesScore({ context: hermesVisionContext, vision: hermesVision }),
-    [hermesVision, hermesVisionContext],
+    () => calculateHermesScore({ context: hermesVisionContext, vision: hermesVision, multiTimeframe, footprint }),
+    [footprint, hermesVision, hermesVisionContext, multiTimeframe],
   );
   const liveIntelligence = useMemo(
     () =>
@@ -303,27 +385,9 @@ export function HermesDashboard() {
         hermesScore,
         news: newsIntelligence,
         memory: hermesMemorySnapshot,
+        footprint,
       }),
-    [hermesMemorySnapshot, hermesScore, hermesVision, hermesVisionContext, newsIntelligence],
-  );
-  const strategyIntelligence = useMemo(
-    () =>
-      analyzeStrategyIntelligence({
-        context: hermesVisionContext,
-        vision: hermesVision,
-        news: newsIntelligence,
-        traderMemory: hermesMemorySnapshot,
-        confidence: liveIntelligence.confidence.score,
-        timeframe,
-      }),
-    [
-      hermesMemorySnapshot,
-      hermesVision,
-      hermesVisionContext,
-      liveIntelligence.confidence.score,
-      newsIntelligence,
-      timeframe,
-    ],
+    [footprint, hermesMemorySnapshot, hermesScore, hermesVision, hermesVisionContext, newsIntelligence],
   );
   const newsCatalystMarker = useMemo(
     () => buildNewsCatalystMarker({ candles, news: newsIntelligence }),
@@ -923,10 +987,16 @@ export function HermesDashboard() {
             <ProfessionalChart
               analysis={workspaceAnalysis}
               candles={candles}
-              chartLabels={newsCatalystMarker ? [newsCatalystMarker, ...hermesVision.labels] : hermesVision.labels}
+              chartLabels={[
+                ...(newsCatalystMarker ? [newsCatalystMarker] : []),
+                ...footprint.chartLabels,
+                ...hermesVision.labels,
+              ].slice(0, 3)}
               drawings={selectedChartDrawings}
+              footprint={footprint}
               hermesScore={hermesScore}
               indicators={indicators}
+              multiTimeframe={multiTimeframe}
               newsKeywords={chartNewsKeywords}
               quote={selectedQuote}
               selectedTool={selectedChartTool}
@@ -962,7 +1032,9 @@ export function HermesDashboard() {
                 {rightTab === "trade-plan" ? (
                   <FloatingTradePlan
                     buyingPower={portfolio.buyingPower}
+                    footprint={footprint}
                     hermesScore={hermesScore}
+                    multiTimeframe={multiTimeframe}
                     opportunity={selectedOpportunity}
                     quote={selectedQuote}
                     chartLevels={selectedChartTradeLevels}

@@ -7,15 +7,23 @@ import { HermesScoreBreakdown } from "@/components/hermes-score-breakdown";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { StrategyIntelligenceResult } from "@/lib/strategy-types";
 import { StrategyPanel } from "@/components/workspace/strategy-panel";
+import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
+import { TimeframeAlignmentMatrix } from "@/components/workspace/timeframe-alignment-matrix";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
+import { FootprintPanel } from "@/components/workspace/footprint-panel";
 
 export function HermesVisionPanel({
   vision,
   hermesScore,
   strategy,
+  multiTimeframe,
+  footprint,
 }: {
   vision: HermesVisionResult;
   hermesScore: HermesScoreResult;
   strategy: StrategyIntelligenceResult;
+  multiTimeframe: MultiTimeframeIntelligence;
+  footprint: InstitutionalFootprintResult;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -48,8 +56,10 @@ export function HermesVisionPanel({
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 grid gap-3 2xl:grid-cols-3">
         <StrategyPanel strategy={strategy} />
+        <TimeframeAlignmentMatrix intelligence={multiTimeframe} />
+        <FootprintPanel footprint={footprint} />
       </div>
 
       {expanded ? (
