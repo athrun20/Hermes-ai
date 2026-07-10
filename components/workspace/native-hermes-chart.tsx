@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from "react";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
 import type { Candle } from "@/lib/market-data";
-import { buildChartBounds, getPriceRange, getVisibleCandles, hitTestChart } from "@/lib/hermes-chart-engine/scales";
+import { buildChartBounds, getPriceRange, getVisibleCandles, hitTestChart, priceToY } from "@/lib/hermes-chart-engine/scales";
 import { renderHermesChart } from "@/lib/hermes-chart-engine/renderer";
 import type { HermesChartIndicators, HermesChartViewport } from "@/lib/hermes-chart-engine/types";
 import type { HermesVisionLabel } from "@/lib/hermes-vision-types";
@@ -39,6 +39,11 @@ export function NativeHermesChart({
   const [viewport, setViewport] = useState<HermesChartViewport>(() => buildInitialViewport(candles.length));
   const [crosshair, setCrosshair] = useState({ visible: false, x: 0, y: 0 });
   const [selectedCandleIndex, setSelectedCandleIndex] = useState<number | null>(null);
+  const [hoveredAnnotation, setHoveredAnnotation] = useState<{
+    label: HermesVisionLabel;
+    x: number;
+    y: number;
+  } | null>(null);
   const visibleCandles = useMemo(() => getVisibleCandles(candles, viewport), [candles, viewport]);
   const series = useMemo(() => buildHermesChartSeries(candles), [candles]);
   const candleExplanation = useMemo(
@@ -127,6 +132,15 @@ export function NativeHermesChart({
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     setCrosshair({ visible: true, x, y });
+    setHoveredAnnotation(findHoveredAnnotation({
+      x,
+      y,
+      labels: visionLabels,
+      width: rect.width,
+      height: rect.height,
+      indicators,
+      priceRange,
+    }));
 
     if (dragStartRef.current) {
       const slot = rect.width / Math.max(1, dragStartRef.current.viewport.end - dragStartRef.current.viewport.start + 1);
@@ -160,6 +174,7 @@ export function NativeHermesChart({
         }}
         onMouseLeave={() => {
           setCrosshair((current) => ({ ...current, visible: false }));
+          setHoveredAnnotation(null);
           dragStartRef.current = null;
         }}
         onMouseMove={handleMouseMove}
@@ -170,6 +185,13 @@ export function NativeHermesChart({
         ref={canvasRef}
       />
       <CandleExplanationPanel explanation={candleExplanation} onClose={() => setSelectedCandleIndex(null)} />
+      {hoveredAnnotation?.label.explanation ? (
+        <AnnotationTooltip
+          label={hoveredAnnotation.label}
+          x={hoveredAnnotation.x}
+          y={hoveredAnnotation.y}
+        />
+      ) : null}
       {selectedTool !== "none" && selectedTool !== "crosshair" ? (
         <div className="pointer-events-none absolute bottom-4 left-4 rounded-md border border-amberline/25 bg-surface-950/85 px-3 py-2 text-xs font-semibold text-amberline">
           Click chart to place {toolLabel(selectedTool)}
@@ -183,6 +205,80 @@ export function NativeHermesChart({
           {alertToast}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function findHoveredAnnotation({
+  x,
+  y,
+  labels,
+  width,
+  height,
+  indicators,
+  priceRange,
+}: {
+  x: number;
+  y: number;
+  labels: HermesVisionLabel[];
+  width: number;
+  height: number;
+  indicators: HermesChartIndicators;
+  priceRange: { min: number; max: number };
+}) {
+  const bounds = buildChartBounds(width, height, indicators);
+  const rect = bounds.plot;
+  for (const [index, label] of labels.slice(0, 5).entries()) {
+    const labelY = Math.max(
+      rect.y + 10,
+      Math.min(
+        rect.y + rect.height - 26,
+        priceToY(label.price ?? priceRange.max, priceRange, rect) + index * 28,
+      ),
+    );
+    const delta = label.explanation?.confidenceDelta;
+    const text = typeof delta === "number" && Math.abs(delta) >= 3
+      ? `${label.text} ${delta >= 0 ? "+" : ""}${delta}`
+      : label.text;
+    const labelX = rect.x + 14;
+    const labelWidth = Math.min(180, text.length * 6.5 + 18);
+    if (x >= labelX && x <= labelX + labelWidth && y >= labelY && y <= labelY + 24) {
+      return { label, x: labelX, y: labelY };
+    }
+  }
+  return null;
+}
+
+function AnnotationTooltip({
+  label,
+  x,
+  y,
+}: {
+  label: HermesVisionLabel;
+  x: number;
+  y: number;
+}) {
+  const explanation = label.explanation;
+  if (!explanation) return null;
+  return (
+    <div
+      className="pointer-events-none absolute z-20 w-80 rounded-lg border border-white/10 bg-surface-950/95 p-3 text-xs leading-5 text-slate-300 shadow-2xl shadow-black/40 backdrop-blur-md"
+      style={{
+        left: Math.min(x + 8, 520),
+        top: Math.max(12, y + 30),
+      }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-semibold text-white">{label.text}</p>
+        <span className={explanation.confidenceDelta >= 0 ? "font-mono text-mint-300" : "font-mono text-rose-300"}>
+          {explanation.confidenceDelta >= 0 ? "+" : ""}
+          {explanation.confidenceDelta}
+        </span>
+      </div>
+      <p className="mt-2"><span className="font-semibold text-slate-100">What:</span> {explanation.whatHappened}</p>
+      <p><span className="font-semibold text-slate-100">Why:</span> {explanation.whyItMatters}</p>
+      <p><span className="font-semibold text-slate-100">Thesis:</span> {explanation.thesisImpact}</p>
+      <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-slate-500">{explanation.sourceModule}</p>
     </div>
   );
 }

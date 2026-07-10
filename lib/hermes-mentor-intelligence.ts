@@ -3,6 +3,7 @@ import type { NewsIntelligenceResult, NewsKeywordTone, NewsSourceType, NewsUrgen
 import type { ClosedTrade } from "@/lib/paper-trading";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { HermesVisionResult } from "@/lib/hermes-vision-types";
+import type { ReasoningResult } from "@/lib/reasoning-types";
 
 export type WeightedConfidenceComponent = {
   name: "Trend" | "Momentum" | "Volume" | "Structure" | "Risk" | "News";
@@ -82,10 +83,26 @@ const CONFIDENCE_WEIGHTS: Record<WeightedConfidenceComponent["name"], number> = 
 export function buildWeightedConfidenceEngine({
   hermesScore,
   news,
+  reasoning,
+  chartConfidenceDelta = 0,
 }: {
   hermesScore: HermesScoreResult;
   news: NewsIntelligenceResult;
+  reasoning?: ReasoningResult;
+  chartConfidenceDelta?: number;
 }): WeightedConfidenceEngineResult {
+  if (reasoning) {
+    const components = buildReasoningConfidenceComponents(reasoning);
+    const weakest = [...components].sort((a, b) => a.score - b.score)[0];
+    const strongest = [...components].sort((a, b) => b.score - a.score)[0];
+    return {
+      score: clamp(reasoning.confidenceScore + chartConfidenceDelta),
+      label: reasoning.confidenceScore >= 85 ? "Institutional Quality" : reasoning.confidenceScore >= 72 ? "Worth Studying" : reasoning.confidenceScore >= 58 ? "Needs Confirmation" : "Protect Capital",
+      explanation: `Hermes confidence is ${clamp(reasoning.confidenceScore + chartConfidenceDelta)} because ${strongest.name.toLowerCase()} is ${strongest.status.toLowerCase()}, while ${weakest.name.toLowerCase()} still needs attention.`,
+      components,
+    };
+  }
+
   const base = new Map(hermesScore.breakdown.map((item) => [item.category, item]));
   const components: WeightedConfidenceComponent[] = (["Trend", "Momentum", "Volume", "Structure", "Risk"] as const).map((name) => {
     const item = base.get(name);
@@ -117,7 +134,7 @@ export function buildWeightedConfidenceEngine({
     ],
   });
 
-  const score = clamp(Math.round(components.reduce((sum, item) => sum + item.score * item.weight, 0)));
+  const score = clamp(Math.round(components.reduce((sum, item) => sum + item.score * item.weight, 0) + chartConfidenceDelta));
   const weakest = [...components].sort((a, b) => a.score - b.score)[0];
   const strongest = [...components].sort((a, b) => b.score - a.score)[0];
 
@@ -127,6 +144,37 @@ export function buildWeightedConfidenceEngine({
     explanation: `Hermes confidence is ${score} because ${strongest.name.toLowerCase()} is ${strongest.status.toLowerCase()}, while ${weakest.name.toLowerCase()} still needs attention.`,
     components,
   };
+}
+
+function buildReasoningConfidenceComponents(reasoning: ReasoningResult): WeightedConfidenceComponent[] {
+  const categoryMap: Record<WeightedConfidenceComponent["name"], string[]> = {
+    Trend: ["Trend Quality", "Multi-Timeframe Alignment"],
+    Momentum: ["Momentum"],
+    Volume: ["Volume Quality"],
+    Structure: ["Market Structure", "Institutional Activity"],
+    Risk: ["Risk/Reward", "Trade Plan", "Portfolio Exposure"],
+    News: ["News and Event Risk"],
+  };
+  const allEvidence = [
+    ...reasoning.supportingEvidence,
+    ...reasoning.conflictingEvidence,
+    ...reasoning.neutralEvidence,
+  ];
+
+  return (Object.keys(categoryMap) as WeightedConfidenceComponent["name"][]).map((name) => {
+    const evidence = allEvidence.filter((item) => categoryMap[name].includes(item.category));
+    const contribution = evidence.reduce((sum, item) => sum + item.confidenceContribution, 0);
+    const score = clamp(60 + contribution);
+    return {
+      name,
+      score,
+      weight: CONFIDENCE_WEIGHTS[name],
+      contribution: Math.round(score * CONFIDENCE_WEIGHTS[name]),
+      status: scoreToStatus(score),
+      reason: evidence[0]?.explanation ?? `${name} is being interpreted by Hermes Reasoning.`,
+      details: evidence.slice(0, 3).map((item) => `${item.label}: ${item.explanation}`),
+    };
+  });
 }
 
 export function buildHermesTimeline({

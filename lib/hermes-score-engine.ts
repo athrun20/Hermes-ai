@@ -2,6 +2,7 @@ import type { MarketCandidate, TraderDnaMatch } from "@/lib/opportunity-types";
 import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-vision-types";
 import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
+import type { TradeQualityResult } from "@/lib/trade-quality-types";
 import type {
   HermesScoreBreakdownItem,
   HermesScoreCategory,
@@ -15,12 +16,37 @@ export function calculateHermesScore({
   vision,
   multiTimeframe,
   footprint,
+  tradeQuality,
 }: {
   context: HermesVisionContext;
   vision: HermesVisionResult;
   multiTimeframe?: MultiTimeframeIntelligence;
   footprint?: InstitutionalFootprintResult;
+  tradeQuality?: TradeQualityResult;
 }): HermesScoreResult {
+  if (tradeQuality) {
+    return {
+      symbol: tradeQuality.symbol,
+      score: tradeQuality.score,
+      label: getHermesScoreLabel(tradeQuality.score),
+      explanation: tradeQuality.summary,
+      breakdown: tradeQuality.breakdown.map((item) => ({
+        category: item.category === "Multi-Timeframe Alignment"
+          ? "Timeframe Alignment"
+          : item.category === "News Context"
+            ? "Confirmation"
+            : item.category === "Institutional Footprint"
+              ? "Institutional Footprint"
+              : isHermesCategory(item.category)
+                ? item.category
+                : "Risk",
+        score: item.percentage,
+        status: item.status === "Needs Work" ? "Developing" : item.status,
+        reason: item.reason,
+      })),
+    };
+  }
+
   const trend = scoreTrend(context);
   const momentum = scoreMomentum(context, vision.momentumScore);
   const volume = buildItem("Volume", vision.volumeScore, vision.dimensions.find((item) => item.dimension === "Volume")?.reasons[0] ?? "Volume context is being evaluated.");
@@ -268,4 +294,18 @@ function buildExplanation(score: number, label: HermesScoreLabel, breakdown: Her
 
 function clamp(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function isHermesCategory(value: string): value is HermesScoreCategory {
+  return [
+    "Trend",
+    "Momentum",
+    "Volume",
+    "Structure",
+    "Risk",
+    "Confirmation",
+    "Trader Fit",
+    "Timeframe Alignment",
+    "Institutional Footprint",
+  ].includes(value);
 }

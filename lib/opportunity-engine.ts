@@ -5,6 +5,7 @@ import { mockMarketDataProvider } from "@/lib/opportunity-market-data";
 import { ruleBasedTraderDnaMatcher } from "@/lib/opportunity-trader-dna-matching";
 import { calculateOpportunityHermesScore } from "@/lib/hermes-score-engine";
 import { scoreCandidateStrategy } from "@/lib/strategy-scoring";
+import { getTradeQualityGrade } from "@/lib/trade-quality-explanations";
 import type {
   ConfidenceEngine,
   LessonGenerator,
@@ -53,6 +54,11 @@ export function buildOpportunityScanner({
     });
     const strategy = scoreCandidateStrategy(candidate, memory);
     const alignment = inferCandidateAlignment(candidate);
+    const studyQualityScore = Math.round(
+      strategy.score * 0.45 + alignment.score * 0.25 + hermesScore.score * 0.3,
+    );
+    const strongest = [...hermesScore.breakdown].sort((a, b) => b.score - a.score)[0];
+    const weakest = [...hermesScore.breakdown].sort((a, b) => a.score - b.score)[0];
 
     return {
       ticker: candidate.ticker,
@@ -67,6 +73,10 @@ export function buildOpportunityScanner({
       strategyType: strategy.strategy,
       strategyScore: strategy.score,
       strategyQuality: strategy.quality,
+      studyQualityScore,
+      studyQualityGrade: getTradeQualityGrade(studyQualityScore).grade,
+      topQualityStrength: `${strongest?.category ?? "Structure"}: ${strongest?.reason ?? "Hermes is still gathering context."}`,
+      topQualityWeakness: `${weakest?.category ?? "Risk"}: ${weakest?.reason ?? "Risk still needs review."}`,
       alignmentScore: alignment.score,
       higherTimeframeDirection: alignment.direction,
       countertrendWarning: alignment.warning,

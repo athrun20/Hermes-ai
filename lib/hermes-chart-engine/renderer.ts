@@ -249,10 +249,14 @@ function drawCurrentPrice(
 }
 
 function drawVisionLabels(context: CanvasRenderingContext2D, labels: HermesChartRenderInput["visionLabels"], rect: ChartRect, range: { min: number; max: number }) {
-  labels.slice(0, 3).forEach((label, index) => {
+  labels.slice(0, 5).forEach((label, index) => {
     const y = priceToY(label.price ?? range.max, range, rect) + index * 28;
     const color = label.tone === "danger" ? "#FDA4AF" : label.tone === "mint" ? "#79F2C0" : "#F5B84B";
-    drawTag(context, label.text, rect.x + 14, Math.max(rect.y + 10, Math.min(rect.y + rect.height - 26, y)), color);
+    const delta = label.explanation?.confidenceDelta;
+    const text = typeof delta === "number" && Math.abs(delta) >= 3
+      ? `${label.text} ${delta >= 0 ? "+" : ""}${delta}`
+      : label.text;
+    drawTag(context, text, rect.x + 14, Math.max(rect.y + 10, Math.min(rect.y + rect.height - 26, y)), color);
   });
 }
 

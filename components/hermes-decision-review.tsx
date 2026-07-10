@@ -8,6 +8,8 @@ import type { DecisionReview } from "@/lib/decision-types";
 import { formatCurrency } from "@/lib/market-data";
 import { HermesScoreBadge } from "@/components/hermes-score-badge";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
+import { TradeQualityBadge } from "@/components/trade-quality-badge";
+import { ImproveTradeList, ScoreCapNotice, WhyNotHigher } from "@/components/trade-quality-breakdown";
 
 export function HermesDecisionReview({
   review,
@@ -70,10 +72,21 @@ export function HermesDecisionReview({
                 </div>
                 <div className="flex flex-col items-start gap-2 lg:items-end">
                   <HermesScoreBadge score={hermesScore} />
+                  {review.tradeQualityResult ? <TradeQualityBadge quality={review.tradeQualityResult} /> : null}
                   <ConfidenceBadge confidence={review.confidence} label={`${review.confidence}% confidence`} />
                 </div>
               </div>
             </section>
+
+            {review.tradeQualityResult ? (
+              <section className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-5">
+                {review.tradeQualityResult.capsApplied.length > 0 ? (
+                  <ScoreCapNotice caps={review.tradeQualityResult.capsApplied} />
+                ) : null}
+                <WhyNotHigher reasons={review.tradeQualityResult.whyNotAPlus} />
+                <ImproveTradeList improvements={review.tradeQualityResult.improvements} />
+              </section>
+            ) : null}
 
             <section className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               <MetricCard

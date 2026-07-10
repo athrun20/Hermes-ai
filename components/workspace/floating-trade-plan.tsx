@@ -11,6 +11,8 @@ import { HermesScoreBadge } from "@/components/hermes-score-badge";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
+import { TradeQualityBadge } from "@/components/trade-quality-badge";
+import type { TradeQualityPlan, TradeQualityResult } from "@/lib/trade-quality-types";
 
 type DockMode = "compact" | "expanded" | "collapsed";
 
@@ -19,17 +21,20 @@ export function FloatingTradePlan({
   quote,
   opportunity,
   hermesScore,
+  tradeQuality,
   multiTimeframe,
   footprint,
   chartLevels,
   statusMessage,
   visionCaution,
+  buildTradeQuality,
   onSubmit,
 }: {
   buyingPower: number;
   quote: AssetQuote;
   opportunity: OpportunityScore;
   hermesScore: HermesScoreResult;
+  tradeQuality: TradeQualityResult;
   multiTimeframe: MultiTimeframeIntelligence;
   footprint: InstitutionalFootprintResult;
   chartLevels: ChartTradeLevels;
@@ -38,6 +43,7 @@ export function FloatingTradePlan({
     active: boolean;
     message: string;
   };
+  buildTradeQuality: (plan: TradeQualityPlan) => TradeQualityResult;
   onSubmit: (ticket: TradeTicket) => string | undefined;
 }) {
   const [mode, setMode] = useState<DockMode>("compact");
@@ -62,6 +68,7 @@ export function FloatingTradePlan({
           buyingPower={buyingPower}
           chartLevels={chartLevels}
           footprint={footprint}
+          buildTradeQuality={buildTradeQuality}
           multiTimeframe={multiTimeframe}
           opportunity={opportunity}
           quote={quote}
@@ -99,6 +106,7 @@ export function FloatingTradePlan({
           <MiniMetric label="Hermes Score" value={`${hermesScore.score}`} />
         </div>
         <HermesScoreBadge score={hermesScore} />
+        <TradeQualityBadge quality={tradeQuality} />
         <MultiTimeframeContext intelligence={multiTimeframe} />
         <InstitutionalContext footprint={footprint} />
         {visionCaution?.active ? (

@@ -4,6 +4,7 @@ import {
   buildWeightedConfidenceEngine,
   type WeightedConfidenceEngineResult,
 } from "@/lib/hermes-mentor-intelligence";
+import type { ReasoningResult } from "@/lib/reasoning-types";
 
 export type LiveConfidenceSnapshot = WeightedConfidenceEngineResult & {
   changedBy: number;
@@ -13,12 +14,16 @@ export function buildLiveConfidenceSnapshot({
   hermesScore,
   news,
   previousScore,
+  reasoning,
+  chartConfidenceDelta,
 }: {
   hermesScore: HermesScoreResult;
   news: NewsIntelligenceResult;
   previousScore?: number;
+  reasoning?: ReasoningResult;
+  chartConfidenceDelta?: number;
 }): LiveConfidenceSnapshot {
-  const confidence = buildWeightedConfidenceEngine({ hermesScore, news });
+  const confidence = buildWeightedConfidenceEngine({ hermesScore, news, reasoning, chartConfidenceDelta });
 
   return {
     ...confidence,

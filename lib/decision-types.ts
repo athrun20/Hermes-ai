@@ -2,6 +2,7 @@ import type { OpportunityScore } from "@/lib/hermes-brain";
 import type { HermesIntelligenceLayer } from "@/lib/hermes-intelligence-layer";
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
+import type { TradeQualityResult } from "@/lib/trade-quality-types";
 import type { AssetQuote } from "@/lib/market-data";
 import type { OrderAction, PositionSide, PortfolioSnapshot } from "@/lib/paper-trading";
 
@@ -25,6 +26,7 @@ export type DecisionContext = {
   marketMood: DecisionMood;
   dailyGoal: string;
   hermesScore?: HermesScoreResult;
+  tradeQuality?: TradeQualityResult;
   intelligence?: HermesIntelligenceLayer;
 };
 
@@ -52,6 +54,7 @@ export type DecisionReview = {
   side: PositionSide;
   confidence: number;
   hermesScore?: HermesScoreResult;
+  tradeQualityResult?: TradeQualityResult;
   tradeQuality: DecisionQuality;
   disciplineScoreImpact: number;
   recommendation: DecisionRecommendation;

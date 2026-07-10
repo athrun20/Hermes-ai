@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CandlestickSeries,
-  ColorType,
   createChart,
   type CandlestickData,
   type IChartApi,
@@ -11,7 +10,9 @@ import {
   type Time,
 } from "lightweight-charts";
 import { RotateCcw } from "lucide-react";
+import { LightweightChartsAttribution } from "@/components/chart-attribution";
 import { Panel, PanelHeader, StatusPill } from "@/components/ui";
+import { createHermesLightweightChartOptions } from "@/lib/lightweight-chart-options";
 import { formatCurrency } from "@/lib/market-data";
 import type { ReplaySession } from "@/lib/replay-engine";
 
@@ -36,23 +37,7 @@ export function ReplayChart({ session }: { session: ReplaySession }) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const chart = createChart(containerRef.current, {
-      autoSize: true,
-      layout: {
-        background: { type: ColorType.Solid, color: "#070A0F" },
-        textColor: "#6B7A90",
-      },
-      grid: {
-        vertLines: { color: "rgba(255,255,255,0.045)" },
-        horzLines: { color: "rgba(255,255,255,0.055)" },
-      },
-      rightPriceScale: { borderColor: "rgba(255,255,255,0.10)" },
-      timeScale: {
-        borderColor: "rgba(255,255,255,0.10)",
-        timeVisible: true,
-        secondsVisible: false,
-      },
-    });
+    const chart = createChart(containerRef.current, createHermesLightweightChartOptions());
     const series = chart.addSeries(CandlestickSeries, {
       upColor: "#33D99B",
       downColor: "#FB7185",
@@ -118,6 +103,7 @@ export function ReplayChart({ session }: { session: ReplaySession }) {
             <ReplayMarker label="Exit" tone="muted" />
           </div>
         </div>
+        <LightweightChartsAttribution />
         <button
           className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-amberline/30 hover:bg-amberline/10 hover:text-white"
           onClick={() => setVisibleCount(1)}

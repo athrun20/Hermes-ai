@@ -10,6 +10,9 @@ import {
 import { formatCurrency, type AssetQuote } from "@/lib/market-data";
 import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
+import { TradeQualityBreakdown } from "@/components/trade-quality-breakdown";
+import { TradeQualityBadge } from "@/components/trade-quality-badge";
+import type { TradeQualityPlan, TradeQualityResult } from "@/lib/trade-quality-types";
 import type { OrderAction, PositionSide } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
@@ -30,6 +33,7 @@ export function TradeControls({
   chartLevels,
   multiTimeframe,
   footprint,
+  buildTradeQuality,
   visionCaution,
   onSubmit,
 }: {
@@ -44,6 +48,7 @@ export function TradeControls({
   };
   multiTimeframe?: MultiTimeframeIntelligence;
   footprint?: InstitutionalFootprintResult;
+  buildTradeQuality?: (plan: TradeQualityPlan) => TradeQualityResult;
   visionCaution?: {
     active: boolean;
     message: string;
@@ -96,6 +101,17 @@ export function TradeControls({
     takeProfit: plannedTakeProfit,
   });
   const amountIsInvalid = !Number.isFinite(Number(notional)) || Number(notional) <= 0;
+  const currentTradeQuality = useMemo(
+    () =>
+      buildTradeQuality?.({
+        side,
+        notional: Number(notional),
+        entryPrice: parseNumber(entryPrice) ?? undefined,
+        stopLoss: parseNumber(stopLoss) ?? undefined,
+        takeProfit: parseNumber(takeProfit) ?? undefined,
+      }),
+    [buildTradeQuality, entryPrice, notional, side, stopLoss, takeProfit],
+  );
   const openingDisabled = amountIsInvalid || Number(notional) > buyingPower;
   const closingDisabled = amountIsInvalid;
 
@@ -193,6 +209,12 @@ export function TradeControls({
         </section>
 
         <RiskRewardCard riskReward={riskReward} />
+        {currentTradeQuality ? (
+          <section className="space-y-3">
+            <TradeQualityBadge quality={currentTradeQuality} />
+            <TradeQualityBreakdown quality={currentTradeQuality} />
+          </section>
+        ) : null}
         {multiTimeframe ? <MultiTimeframeTradeContext intelligence={multiTimeframe} side={side} /> : null}
         {footprint ? <InstitutionalTradeContext footprint={footprint} side={side} /> : null}
         {visionCaution?.active ? (

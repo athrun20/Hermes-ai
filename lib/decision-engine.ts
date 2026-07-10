@@ -23,16 +23,20 @@ export function reviewPaperTradeDecision(context: DecisionContext): DecisionRevi
   });
   const checklist = buildDecisionChecklist(context, riskReward);
   const checklistConfidence = calculateDecisionConfidence(checklist, { riskReward });
-  const confidence = context.hermesScore
+  const confidence = context.tradeQuality
+    ? context.tradeQuality.score
+    : context.hermesScore
     ? Math.round(checklistConfidence * 0.45 + context.hermesScore.score * 0.55)
     : checklistConfidence;
   const tradeQuality = getDecisionQuality(confidence);
-  const recommendation = getDecisionRecommendation({
-    confidence,
-    riskReward,
-    positionSizePassed: checklist.some((item) => item.id === "position-size" && item.passed),
-    beginnerFitPassed: checklist.some((item) => item.id === "trader-dna" && item.passed),
-  });
+  const recommendation = context.tradeQuality
+    ? mapTradeQualityAction(context.tradeQuality.suggestedNextAction)
+    : getDecisionRecommendation({
+        confidence,
+        riskReward,
+        positionSizePassed: checklist.some((item) => item.id === "position-size" && item.passed),
+        beginnerFitPassed: checklist.some((item) => item.id === "trader-dna" && item.passed),
+      });
 
   return {
     kind: "hermes-decision-review",
@@ -41,6 +45,7 @@ export function reviewPaperTradeDecision(context: DecisionContext): DecisionRevi
     side: context.ticket.side,
     confidence,
     hermesScore: context.hermesScore,
+    tradeQualityResult: context.tradeQuality,
     tradeQuality,
     disciplineScoreImpact: calculateDisciplineImpact({ confidence, riskReward }),
     recommendation,
@@ -51,6 +56,14 @@ export function reviewPaperTradeDecision(context: DecisionContext): DecisionRevi
     riskReward,
     checklist,
   };
+}
+
+function mapTradeQualityAction(action: NonNullable<DecisionContext["tradeQuality"]>["suggestedNextAction"]): DecisionReview["recommendation"] {
+  if (action === "Ready for Decision Review") return "Ready to Practice";
+  if (action === "Wait for Confirmation") return "Wait for Pullback";
+  if (action === "Revise Trade") return "Reduce Position Size";
+  if (action === "Avoid for Now") return "Not Beginner Friendly";
+  return "Observe Instead";
 }
 
 export function calculateDecisionRiskReward({

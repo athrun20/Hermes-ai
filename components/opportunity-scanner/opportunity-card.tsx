@@ -49,6 +49,7 @@ export function OpportunityCard({ opportunity }: { opportunity: OpportunityStudy
           <StudyMetric label="Setup Type" value={opportunity.setupType} tone="muted" />
           <StudyMetric label="Strategy" value={`${opportunity.strategyType} · ${opportunity.strategyScore}`} tone={opportunity.strategyScore >= 70 ? "mint" : opportunity.strategyScore >= 52 ? "gold" : "danger"} />
           <StudyMetric label="Strategy Quality" value={opportunity.strategyQuality} tone={opportunity.strategyScore >= 70 ? "mint" : opportunity.strategyScore >= 52 ? "gold" : "danger"} />
+          <StudyMetric label="Study Quality" value={`${opportunity.studyQualityGrade} - ${opportunity.studyQualityScore}`} tone={opportunity.studyQualityScore >= 80 ? "mint" : opportunity.studyQualityScore >= 60 ? "gold" : "danger"} />
           <StudyMetric label="Timeframe Alignment" value={`${opportunity.alignmentScore}`} tone={opportunity.alignmentScore >= 72 ? "mint" : opportunity.alignmentScore >= 50 ? "gold" : "danger"} />
           <StudyMetric label="HTF Direction" value={opportunity.higherTimeframeDirection} tone={opportunity.higherTimeframeDirection === "Bullish" ? "mint" : opportunity.higherTimeframeDirection === "Bearish" ? "danger" : "gold"} />
         </div>
@@ -81,6 +82,14 @@ export function OpportunityCard({ opportunity }: { opportunity: OpportunityStudy
           {isBreakdownOpen ? (
             <div className="space-y-4 border-t border-white/10 p-4">
               <HermesScoreBreakdown score={opportunity.hermesScore} />
+              <div className="grid gap-3 lg:grid-cols-2">
+                <InsightCard title="Quality Strength" tone="mint">
+                  {opportunity.topQualityStrength}
+                </InsightCard>
+                <InsightCard title="Quality Weakness" tone="gold">
+                  {opportunity.topQualityWeakness}
+                </InsightCard>
+              </div>
               <div className="grid gap-3 sm:grid-cols-5">
                 {opportunity.confidenceBreakdown.map((item) => (
                   <div className="rounded-md border border-white/10 bg-surface-950/45 p-3" key={item.label}>

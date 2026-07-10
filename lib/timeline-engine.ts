@@ -2,6 +2,7 @@ import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-vision-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
+import type { ReasoningResult } from "@/lib/reasoning-types";
 import { applyConfidenceDelta, type LiveConfidenceSnapshot } from "@/lib/confidence-engine";
 import type { LiveTimelineCategory, LiveTimelineEvent, LiveTimelineTone } from "@/lib/timeline-events";
 
@@ -12,6 +13,7 @@ export type TimelineEngineInput = {
   news: NewsIntelligenceResult;
   memory: HermesMemorySnapshot;
   footprint?: InstitutionalFootprintResult;
+  reasoning?: ReasoningResult;
 };
 
 export function buildTimelineEvents(input: TimelineEngineInput): LiveTimelineEvent[] {
@@ -25,6 +27,7 @@ export function buildTimelineEvents(input: TimelineEngineInput): LiveTimelineEve
     detectTraderBehaviorEvent(input),
     detectTradePlanEvent(input),
     detectFootprintEvent(input),
+    detectReasoningEvent(input),
   ].filter((event): event is LiveTimelineEvent => Boolean(event));
 
   return dedupeEvents(events)
@@ -263,6 +266,32 @@ function detectFootprintEvent({ footprint, confidence }: TimelineEngineInput) {
     confidence,
     signature: `footprint-${footprint.type}-${footprint.confirmationStatus}`,
     tone: footprint.direction === "Bullish" ? "mint" : footprint.direction === "Bearish" ? "danger" : "gold",
+  });
+}
+
+function detectReasoningEvent({ reasoning, confidence }: TimelineEngineInput) {
+  if (!reasoning) return null;
+  const delta = Math.round((reasoning.confidenceScore - confidence.score) * 0.4);
+  if (Math.abs(delta) < 3 && reasoning.tradeReadinessScore >= 50) return null;
+  if (reasoning.tradeReadinessScore < 50) {
+    return event({
+      category: "Reasoning",
+      title: "Readiness limited",
+      explanation: reasoning.readinessBlockers[0] ?? reasoning.coachingMessage,
+      delta: Math.min(delta, -3),
+      confidence,
+      signature: `reasoning-readiness-${reasoning.readinessState}-${reasoning.symbol}`,
+      tone: "gold",
+    });
+  }
+  return event({
+    category: "Reasoning",
+    title: "Thesis updated",
+    explanation: reasoning.reasoningSummary,
+    delta,
+    confidence,
+    signature: `reasoning-confidence-${reasoning.recommendedAction}-${reasoning.symbol}`,
+    tone: delta >= 0 ? "mint" : "danger",
   });
 }
 

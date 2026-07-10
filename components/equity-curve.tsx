@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import {
-  ColorType,
   createChart,
   LineSeries,
   type IChartApi,
@@ -10,6 +9,8 @@ import {
   type LineData,
   type Time,
 } from "lightweight-charts";
+import { LightweightChartsAttribution } from "@/components/chart-attribution";
+import { createHermesLightweightChartOptions } from "@/lib/lightweight-chart-options";
 import type { EquityPoint } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
@@ -24,25 +25,7 @@ export function EquityCurve({ points }: { points: EquityPoint[] }) {
       return;
     }
 
-    const chart = createChart(containerRef.current, {
-      autoSize: true,
-      layout: {
-        background: { type: ColorType.Solid, color: "#070A0F" },
-        textColor: "#6B7A90",
-      },
-      grid: {
-        vertLines: { color: "rgba(255,255,255,0.045)" },
-        horzLines: { color: "rgba(255,255,255,0.055)" },
-      },
-      rightPriceScale: {
-        borderColor: "rgba(255,255,255,0.10)",
-      },
-      timeScale: {
-        borderColor: "rgba(255,255,255,0.10)",
-        timeVisible: true,
-        secondsVisible: false,
-      },
-    });
+    const chart = createChart(containerRef.current, createHermesLightweightChartOptions());
 
     const series = chart.addSeries(LineSeries, {
       color: "#79F2C0",
@@ -72,6 +55,7 @@ export function EquityCurve({ points }: { points: EquityPoint[] }) {
         <div className="relative h-72 overflow-hidden rounded-lg border border-white/10 bg-[#070A0F]">
           <div ref={containerRef} className="absolute inset-0" />
         </div>
+        <LightweightChartsAttribution />
       </div>
     </Panel>
   );

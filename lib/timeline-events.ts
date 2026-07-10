@@ -7,7 +7,8 @@ export type LiveTimelineCategory =
   | "Structure"
   | "Trader Behavior"
   | "Trade Plan"
-  | "Footprint";
+  | "Footprint"
+  | "Reasoning";
 
 export type LiveTimelineTone = "mint" | "gold" | "danger" | "muted";
 

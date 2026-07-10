@@ -46,6 +46,15 @@ export type HermesVisionLabel = {
   tone: "mint" | "gold" | "danger" | "muted";
   price?: number;
   priority: number;
+  explanation?: {
+    whatHappened: string;
+    whyItMatters: string;
+    thesisImpact: string;
+    confidenceDelta: number;
+    sourceModule: string;
+  };
+  createdAt?: number;
+  expiresAt?: number;
 };
 
 export type HermesVisionDimension =

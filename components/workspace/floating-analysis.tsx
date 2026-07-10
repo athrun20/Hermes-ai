@@ -13,6 +13,8 @@ import type { HermesMemorySnapshot, PeriodInsight, TradingPersonalityProfile } f
 import type { ClosedTrade } from "@/lib/paper-trading";
 import { HermesLiveTimelinePanel } from "@/components/workspace/timeline-panel";
 import type { HermesLiveIntelligence } from "@/lib/hermes-live-engine";
+import { HermesReasoningPanel } from "@/components/workspace/hermes-reasoning-panel";
+import type { ReasoningResult } from "@/lib/reasoning-types";
 import {
   buildRiskMeter,
   buildSessionReport,
@@ -32,6 +34,8 @@ type DockMode = "compact" | "expanded" | "collapsed";
 export function FloatingAnalysis({
   analysis,
   hermesScore,
+  reasoning,
+  chartConfidenceDelta = 0,
   newsIntelligence,
   liveIntelligence,
   memory,
@@ -41,6 +45,8 @@ export function FloatingAnalysis({
 }: {
   analysis: SymbolAnalysis;
   hermesScore: HermesScoreResult;
+  reasoning: ReasoningResult;
+  chartConfidenceDelta?: number;
   newsIntelligence: NewsIntelligenceResult;
   liveIntelligence: HermesLiveIntelligence;
   memory: HermesMemorySnapshot;
@@ -49,7 +55,7 @@ export function FloatingAnalysis({
   history: ClosedTrade[];
 }) {
   const [mode, setMode] = useState<DockMode>("compact");
-  const confidence = buildWeightedConfidenceEngine({ hermesScore, news: newsIntelligence });
+  const confidence = buildWeightedConfidenceEngine({ hermesScore, news: newsIntelligence, reasoning, chartConfidenceDelta });
   const riskMeter = buildRiskMeter({ confidence, news: newsIntelligence, memory });
   const smartEvents = buildSmartMarketEvents(newsIntelligence);
   const traderDna = buildTraderDnaEvolution({ memory, personality: tradingPersonality });
@@ -109,6 +115,7 @@ export function FloatingAnalysis({
         <InsightCard title="Hermes Says" tone="gold">
           {confidence.explanation}
         </InsightCard>
+        <HermesReasoningPanel reasoning={reasoning} />
         <HermesConfidenceEnginePanel confidence={confidence} />
         <RiskMeterPanel meter={riskMeter} />
         <HermesLiveTimelinePanel intelligence={liveIntelligence} />

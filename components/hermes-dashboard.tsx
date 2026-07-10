@@ -65,6 +65,12 @@ import { buildHermesLiveIntelligence } from "@/lib/hermes-live-engine";
 import { analyzeStrategyIntelligence } from "@/lib/strategy-engine";
 import { analyzeMultiTimeframeIntelligence } from "@/lib/multi-timeframe-engine";
 import { analyzeInstitutionalFootprint } from "@/lib/institutional-footprint-engine";
+import { evaluateTradeQuality } from "@/lib/trade-quality-engine";
+import { buildTradeQualityContext } from "@/lib/trade-quality-context-builder";
+import type { TradeQualityPlan } from "@/lib/trade-quality-types";
+import { buildHermesReasoning } from "@/lib/reasoning-engine";
+import { saveReasoningSnapshot } from "@/lib/reasoning-snapshots";
+import { buildSmartChartIntelligence } from "@/lib/smart-chart-intelligence";
 import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import {
@@ -373,9 +379,110 @@ export function HermesDashboard() {
       timeframe,
     ],
   );
+  const baseReasoningPlan = useMemo<TradeQualityPlan>(
+    () => ({
+      side: "Long",
+      notional: 500,
+      entryPrice: selectedChartTradeLevels.entry,
+      stopLoss: selectedChartTradeLevels.stop,
+      takeProfit: selectedChartTradeLevels.target,
+    }),
+    [selectedChartTradeLevels.entry, selectedChartTradeLevels.stop, selectedChartTradeLevels.target],
+  );
+  const hermesReasoning = useMemo(
+    () =>
+      buildHermesReasoning({
+        context: hermesVisionContext,
+        vision: hermesVision,
+        multiTimeframe,
+        footprint,
+        news: newsIntelligence,
+        strategy: strategyIntelligence,
+        hermesScore: preliminaryHermesScore,
+        memory: hermesMemorySnapshot,
+        portfolio,
+        plan: baseReasoningPlan,
+      }),
+    [
+      baseReasoningPlan,
+      footprint,
+      hermesMemorySnapshot,
+      hermesVision,
+      hermesVisionContext,
+      multiTimeframe,
+      newsIntelligence,
+      portfolio,
+      preliminaryHermesScore,
+      strategyIntelligence,
+    ],
+  );
+  const buildTradeQualityForPlan = useCallback(
+    (plan: TradeQualityPlan) =>
+      evaluateTradeQuality(
+        buildTradeQualityContext({
+          quote: selectedQuote,
+          plan,
+          portfolio,
+          vision: hermesVision,
+          visionContext: hermesVisionContext,
+          multiTimeframe,
+          footprint,
+          strategy: strategyIntelligence,
+          news: newsIntelligence,
+          memory: hermesMemorySnapshot,
+          dailyGoal: morningBriefing.dailyGoal.text,
+          reasoning: hermesReasoning,
+        }),
+      ),
+    [
+      footprint,
+      hermesMemorySnapshot,
+      hermesReasoning,
+      hermesVision,
+      hermesVisionContext,
+      morningBriefing.dailyGoal.text,
+      multiTimeframe,
+      newsIntelligence,
+      portfolio,
+      selectedQuote,
+      strategyIntelligence,
+    ],
+  );
+  const tradeQuality = useMemo(
+    () =>
+      buildTradeQualityForPlan({
+        ...baseReasoningPlan,
+      }),
+    [baseReasoningPlan, buildTradeQualityForPlan],
+  );
   const hermesScore = useMemo(
-    () => calculateHermesScore({ context: hermesVisionContext, vision: hermesVision, multiTimeframe, footprint }),
-    [footprint, hermesVision, hermesVisionContext, multiTimeframe],
+    () => calculateHermesScore({ context: hermesVisionContext, vision: hermesVision, multiTimeframe, footprint, tradeQuality }),
+    [footprint, hermesVision, hermesVisionContext, multiTimeframe, tradeQuality],
+  );
+  const newsCatalystMarker = useMemo(
+    () => buildNewsCatalystMarker({ candles, news: newsIntelligence }),
+    [candles, newsIntelligence],
+  );
+  const smartChartIntelligence = useMemo(
+    () =>
+      buildSmartChartIntelligence({
+        candles,
+        context: hermesVisionContext,
+        vision: hermesVision,
+        reasoning: hermesReasoning,
+        multiTimeframe,
+        footprint,
+        news: newsIntelligence,
+      }),
+    [
+      candles,
+      footprint,
+      hermesReasoning,
+      hermesVision,
+      hermesVisionContext,
+      multiTimeframe,
+      newsIntelligence,
+    ],
   );
   const liveIntelligence = useMemo(
     () =>
@@ -386,13 +493,25 @@ export function HermesDashboard() {
         news: newsIntelligence,
         memory: hermesMemorySnapshot,
         footprint,
+        reasoning: hermesReasoning,
+        chartConfidenceDelta: smartChartIntelligence.confidenceDelta,
       }),
-    [footprint, hermesMemorySnapshot, hermesScore, hermesVision, hermesVisionContext, newsIntelligence],
+    [
+      footprint,
+      hermesMemorySnapshot,
+      hermesReasoning,
+      hermesScore,
+      hermesVision,
+      hermesVisionContext,
+      newsIntelligence,
+      smartChartIntelligence.confidenceDelta,
+    ],
   );
-  const newsCatalystMarker = useMemo(
-    () => buildNewsCatalystMarker({ candles, news: newsIntelligence }),
-    [candles, newsIntelligence],
-  );
+
+  useEffect(() => {
+    if (!hasRestored) return;
+    saveReasoningSnapshot(hermesReasoning);
+  }, [hasRestored, hermesReasoning]);
   const chartNewsKeywords = useMemo(
     () => newsIntelligence.detectedKeywords.map((match) => match.keyword),
     [newsIntelligence.detectedKeywords],
@@ -414,6 +533,15 @@ export function HermesDashboard() {
             dailyGoal: morningBriefing.dailyGoal.text,
             hermesScore,
             intelligence: morningBriefing.intelligence,
+            tradeQuality: pendingDecisionTicket
+              ? buildTradeQualityForPlan({
+                  side: pendingDecisionTicket.side,
+                  notional: pendingDecisionTicket.notional,
+                  entryPrice: pendingDecisionTicket.entryPrice,
+                  stopLoss: pendingDecisionTicket.stopLoss,
+                  takeProfit: pendingDecisionTicket.takeProfit,
+                })
+              : undefined,
           })
         : null,
     [
@@ -426,6 +554,7 @@ export function HermesDashboard() {
       selectedOpportunity,
       selectedQuote,
       hermesScore,
+      buildTradeQualityForPlan,
     ],
   );
 
@@ -988,10 +1117,11 @@ export function HermesDashboard() {
               analysis={workspaceAnalysis}
               candles={candles}
               chartLabels={[
+                ...smartChartIntelligence.annotations,
                 ...(newsCatalystMarker ? [newsCatalystMarker] : []),
                 ...footprint.chartLabels,
                 ...hermesVision.labels,
-              ].slice(0, 3)}
+              ].slice(0, 5)}
               drawings={selectedChartDrawings}
               footprint={footprint}
               hermesScore={hermesScore}
@@ -1022,6 +1152,8 @@ export function HermesDashboard() {
                     analysis={workspaceAnalysis}
                     history={history}
                     hermesScore={hermesScore}
+                    reasoning={hermesReasoning}
+                    chartConfidenceDelta={smartChartIntelligence.confidenceDelta}
                     liveIntelligence={liveIntelligence}
                     memory={hermesMemorySnapshot}
                     newsIntelligence={newsIntelligence}
@@ -1034,12 +1166,14 @@ export function HermesDashboard() {
                     buyingPower={portfolio.buyingPower}
                     footprint={footprint}
                     hermesScore={hermesScore}
+                    tradeQuality={tradeQuality}
                     multiTimeframe={multiTimeframe}
                     opportunity={selectedOpportunity}
                     quote={selectedQuote}
                     chartLevels={selectedChartTradeLevels}
                     statusMessage={tradePlanMessage}
                     visionCaution={tradePlanCaution}
+                    buildTradeQuality={buildTradeQualityForPlan}
                     onSubmit={handlePaperTicket}
                   />
                 ) : null}
