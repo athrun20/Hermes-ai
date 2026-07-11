@@ -32,7 +32,7 @@ export function HermesCoach({
                   <p className="text-xs uppercase tracking-[0.16em] text-mint-300">
                     Trade Score
                   </p>
-                  <p className="mt-2 text-4xl font-semibold text-white">
+                  <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-white">
                     {brainReview?.score}
                   </p>
                   <p className="mt-1 text-sm text-slate-400">out of 100</p>
@@ -166,7 +166,7 @@ function gradeTone(grade: string) {
         ? "text-amberline"
         : "text-rose-300";
 
-  return `mt-1 text-3xl font-semibold ${color}`;
+  return `mt-1 text-xl font-semibold tabular-nums tracking-tight ${color}`;
 }
 
 function CoachRow({ label, value }: { label: string; value: string }) {

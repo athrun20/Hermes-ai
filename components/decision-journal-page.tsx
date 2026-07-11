@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { DecisionJournalCard } from "@/components/decision-journal/decision-journal-card";
 import { DecisionJournalSummaryPanel } from "@/components/decision-journal/decision-journal-summary";
-import { EmptyState, Panel, PanelHeader } from "@/components/ui";
+import {
+  EmptyState,
+  PageHeader,
+  PageShell,
+  Panel,
+  PanelHeader,
+  SegmentedControl,
+} from "@/components/ui";
 import {
   buildDecisionJournal,
   filterDecisionJournalEntries,
@@ -74,51 +81,34 @@ export function DecisionJournalPage() {
   return (
     <main>
       <TopNav />
-      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
-        <section className="mb-5 rounded-lg border border-white/10 bg-white/[0.025] px-5 py-7 shadow-insetPanel">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-            Hermes Memory
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Decision Journal
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-            A professional log of judgment quality: the plan, the decision,
-            execution, replay learning, and the reflection that trains Trader DNA.
-          </p>
-        </section>
+      <PageShell>
+        <PageHeader
+          eyebrow="Memory"
+          title="Decision Journal"
+          description="Judgment quality: plan, decision, execution, and reflection that trains discipline."
+        />
 
         {journal && history.length > 0 ? (
           <>
             <DecisionJournalSummaryPanel summary={journal.summary} />
 
-            <section className="mt-5">
-              <Panel>
-                <PanelHeader
-                  eyebrow="Journal Filters"
-                  title="Review decisions by behavior"
-                  action={<span className="text-xs text-slate-500">{visibleEntries.length} shown</span>}
+            <Panel>
+              <PanelHeader
+                eyebrow="Filter"
+                title="Review by behavior"
+                action={<span className="text-xs text-slate-500">{visibleEntries.length}</span>}
+              />
+              <div className="p-3 sm:p-4">
+                <SegmentedControl
+                  className="w-full sm:w-auto"
+                  options={filters.map((item) => ({ value: item, label: item }))}
+                  value={filter}
+                  onChange={setFilter}
                 />
-                <div className="flex flex-wrap gap-2 p-4">
-                  {filters.map((item) => (
-                    <button
-                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                        filter === item
-                          ? "border-mint-300/35 bg-mint-300/10 text-mint-200"
-                          : "border-white/10 bg-white/[0.035] text-slate-400 hover:text-white"
-                      }`}
-                      key={item}
-                      onClick={() => setFilter(item)}
-                      type="button"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </Panel>
-            </section>
+              </div>
+            </Panel>
 
-            <section className="mt-5 grid gap-4">
+            <section className="grid gap-3">
               {visibleEntries.map((entry) => (
                 <DecisionJournalCard
                   entry={entry}
@@ -131,10 +121,10 @@ export function DecisionJournalPage() {
         ) : (
           <EmptyState
             title="No completed decisions yet"
-            description="Close a paper trade from the dashboard. Hermes will turn it into a decision card for reflection and future Trader DNA learning."
+            description="Close a paper trade from the workspace. Hermes will create a decision card for reflection."
           />
         )}
-      </div>
+      </PageShell>
     </main>
   );
 }

@@ -42,7 +42,9 @@ export function HermesIntelligencePanel({
               </div>
               <div>
                 <p className="text-xs text-slate-500">Hermes Intelligence Score</p>
-                <p className={`mt-1 text-3xl font-semibold ${tone}`}>{intelligence.score}</p>
+                <p className={`mt-1 text-xl font-semibold tabular-nums tracking-tight ${tone}`}>
+                  {intelligence.score}
+                </p>
               </div>
             </div>
             <div className="text-right">

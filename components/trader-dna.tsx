@@ -49,7 +49,7 @@ export function TraderDna({
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Trading Style
               </p>
-              <p className="mt-3 text-3xl font-semibold tracking-[-0.02em] text-white">
+              <p className="mt-2 text-xl font-semibold tracking-tight text-white sm:text-2xl">
                 {profile.style}
               </p>
             </div>
@@ -72,7 +72,7 @@ export function TraderDna({
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   Discipline Score
                 </p>
-                <p className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.02em] text-white">
+                <p className="mt-1.5 text-xl font-semibold leading-none tracking-tight tabular-nums text-white sm:text-2xl">
                   {profile.disciplineScore}
                 </p>
               </div>

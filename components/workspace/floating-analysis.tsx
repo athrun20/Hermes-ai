@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Minimize2 } from "lucide-react";
-import { formatCurrency } from "@/lib/market-data";
 import type { SymbolAnalysis } from "@/lib/symbol-analysis-engine";
-import { InsightCard, MetricCard, Panel, ProgressBar, StatusPill } from "@/components/ui";
-import { HermesScoreBreakdown } from "@/components/hermes-score-breakdown";
-import { HermesScoreBadge } from "@/components/hermes-score-badge";
+import { InsightCard, Panel, ProgressBar, StatusPill } from "@/components/ui";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { HermesMemorySnapshot, PeriodInsight, TradingPersonalityProfile } from "@/lib/hermes-memory";
@@ -28,6 +25,13 @@ import {
   type TraderDnaEvolution,
   type WeightedConfidenceEngineResult,
 } from "@/lib/hermes-mentor-intelligence";
+import { HermesScoreBreakdown } from "@/components/hermes-score-breakdown";
+import type { StrategyIntelligenceResult } from "@/lib/strategy-types";
+import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
+import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
+import { StrategyPanel } from "@/components/workspace/strategy-panel";
+import { TimeframeAlignmentMatrix } from "@/components/workspace/timeframe-alignment-matrix";
+import { FootprintPanel } from "@/components/workspace/footprint-panel";
 
 type DockMode = "compact" | "expanded" | "collapsed";
 
@@ -42,6 +46,9 @@ export function FloatingAnalysis({
   weeklyInsights,
   tradingPersonality,
   history,
+  strategy,
+  multiTimeframe,
+  footprint,
 }: {
   analysis: SymbolAnalysis;
   hermesScore: HermesScoreResult;
@@ -53,14 +60,31 @@ export function FloatingAnalysis({
   weeklyInsights: PeriodInsight;
   tradingPersonality: TradingPersonalityProfile;
   history: ClosedTrade[];
+  strategy?: StrategyIntelligenceResult;
+  multiTimeframe?: MultiTimeframeIntelligence;
+  footprint?: InstitutionalFootprintResult;
 }) {
   const [mode, setMode] = useState<DockMode>("compact");
-  const confidence = buildWeightedConfidenceEngine({ hermesScore, news: newsIntelligence, reasoning, chartConfidenceDelta });
+  const [showReasoning, setShowReasoning] = useState(false);
+  const [showMoreContext, setShowMoreContext] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  const confidence = buildWeightedConfidenceEngine({
+    hermesScore,
+    news: newsIntelligence,
+    reasoning,
+    chartConfidenceDelta,
+  });
   const riskMeter = buildRiskMeter({ confidence, news: newsIntelligence, memory });
   const smartEvents = buildSmartMarketEvents(newsIntelligence);
   const traderDna = buildTraderDnaEvolution({ memory, personality: tradingPersonality });
   const sessionReport = buildSessionReport({ history, memory });
   const weeklyReview = buildWeeklyMentorReview({ weekly: weeklyInsights, memory });
+
+  const coachingLine =
+    reasoning.coachingMessage ||
+    reasoning.reasoningSummary ||
+    "Hermes is watching structure and risk before recommending action.";
 
   if (mode === "collapsed") {
     return (
@@ -76,18 +100,17 @@ export function FloatingAnalysis({
 
   return (
     <Panel className="overflow-hidden bg-surface-950/60 shadow-xl shadow-black/15">
-      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3.5 py-2.5">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-300/75">
-            Hermes Analysis
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mint-300/75">
+            Coach
           </p>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">
-            {analysis.symbol} Mentor Read
+          <h2 className="mt-0.5 text-sm font-semibold tracking-tight text-white">
+            {analysis.symbol}
           </h2>
         </div>
         <div className="flex items-center gap-2">
           <StatusPill tone={getBiasTone(analysis.marketBias)}>{analysis.marketBias}</StatusPill>
-          <HermesScoreBadge score={hermesScore} />
           <button
             className="grid size-8 place-items-center rounded-md border border-white/10 bg-white/[0.035] text-slate-400 transition hover:text-white"
             onClick={() => setMode(mode === "expanded" ? "compact" : "expanded")}
@@ -107,38 +130,88 @@ export function FloatingAnalysis({
         </div>
       </div>
 
-      <div className="space-y-3 p-4">
-        <div className="grid grid-cols-2 gap-2.5">
-          <MetricCard label="Confidence" value={`${analysis.confidence}%`} tone={analysis.confidence >= 75 ? "mint" : "gold"} />
-          <MetricCard label="Risk" value={analysis.riskLevel} tone={analysis.riskLevel === "High" ? "danger" : analysis.riskLevel === "Medium" ? "gold" : "mint"} />
-        </div>
-        <InsightCard title="Hermes Says" tone="gold">
-          {confidence.explanation}
+      <div className="hermes-scroll max-h-[min(70vh,880px)] space-y-2.5 overflow-y-auto p-3">
+        <InsightCard title="Hermes says" tone="gold" className="hermes-fade-in">
+          <p className="line-clamp-3 text-sm leading-5">{coachingLine}</p>
         </InsightCard>
-        <HermesReasoningPanel reasoning={reasoning} />
-        <HermesConfidenceEnginePanel confidence={confidence} />
-        <RiskMeterPanel meter={riskMeter} />
+
+        <RiskMeterPanel meter={riskMeter} compact />
+
         <HermesLiveTimelinePanel intelligence={liveIntelligence} />
 
-        {mode === "expanded" ? (
-          <>
-            <div className="grid grid-cols-2 gap-2.5">
-              <MetricCard label="Trend" value={analysis.trend} tone="muted" />
-              <MetricCard label="Momentum" value={analysis.momentum} tone="muted" />
-              <MetricCard label="Volume" value={analysis.volumeRead} tone="muted" />
-              <MetricCard label="Support" value={formatCurrency(analysis.support)} tone="neutral" />
-              <MetricCard label="Resistance" value={formatCurrency(analysis.resistance)} tone="neutral" />
-              <MetricCard label="Beginner Fit" value={analysis.beginnerFit} tone={analysis.beginnerFit === "Yes" ? "mint" : analysis.beginnerFit === "No" ? "danger" : "gold"} />
+        <div className="rounded-lg border border-white/10 bg-white/[0.025]">
+          <button
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-semibold text-slate-300 transition hover:text-white"
+            onClick={() => setShowReasoning((current) => !current)}
+            type="button"
+          >
+            Reasoning detail
+            <span className="text-slate-500">{showReasoning ? "Hide" : "Show"}</span>
+          </button>
+          {showReasoning ? (
+            <div className="border-t border-white/10 p-2">
+              <HermesReasoningPanel reasoning={reasoning} />
             </div>
-            <InsightCard title="Suggested Action" tone="mint">
-              {analysis.suggestedAction}
-            </InsightCard>
-            <SmartMarketEventsPanel events={smartEvents} />
-            <TraderDnaEvolutionPanel profile={traderDna} />
-            <MentorReportsPanel sessionReport={sessionReport} weeklyReview={weeklyReview} />
-            <HermesScoreBreakdown score={hermesScore} />
-          </>
+          ) : null}
+        </div>
+
+        {strategy && multiTimeframe && footprint ? (
+          <div className="rounded-lg border border-white/10 bg-white/[0.025]">
+            <button
+              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-semibold text-slate-300 transition hover:text-white"
+              onClick={() => setShowMoreContext((current) => !current)}
+              type="button"
+            >
+              More context
+              <span className="text-slate-500">{showMoreContext ? "Hide" : "Show"}</span>
+            </button>
+            {showMoreContext ? (
+              <div className="space-y-2 border-t border-white/10 p-2">
+                <p className="px-1 text-[10px] leading-4 text-slate-600">
+                  Full Strategy, Multi-Timeframe, and Footprint panels. Compact cards under the chart
+                  remain the default evidence surface.
+                </p>
+                <StrategyPanel strategy={strategy} />
+                <TimeframeAlignmentMatrix intelligence={multiTimeframe} />
+                <FootprintPanel footprint={footprint} />
+              </div>
+            ) : null}
+          </div>
         ) : null}
+
+        {mode === "expanded" || showDiagnostics ? (
+          <div className="space-y-3">
+            <button
+              className="text-[11px] font-semibold text-slate-500 transition hover:text-white"
+              onClick={() => setShowDiagnostics((current) => !current)}
+              type="button"
+            >
+              {showDiagnostics || mode === "expanded" ? "Deeper diagnostics" : "Show diagnostics"}
+            </button>
+            {(showDiagnostics || mode === "expanded") && (
+              <>
+                <HermesConfidenceEnginePanel confidence={confidence} />
+                <SmartMarketEventsPanel events={smartEvents} />
+                <TraderDnaEvolutionPanel profile={traderDna} />
+                <MentorReportsPanel sessionReport={sessionReport} weeklyReview={weeklyReview} />
+                <div className="rounded-lg border border-white/10 bg-white/[0.025] p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Hermes Score (secondary)
+                  </p>
+                  <HermesScoreBreakdown score={hermesScore} />
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <button
+            className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-400 transition hover:text-white"
+            onClick={() => setShowDiagnostics(true)}
+            type="button"
+          >
+            Optional deeper diagnostics
+          </button>
+        )}
       </div>
     </Panel>
   );
@@ -158,15 +231,13 @@ function HermesConfidenceEnginePanel({
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3.5 transition duration-300 hover:border-amberline/20">
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amberline/80">
-            Hermes Confidence Engine
+            Confidence components
           </p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Confidence changes as market quality, risk, and catalysts improve or weaken.
-          </p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Secondary diagnostic breakdown.</p>
         </div>
         <StatusPill tone={confidence.score >= 80 ? "mint" : confidence.score >= 60 ? "gold" : "danger"}>
           {confidence.score}
@@ -175,17 +246,14 @@ function HermesConfidenceEnginePanel({
       <div className="mt-3 space-y-2.5">
         {confidence.components.map((item) => (
           <button
-            className="w-full rounded-lg border border-white/10 bg-surface-950/45 px-3 py-2.5 text-left transition duration-200 hover:border-white/20 hover:bg-white/[0.045]"
+            className="w-full rounded-lg border border-white/10 bg-surface-950/45 px-3 py-2.5 text-left transition hover:border-white/20"
             key={item.name}
             onClick={() => setExpanded((current) => (current === item.name ? null : item.name))}
             type="button"
           >
             <div className="mb-2 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold text-white">{item.name}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">{item.reason}</p>
-              </div>
-              <span className={item.score >= 75 ? "font-mono text-xs font-semibold text-mint-300" : item.score >= 55 ? "font-mono text-xs font-semibold text-amberline" : "font-mono text-xs font-semibold text-rose-300"}>
+              <p className="text-xs font-semibold text-white">{item.name}</p>
+              <span className="font-mono text-xs text-slate-400">
                 {item.score} · {Math.round(item.weight * 100)}%
               </span>
             </div>
@@ -197,9 +265,6 @@ function HermesConfidenceEnginePanel({
                     {detail}
                   </p>
                 ))}
-                <p className="text-[11px] font-semibold text-slate-500">
-                  Weighted contribution: {item.contribution} points.
-                </p>
               </div>
             ) : null}
           </button>
@@ -209,34 +274,46 @@ function HermesConfidenceEnginePanel({
   );
 }
 
-function RiskMeterPanel({ meter }: { meter: RiskMeterResult }) {
+function RiskMeterPanel({ meter, compact = false }: { meter: RiskMeterResult; compact?: boolean }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3.5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-200/80">
-            Visual Risk Meter
-          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-200/80">Risk</p>
           <p className="mt-1 text-sm font-semibold text-white">{meter.label} risk posture</p>
         </div>
-        <div className="grid size-14 place-items-center rounded-full border border-white/10 bg-surface-950/60">
-          <span className={meter.overall >= 70 ? "font-mono text-sm font-semibold text-mint-300" : meter.overall >= 50 ? "font-mono text-sm font-semibold text-amberline" : "font-mono text-sm font-semibold text-rose-300"}>
+        <div className="grid size-12 place-items-center rounded-full border border-white/10 bg-surface-950/60">
+          <span
+            className={
+              meter.overall >= 70
+                ? "font-mono text-sm font-semibold text-mint-300"
+                : meter.overall >= 50
+                  ? "font-mono text-sm font-semibold text-amberline"
+                  : "font-mono text-sm font-semibold text-rose-300"
+            }
+          >
             {meter.overall}
           </span>
         </div>
       </div>
-      <div className="mt-3 space-y-2.5">
-        {meter.components.map((item) => (
-          <div key={item.label}>
-            <div className="mb-1 flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-slate-300">{item.label}</p>
-              <p className="font-mono text-xs text-slate-400">{item.score}</p>
+      {!compact ? (
+        <div className="mt-3 space-y-2.5">
+          {meter.components.map((item) => (
+            <div key={item.label}>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold text-slate-300">{item.label}</p>
+                <p className="font-mono text-xs text-slate-400">{item.score}</p>
+              </div>
+              <ProgressBar value={item.score} tone={item.score >= 70 ? "mint" : item.score >= 50 ? "gold" : "danger"} />
+              <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.reason}</p>
             </div>
-            <ProgressBar value={item.score} tone={item.score >= 70 ? "mint" : item.score >= 50 ? "gold" : "danger"} />
-            <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.reason}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+          {meter.components[0]?.reason ?? "Risk posture reflects confidence, news, and memory context."}
+        </p>
+      )}
     </div>
   );
 }
@@ -258,16 +335,8 @@ function SmartMarketEventsPanel({ events }: { events: SmartMarketEvent[] }) {
                 {event.sentiment}
               </StatusPill>
             </div>
-            <p className="mt-2 text-xs font-semibold leading-5 text-white">{event.headline}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-400">{event.summary}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {event.keywords.slice(0, 5).map((keyword) => (
-                <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold ${keyword.tone === "positive" ? "border-mint-300/20 bg-mint-300/10 text-mint-200" : keyword.tone === "risk" ? "border-rose-300/20 bg-rose-400/10 text-rose-200" : "border-amberline/20 bg-amberline/10 text-amber-100"}`} key={`${event.id}-${keyword.keyword}`}>
-                  {keyword.keyword}
-                </span>
-              ))}
-            </div>
-            <p className="mt-2 text-[11px] leading-4 text-slate-500">{event.impact}</p>
+            <p className="mt-2 text-xs font-semibold text-white">{event.headline}</p>
+            <p className="mt-1 text-[11px] leading-4 text-slate-500">{event.impact}</p>
           </div>
         ))}
       </div>
@@ -281,7 +350,7 @@ function TraderDnaEvolutionPanel({ profile }: { profile: TraderDnaEvolution }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-300/80">
-            Trader DNA Evolution
+            Trader DNA
           </p>
           <p className="mt-1 text-sm font-semibold text-white">{profile.style}</p>
         </div>
@@ -289,10 +358,7 @@ function TraderDnaEvolutionPanel({ profile }: { profile: TraderDnaEvolution }) {
           {profile.confidence}
         </StatusPill>
       </div>
-      <p className="mt-3 text-xs leading-5 text-slate-400">{profile.improvementSignal}</p>
-      <DnaMiniList title="Strengths" items={profile.strengths} tone="mint" />
-      <DnaMiniList title="Weaknesses" items={profile.weaknesses} tone="danger" />
-      <DnaMiniList title="Recommended setups" items={profile.recommendedSetups} tone="gold" />
+      <p className="mt-2 text-xs leading-5 text-slate-400">{profile.improvementSignal}</p>
     </div>
   );
 }
@@ -305,54 +371,24 @@ function MentorReportsPanel({
   weeklyReview: MentorReport;
 }) {
   return (
-    <div className="grid gap-3">
-      <ReportCard report={sessionReport} />
-      <ReportCard report={weeklyReview} />
-    </div>
-  );
-}
-
-function ReportCard({ report }: { report: MentorReport }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-surface-950/45 p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amberline/80">
-            {report.title}
+    <div className="grid gap-2">
+      <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3.5">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            {sessionReport.title}
           </p>
-          <p className="mt-1 text-xs leading-5 text-slate-400">{report.summary}</p>
+          <span className="font-semibold text-white">{sessionReport.grade}</span>
         </div>
-        <div className="grid size-10 place-items-center rounded-lg border border-white/10 bg-white/[0.035] text-lg font-semibold text-white">
-          {report.grade}
+        <p className="mt-2 text-xs leading-5 text-slate-300">{sessionReport.summary}</p>
+      </div>
+      <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3.5">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            {weeklyReview.title}
+          </p>
+          <span className="font-semibold text-white">{weeklyReview.grade}</span>
         </div>
-      </div>
-      <div className="mt-3 grid gap-2 text-[11px] leading-4 text-slate-400">
-        <p><span className="font-semibold text-slate-300">Recurring:</span> {report.recurringMistakes[0]}</p>
-        <p><span className="font-semibold text-slate-300">Improving:</span> {report.improvements[0]}</p>
-        <p><span className="font-semibold text-slate-300">Goal:</span> {report.personalizedGoals[0]}</p>
-      </div>
-    </div>
-  );
-}
-
-function DnaMiniList({
-  title,
-  items,
-  tone,
-}: {
-  title: string;
-  items: string[];
-  tone: "mint" | "gold" | "danger";
-}) {
-  return (
-    <div className="mt-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {items.map((item) => (
-          <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold ${tone === "mint" ? "border-mint-300/20 bg-mint-300/10 text-mint-200" : tone === "danger" ? "border-rose-300/20 bg-rose-400/10 text-rose-200" : "border-amberline/20 bg-amberline/10 text-amber-100"}`} key={item}>
-            {item}
-          </span>
-        ))}
+        <p className="mt-2 text-xs leading-5 text-slate-300">{weeklyReview.summary}</p>
       </div>
     </div>
   );
