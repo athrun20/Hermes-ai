@@ -212,7 +212,9 @@ Types for drawings and trade levels: `lib/chart-types.ts`.
 
 ## 9. Intelligence pipeline
 
-### Canonical pipeline (approximate current order)
+> **Intelligence v2 (target):** See [`HERMES_INTELLIGENCE_V2.md`](./HERMES_INTELLIGENCE_V2.md) for the approved single-pipeline design (Market Regime, Reasoning vs Judgment vs Decision, Confidence Breakdown, internal Conviction). Implementation is staged; UI remains frozen.
+
+### Canonical pipeline (approximate **current v1** order)
 
 ```
 Market data and candles

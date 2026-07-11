@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test tests/*.test.mjs && npx --yes tsx --test tests/intelligence-v2.test.ts",
     "start": "next start",
     "lint": "next lint"
   },

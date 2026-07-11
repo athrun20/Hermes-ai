@@ -57,6 +57,18 @@ These concepts are **distinct**. Do not collapse them in UI copy, engines, or AP
 | **Trade Readiness** | Whether the setup is **actionable now** (vs wait / incomplete confirmation). | `lib/reasoning-engine.ts` (`tradeReadinessScore`, `readinessState`, blockers) |
 | **Trade Quality** | Quality of the **complete proposed trade plan** (levels, risk, alignment, constraints). | `lib/trade-quality-engine.ts` and related `trade-quality-*` modules |
 
+### Internal Intelligence v2 concepts (not primary UI metrics)
+
+| Concept | Meaning | Rule |
+|---------|---------|------|
+| **Market Regime** | Trend/range, volatility, liquidity, macro-event environment for interpreting evidence. | Every post-data stage interprets evidence inside regime. |
+| **Hermes Reasoning** | Weighs evidence and resolves conflicts → thesis, Confidence, Trade Readiness. | Distinct from Judgment and Decision. |
+| **Hermes Judgment** | Whether Hermes would **personally** take the trade. | Distinct from Confidence and Trade Quality; internal unless later approved for UI. |
+| **Confidence Breakdown** | Structured per-category contribution to Confidence. | Transparency/coaching; not a new page or primary metric. |
+| **Conviction** | How aggressively Hermes would **size** given regime/judgment/risk. | **Not** a fourth primary metric; internal only unless later approved. |
+
+Intelligence pipeline source of truth: [`docs/HERMES_INTELLIGENCE_V2.md`](docs/HERMES_INTELLIGENCE_V2.md).
+
 ### Secondary diagnostics (not primary workspace metrics)
 
 | Concept | Meaning | Owner module (current) |
@@ -76,6 +88,8 @@ Full ownership table (overlap + future treatment): [`docs/HERMES_ARCHITECTURE.md
 - Do not rename one score to stand in for another in UI without an approved ownership change.
 - Scenario probabilities (bull/bear/base cases, simulation EV, etc.) remain separate teaching tools.
 - Do not promote secondary diagnostics (MTF, footprint, Hermes Score, opportunity scores, strategy scores) to primary workspace metrics without explicit approval.
+- Do not promote **Judgment** or **Conviction** to primary workspace metrics without explicit approval.
+- Do not merge **Reasoning**, **Judgment**, and **Decision** into one stage.
 
 ---
 
