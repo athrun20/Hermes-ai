@@ -297,8 +297,8 @@ Hard rule (AGENTS): Confidence, Readiness, Trade Quality, and scenario probabili
 |-------|--------|--------|
 | 0 Contracts | `lib/intelligence-v2/types.ts` | Done |
 | 1 Market Regime | `lib/intelligence-v2/market-regime.ts` | Done |
-| 2 Evidence Collection | `evidence-adapters.ts`, `collect-evidence.ts` | Done |
-| 3 Confidence Breakdown packaging | — | Not started |
+| 2 Evidence Collection | `evidence-adapters.ts`, `collect-evidence.ts`, `dedupe-evidence.ts` | Done |
+| 3 Confidence Breakdown packaging | `lib/intelligence-v2/confidence-breakdown.ts` | Done |
 | 4 Judgment | — | Not started |
 | 5 Conviction | — | Not started |
 | 6 Orchestrator | — | Not started |

@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — Phase 0 contracts only.
+ * Hermes Intelligence v2 — contracts (Phases 0–3).
  * Independent of the live dashboard pipeline. Not product source of truth.
  */
 
@@ -34,7 +34,9 @@ export type EvidenceCategory =
   | "Trader DNA Fit"
   | "Trade Plan"
   | "Portfolio Exposure"
-  | "Market Regime";
+  | "Market Regime"
+  | "Data Quality"
+  | "Other Existing Adjustment";
 
 export type EvidenceReliability = "Low" | "Medium" | "High";
 
@@ -85,20 +87,61 @@ export type MarketRegime = {
   dataQuality: DataQuality;
 };
 
+/**
+ * Phase 3 contribution row — packages existing reasoning evidence into an auditable line item.
+ * `contribution` is a signed score delta (positive increases confidence, negative decreases).
+ */
 export type ConfidenceContribution = {
   category: EvidenceCategory;
-  direction: EvidenceDirection;
-  weight: number;
-  rawScore: number;
+  label: string;
   contribution: number;
-  summary: string;
+  direction: EvidenceDirection;
+  evidenceIds: string[];
+  sourceModules: string[];
+  explanation: string;
+  reliability: EvidenceReliability;
+  /** Optional legacy fields for weight/raw visibility */
+  weight?: number;
+  rawScore?: number;
+  summary?: string;
 };
 
-/** Reserved for Phase 3 packaging — not produced in Phases 0–2. */
+export type ConfidenceAdjustment = {
+  id: string;
+  label: string;
+  contribution: number;
+  explanation: string;
+  category: EvidenceCategory;
+};
+
+export type ConfidenceCapApplied = {
+  id: string;
+  label: string;
+  /** Signed delta from applying the cap (typically negative when clamping down). */
+  contribution: number;
+  explanation: string;
+  cap: number;
+};
+
+/**
+ * Structured explanation of existing Reasoning Confidence.
+ * finalScore must equal reasoning.confidenceScore for the same inputs.
+ */
 export type ConfidenceBreakdown = {
-  finalConfidence: number;
+  kind: "hermes-confidence-breakdown-v1";
+  baseScore: number;
+  positiveContributions: ConfidenceContribution[];
+  negativeContributions: ConfidenceContribution[];
+  neutralContributions: ConfidenceContribution[];
+  adjustments: ConfidenceAdjustment[];
+  capsApplied: ConfidenceCapApplied[];
+  dataQualityAdjustment: number;
+  finalScore: number;
+  /** Must be 0 after explicit residual reconciliation adjustment (if any). */
+  reconciliationDifference: number;
+  sourceTimestamp: number;
   maxConfidence: number;
-  contributions: ConfidenceContribution[];
+  /** Convenience mirrors for coaching */
   supportiveDrivers: string[];
   reducingDrivers: string[];
   unresolvedConflicts: string[];
@@ -106,7 +149,7 @@ export type ConfidenceBreakdown = {
 
 export type HermesJudgmentStance = "Take" | "Wait" | "Avoid" | "Manage";
 
-/** Reserved for Phase 4 — not produced in Phases 0–2. */
+/** Reserved for Phase 4 — not produced in Phases 0–3. */
 export type HermesJudgment = {
   kind: "hermes-judgment-v1";
   wouldTakeTrade: boolean | "Conditional";
@@ -127,42 +170,28 @@ export type HermesConviction = {
 };
 
 /**
- * Pipeline bundle contract. Phases 0–2 only require regime + evidence.
- * Later stages remain optional so the type is not a giant required blob.
+ * Pipeline bundle contract. Phases 0–2 require regime + evidence.
+ * Phase 3 can attach confidenceBreakdown without full reasoning authority.
  */
-export type HermesIntelligenceBundle =
-  | {
-      kind: "hermes-intelligence-bundle-v2";
-      version: 2;
-      symbol: CoinSymbol;
-      generatedAt: number;
-      regime: MarketRegime;
-      evidence: HermesEvidence[];
-      reasoning?: never;
-      judgment?: never;
-      conviction?: never;
-      decision?: never;
-      coach?: never;
-    }
-  | {
-      kind: "hermes-intelligence-bundle-v2";
-      version: 2;
-      symbol: CoinSymbol;
-      generatedAt: number;
-      regime: MarketRegime;
-      evidence: HermesEvidence[];
-      reasoning: {
-        thesis: string;
-        confidence: number;
-        readiness: number;
-        confidenceBreakdown: ConfidenceBreakdown;
-      };
-      judgment?: HermesJudgment;
-      conviction?: HermesConviction;
-      decision?: {
-        tradeQualityScore?: number;
-      };
-      coach?: {
-        explanation: string;
-      };
-    };
+export type HermesIntelligenceBundle = {
+  kind: "hermes-intelligence-bundle-v2";
+  version: 2;
+  symbol: CoinSymbol;
+  generatedAt: number;
+  regime: MarketRegime;
+  evidence: HermesEvidence[];
+  reasoning?: {
+    thesis?: string;
+    confidence: number;
+    readiness?: number;
+    confidenceBreakdown: ConfidenceBreakdown;
+  };
+  judgment?: HermesJudgment;
+  conviction?: HermesConviction;
+  decision?: {
+    tradeQualityScore?: number;
+  };
+  coach?: {
+    explanation: string;
+  };
+};

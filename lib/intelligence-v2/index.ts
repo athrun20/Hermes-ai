@@ -1,10 +1,12 @@
 /**
- * Hermes Intelligence v2 — Phases 0–2 public surface.
+ * Hermes Intelligence v2 — Phases 0–3 public surface.
  * Independent of dashboard composition. Not product source of truth.
  */
 
 export type {
+  ConfidenceAdjustment,
   ConfidenceBreakdown,
+  ConfidenceCapApplied,
   ConfidenceContribution,
   ConvictionSizingBias,
   DataQuality,
@@ -44,3 +46,10 @@ export {
   adaptSmartChartEvidence,
   adaptVisionEvidence,
 } from "@/lib/intelligence-v2/evidence-adapters";
+
+export {
+  packageConfidenceBreakdown,
+  assertConfidenceParity,
+  reconstructTotal,
+  type PackageConfidenceBreakdownInput,
+} from "@/lib/intelligence-v2/confidence-breakdown";
