@@ -161,7 +161,7 @@ export function NativeHermesChart({
 
   return (
     <div
-      className="relative h-[920px] overflow-hidden rounded-xl border border-white/10 bg-[#060910] shadow-inner shadow-black/40 transition-[height,border-color] duration-300 2xl:h-[1000px]"
+      className="relative h-[min(68vh,720px)] overflow-hidden rounded-xl border border-white/10 bg-[#060910] shadow-inner shadow-black/40 transition-[height,border-color] duration-300 sm:h-[min(72vh,820px)] 2xl:h-[min(74vh,920px)]"
       ref={wrapperRef}
     >
       <canvas

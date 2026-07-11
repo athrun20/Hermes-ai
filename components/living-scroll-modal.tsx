@@ -47,7 +47,7 @@ export function LivingScrollModal({
               Hermes Living Scroll
             </p>
             <h2
-              className="mt-4 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.02em] text-surface-950 sm:text-4xl"
+              className="mt-3 max-w-xl text-xl font-semibold leading-tight tracking-tight text-surface-950 sm:text-2xl"
               id="living-scroll-title"
             >
               {scroll.title}
@@ -67,7 +67,7 @@ export function LivingScrollModal({
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amberline">
                   Wisdom Points Earned
                 </p>
-                <p className="mt-3 text-4xl font-semibold leading-none tracking-[-0.02em]">
+                <p className="mt-2 text-2xl font-semibold leading-none tracking-tight tabular-nums">
                   {scroll.wisdomPoints}
                 </p>
               </div>

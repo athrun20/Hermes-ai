@@ -22,7 +22,7 @@ import {
   type PaperPosition,
   type PaperSettings,
 } from "@/lib/paper-trading";
-import { Panel, PanelHeader } from "@/components/ui";
+import { PageHeader, PageShell, Panel, PanelHeader, StatusPill } from "@/components/ui";
 
 export function PaperTradingPage() {
   const [cash, setCash] = useState(defaultPersistedState.cash);
@@ -95,40 +95,35 @@ export function PaperTradingPage() {
   return (
     <main>
       <TopNav />
-      <div className="mx-auto max-w-[1440px] space-y-6 px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
-        <section className="rounded-lg border border-white/10 bg-white/[0.025] px-5 py-5 shadow-insetPanel">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-            Paper Trading
-          </p>
-          <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                Account Summary
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                Portfolio, open positions, completed trades, and account growth for Hermes paper mode.
-              </p>
-            </div>
-            <div className="rounded-lg border border-mint-300/20 bg-mint-300/10 px-4 py-3 text-sm font-semibold text-mint-200">
+      <PageShell>
+        <PageHeader
+          eyebrow="Paper Trading"
+          title="Account"
+          description="Equity, open risk, history, and growth — paper mode only."
+          action={
+            <StatusPill tone="mint" className="px-3 py-1.5 text-sm">
               Equity {formatCurrency(portfolio.equity)}
-            </div>
-          </div>
-        </section>
+            </StatusPill>
+          }
+        />
 
         <PaperPortfolio snapshot={portfolio} />
         <OpenPositions positions={positions} prices={priceMap} onClose={closePaperPosition} />
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+
+        <div className="grid gap-4 lg:grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
           <TradeHistory history={history} />
           <PerformanceDashboard stats={performance} />
         </div>
+
         <Panel>
-          <PanelHeader eyebrow="Equity Curve" title="Account Growth" />
-          <div className="p-5">
+          <PanelHeader eyebrow="Growth" title="Equity curve" />
+          <div className="p-4 sm:p-5">
             <EquityCurve points={equityCurve} />
           </div>
         </Panel>
+
         <TradeJournal entries={journalEntries} />
-      </div>
+      </PageShell>
     </main>
   );
 }

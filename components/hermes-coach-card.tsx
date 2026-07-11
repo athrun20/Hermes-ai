@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BrainCircuit, X } from "lucide-react";
 import { HERMES_COACH_EVENT } from "@/lib/hermes-coach-trigger-system";
 import type { HermesCoachMessage } from "@/lib/hermes-coach-types";
-import { StatusPill } from "@/components/ui";
+import { IconButton, StatusPill } from "@/components/ui";
 
 export function HermesCoachCard() {
   const [message, setMessage] = useState<HermesCoachMessage | null>(null);
@@ -29,33 +29,32 @@ export function HermesCoachCard() {
   if (!message) return null;
 
   return (
-    <aside className="fixed bottom-5 right-5 z-50 w-[min(420px,calc(100vw-2rem))] animate-[briefingReveal_360ms_ease-out_both] rounded-lg border border-amberline/20 bg-surface-950/95 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="grid size-9 place-items-center rounded-lg border border-mint-300/25 bg-mint-300/10 text-mint-300">
+    <aside
+      className="hermes-fade-in fixed bottom-4 right-4 z-50 w-[min(360px,calc(100vw-1.5rem))] rounded-xl border border-amberline/20 bg-surface-950/95 p-3.5 shadow-2xl shadow-black/40 backdrop-blur-xl sm:bottom-5 sm:right-5"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-start justify-between gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="grid size-8 shrink-0 place-items-center rounded-lg border border-mint-300/25 bg-mint-300/10 text-mint-300">
             <BrainCircuit className="size-4" aria-hidden="true" />
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mint-300/80">
-              Hermes Coach
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mint-300/80">
+              Coach
             </p>
-            <h2 className="mt-1 text-base font-semibold tracking-tight text-white">
+            <h2 className="mt-0.5 truncate text-sm font-semibold tracking-tight text-white">
               {message.title}
             </h2>
           </div>
         </div>
-        <button
-          className="rounded-md border border-white/10 bg-white/[0.04] p-1.5 text-slate-400 transition hover:text-white"
-          onClick={() => setMessage(null)}
-          type="button"
-          aria-label="Dismiss Hermes Coach"
-        >
+        <IconButton label="Dismiss Hermes Coach" onClick={() => setMessage(null)}>
           <X className="size-4" aria-hidden="true" />
-        </button>
+        </IconButton>
       </div>
-      <p className="mt-4 text-sm leading-6 text-slate-300">{message.message}</p>
+      <p className="mt-2.5 text-sm leading-6 text-slate-300">{message.message}</p>
       {message.actionLabel ? (
-        <div className="mt-4">
+        <div className="mt-2.5">
           <StatusPill tone="gold">{message.actionLabel}</StatusPill>
         </div>
       ) : null}

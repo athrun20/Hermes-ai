@@ -9,6 +9,7 @@ import { FloatingAnalysis } from "@/components/workspace/floating-analysis";
 import { FloatingTradePlan } from "@/components/workspace/floating-trade-plan";
 import { ProfessionalChart, type IndicatorVisibility } from "@/components/workspace/professional-chart";
 import { TopNav } from "@/components/top-nav";
+import { PageShell, SegmentedControl, SkeletonLoader } from "@/components/ui";
 import { type TradeTicket } from "@/components/trade-controls";
 import {
   analyzeMarket,
@@ -989,19 +990,22 @@ export function HermesDashboard() {
     return (
       <main>
         <TopNav />
-        <div className="mx-auto max-w-[1920px] px-3 py-4 sm:px-5 lg:px-6 xl:px-8">
-          <section className="rounded-lg border border-white/10 bg-white/[0.025] px-5 py-8 shadow-insetPanel">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-              Hermes v1.3 paper trading engine
+        <PageShell wide className="space-y-4">
+          <section className="rounded-xl border border-white/10 bg-surface-950/50 px-5 py-6">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-mint-300/75">
+              Workspace
             </p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Restoring saved paper account...
+            <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-white">
+              Restoring paper account
             </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Loading local portfolio, positions, trade history, journal, and settings.
+            <p className="mt-1.5 text-sm text-slate-400">
+              Loading portfolio, positions, history, and settings from this browser.
             </p>
+            <div className="mt-4 max-w-md">
+              <SkeletonLoader lines={4} />
+            </div>
           </section>
-        </div>
+        </PageShell>
       </main>
     );
   }
@@ -1018,72 +1022,40 @@ export function HermesDashboard() {
           onRevise={revisePendingDecision}
         />
       ) : null}
-      <div className="mx-auto max-w-[1920px] px-3 py-4 sm:px-5 lg:px-6 xl:px-8">
-        <section className="mb-5 flex flex-col justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.025] px-5 py-5 shadow-insetPanel lg:flex-row lg:items-end">
-          <div className="max-w-4xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-              Hermes Workspace 2.0
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl xl:text-[34px]">
-              Hermes - professional paper trading workstation.
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Chart-first planning, rule-based analysis, portfolio tracking,
-              and manual paper execution without broker connections or automation.
-            </p>
-          </div>
-          <div className="grid min-w-72 grid-cols-3 gap-2 rounded-lg border border-white/10 bg-surface-950/70 p-2 text-sm">
-            <div className="rounded-md bg-white/[0.04] px-3 py-2">
-              <p className="text-xs text-slate-500">Mode</p>
-              <p className="mt-1 font-semibold text-mint-300">Paper</p>
-            </div>
-            <div className="rounded-md bg-white/[0.04] px-3 py-2">
-              <p className="text-xs text-slate-500">Trading</p>
-              <p className="mt-1 font-semibold text-amberline">Manual</p>
-            </div>
-            <div className="rounded-md bg-white/[0.04] px-3 py-2">
-              <p className="text-xs text-slate-500">Storage</p>
-              <p
-                className={
-                  saveStatus === "Saved locally"
-                    ? "mt-1 font-semibold text-mint-300"
-                    : "mt-1 font-semibold text-amberline"
-                }
-              >
-                {saveStatus}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.025] px-4 py-3">
-          <div className="flex flex-wrap gap-2">
-            {(["chart-only", "chart-ai", "full"] as WorkspaceMode[]).map((mode) => (
-              <button
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                  workspaceMode === mode
-                    ? "border-mint-300/35 bg-mint-300/10 text-mint-200"
-                    : "border-white/10 bg-white/[0.035] text-slate-400 hover:text-white"
-                }`}
-                key={mode}
-                onClick={() => setWorkspaceMode(mode)}
-                type="button"
-              >
-                {getWorkspaceModeLabel(mode)}
-              </button>
-            ))}
+      <PageShell wide className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-surface-950/50 px-3 py-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <SegmentedControl<WorkspaceMode>
+              options={[
+                { value: "chart-only", label: getWorkspaceModeLabel("chart-only") },
+                { value: "chart-ai", label: getWorkspaceModeLabel("chart-ai") },
+                { value: "full", label: getWorkspaceModeLabel("full") },
+              ]}
+              value={workspaceMode}
+              onChange={setWorkspaceMode}
+            />
+            <span className="hidden text-[11px] text-slate-500 md:inline">Paper · Manual</span>
+            <span
+              className={
+                saveStatus === "Saved locally"
+                  ? "text-[11px] font-semibold text-mint-300"
+                  : "text-[11px] font-semibold text-amberline"
+              }
+            >
+              {saveStatus}
+            </span>
           </div>
           <button
-            className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:text-white"
+            className="h-8 rounded-md border border-white/10 bg-white/[0.035] px-2.5 text-xs font-semibold text-slate-300 transition hover:text-white"
             onClick={() => setMarketsCollapsed((current) => !current)}
             type="button"
           >
-            {marketsCollapsed ? "Expand Markets" : "Collapse Markets"}
+            {marketsCollapsed ? "Expand markets" : "Collapse markets"}
           </button>
         </div>
 
         <section
-          className="grid gap-3 overflow-x-hidden"
+          className="grid gap-2.5 overflow-x-hidden"
           style={{
             gridTemplateColumns: `${marketsCollapsed ? "56px" : `${panelWidths.left}px 8px`} minmax(0,1fr)${
               workspaceMode === "chart-only" ? "" : ` 8px minmax(300px, ${panelWidths.right}px)`
@@ -1112,7 +1084,7 @@ export function HermesDashboard() {
             <ResizeHandle onMouseDown={(event) => startPanelResize("left", event)} />
           )}
 
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0">
             <ProfessionalChart
               candles={candles}
               chartLabels={[
@@ -1146,7 +1118,7 @@ export function HermesDashboard() {
           {workspaceMode !== "chart-only" ? (
             <>
               <ResizeHandle onMouseDown={(event) => startPanelResize("right", event)} />
-              <div className="min-w-0 space-y-3">
+              <div className="min-w-0 space-y-2.5">
                 <RightSidebarTabs activeTab={rightTab} onTabChange={setRightTab} />
                 {rightTab === "hermes" ? (
                   <FloatingAnalysis
@@ -1160,6 +1132,9 @@ export function HermesDashboard() {
                     newsIntelligence={newsIntelligence}
                     tradingPersonality={memoryTradingPersonality}
                     weeklyInsights={weeklyMemoryInsights}
+                    strategy={strategyIntelligence}
+                    multiTimeframe={multiTimeframe}
+                    footprint={footprint}
                   />
                 ) : null}
                 {rightTab === "trade-plan" ? (
@@ -1193,7 +1168,7 @@ export function HermesDashboard() {
             </>
           ) : null}
         </section>
-      </div>
+      </PageShell>
     </main>
   );
 }
@@ -1219,13 +1194,13 @@ function RightSidebarTabs({
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
+    <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
       {tabs.map((tab) => (
         <button
-          className={`rounded-md px-3 py-2 text-xs font-semibold transition ${
+          className={`rounded-md px-2.5 py-2 text-[11px] font-semibold transition duration-200 ${
             activeTab === tab.id
               ? "bg-white/10 text-white shadow-insetPanel"
-              : "text-slate-500 hover:bg-white/[0.045] hover:text-slate-200"
+              : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-200"
           }`}
           key={tab.id}
           onClick={() => onTabChange(tab.id)}

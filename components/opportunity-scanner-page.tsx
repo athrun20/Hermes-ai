@@ -8,6 +8,7 @@ import { QualityPipeline } from "@/components/opportunity-scanner/quality-pipeli
 import { buildOpportunityScanner } from "@/lib/opportunity-scanner";
 import { getHermesMemory, type HermesMemorySnapshot } from "@/lib/hermes-memory";
 import { TopNav } from "./top-nav";
+import { PageHeader, PageShell } from "@/components/ui";
 
 export function OpportunityScannerPage() {
   const [memory, setMemory] = useState<HermesMemorySnapshot | undefined>();
@@ -21,33 +22,26 @@ export function OpportunityScannerPage() {
   return (
     <main>
       <TopNav />
-      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
-        <section className="mb-5 rounded-lg border border-white/10 bg-white/[0.025] px-5 py-6 shadow-insetPanel">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-            Study Dashboard
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Opportunity Scanner
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-            Hermes has analyzed today's market and identified the strongest
-            opportunities worth studying.
-          </p>
-        </section>
+      <PageShell>
+        <PageHeader
+          eyebrow="Study"
+          title="Opportunity Scanner"
+          description="Ranked setups for study — not live signals. Focus on plan quality and fit."
+        />
 
         <QualityPipeline pipeline={scanner.pipeline} />
 
-        <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_0.75fr]">
+        <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <MarketMood mood={scanner.marketMood} />
           <OpportunitySummaryCards summary={scanner.summary} />
         </section>
 
-        <section className="mt-5 grid gap-4 xl:grid-cols-2">
+        <section className="grid gap-3 md:grid-cols-2">
           {scanner.opportunities.map((opportunity) => (
             <OpportunityCard key={opportunity.ticker} opportunity={opportunity} />
           ))}
         </section>
-      </div>
+      </PageShell>
     </main>
   );
 }

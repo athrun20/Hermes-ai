@@ -25,7 +25,7 @@ export function PriceCard({
 
   return (
     <PremiumButtonCard
-      className={`relative overflow-hidden bg-gradient-to-br ${accent} to-surface-900/90 p-5 text-left ${
+      className={`relative overflow-hidden bg-gradient-to-br ${accent} to-surface-900/90 p-4 text-left ${
         isSelected ? "border-mint-300/45" : "border-white/10"
       }`}
       onClick={onSelect}
@@ -34,22 +34,22 @@ export function PriceCard({
       <div className="absolute -right-10 -top-10 size-32 rounded-full bg-white/[0.035]" />
       <div className="relative flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="grid size-11 place-items-center rounded-lg border border-white/10 bg-surface-950/60 text-slate-200">
-            <BarChart3 className="size-5" aria-hidden="true" />
+          <div className="grid size-9 place-items-center rounded-lg border border-white/10 bg-surface-950/60 text-slate-200">
+            <BarChart3 className="size-4" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-500">
               {quote.name}
             </p>
-            <h3 className="mt-1 text-2xl font-semibold text-white">{quote.symbol}</h3>
+            <h3 className="mt-0.5 text-lg font-semibold tracking-tight text-white">{quote.symbol}</h3>
           </div>
         </div>
-        <StatusPill tone={positive ? "mint" : "danger"} className="text-sm">
-          <Icon className="size-4" aria-hidden="true" />
+        <StatusPill tone={positive ? "mint" : "danger"}>
+          <Icon className="size-3.5" aria-hidden="true" />
           {formatPercent(quote.change24h)}
         </StatusPill>
       </div>
-      <p className="relative mt-6 text-3xl font-semibold tracking-tight text-white xl:text-[34px]">
+      <p className="relative mt-4 text-xl font-semibold tabular-nums tracking-tight text-white sm:text-2xl">
         {formatCurrency(quote.price)}
       </p>
       <svg

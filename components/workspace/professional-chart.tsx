@@ -5,7 +5,8 @@ import { Bell, RotateCcw, Ruler, SlidersHorizontal } from "lucide-react";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
 import { formatCurrency, formatPercent, type AssetQuote, type Candle } from "@/lib/market-data";
 import { type WorkspaceTimeframe } from "@/lib/market-universe";
-import { HermesVisionPanel } from "@/components/workspace/hermes-vision-panel";
+import { DecisionHeader } from "@/components/workspace/decision-header";
+import { EvidenceStrip } from "@/components/workspace/evidence-cards";
 import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
 import type { HermesVisionLabel, HermesVisionResult } from "@/lib/hermes-vision-types";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
@@ -72,7 +73,7 @@ export function ProfessionalChart({
   tradeLevels,
   selectedTool,
   vision,
-  hermesScore,
+  hermesScore: _hermesScore,
   reasoning,
   tradeQuality,
   strategy,
@@ -289,28 +290,27 @@ export function ProfessionalChart({
   const symbolAlerts = alerts.filter((alert) => alert.symbol === quote.symbol);
 
   return (
-    <Panel className="min-h-[940px] overflow-hidden transition-all duration-300">
-      <div className="border-b border-white/10 bg-surface-950/35 px-4 py-3.5 sm:px-5" ref={chartControlsRef}>
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-amberline/70">
-                Hermes Chart Workspace
-              </p>
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
-                <h2 className="text-[28px] font-semibold leading-none tracking-tight text-white">{quote.symbol}</h2>
-                <p className="text-sm font-medium text-slate-500">{quote.name}</p>
-                <span className="font-mono text-sm font-semibold tabular-nums text-white">
-                  {formatCurrency(quote.price)}
-                </span>
-                <span className={quote.change24h >= 0 ? "text-xs font-semibold text-mint-300" : "text-xs font-semibold text-rose-300"}>
-                  {formatPercent(quote.change24h)}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone="muted">{timeframe}</StatusPill>
-            </div>
+    <Panel className="overflow-hidden transition-all duration-300">
+      <div className="border-b border-white/10 bg-surface-950/40 px-2.5 py-2 sm:px-3" ref={chartControlsRef}>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <h2 className="text-xl font-semibold leading-none tracking-tight text-white sm:text-2xl">
+              {quote.symbol}
+            </h2>
+            <p className="text-xs font-medium text-slate-500 sm:text-sm">{quote.name}</p>
+            <span className="font-mono text-sm font-semibold tabular-nums text-white">
+              {formatCurrency(quote.price)}
+            </span>
+            <span
+              className={
+                quote.change24h >= 0
+                  ? "text-xs font-semibold tabular-nums text-mint-300"
+                  : "text-xs font-semibold tabular-nums text-rose-300"
+              }
+            >
+              {formatPercent(quote.change24h)}
+            </span>
+            <StatusPill tone="muted">{timeframe}</StatusPill>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-[#070A0F]/80 p-2 shadow-inner shadow-black/30">
@@ -431,35 +431,41 @@ export function ProfessionalChart({
         ) : null}
       </div>
 
-      <div className="space-y-3 p-3 sm:p-4">
-        <HermesVisionPanel
-          hermesScore={hermesScore}
-          footprint={footprint}
-          multiTimeframe={multiTimeframe}
+      <div className="space-y-2.5 p-2.5 sm:space-y-3 sm:p-3">
+        {/* Decision → Chart → Evidence */}
+        <DecisionHeader
           reasoning={reasoning}
           strategy={strategy}
           tradeQuality={tradeQuality}
           vision={vision}
         />
+
         <div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3">
           <WorkspaceToolbar
             selectedTool={selectedTool}
             onClearDrawings={onClearDrawings}
             onToolChange={onToolChange}
           />
-          <NativeHermesChart
-            alertToast={alertToast}
-            candles={candles}
-            drawings={drawings}
-            indicators={indicators}
-            resetToken={resetToken}
-            selectedTool={selectedTool}
-            tradeLevels={tradeLevels}
-            visionLabels={chartLabels ?? vision.labels}
-            onPriceSelect={onChartPriceSelect}
-          />
+          <div className="min-w-0">
+            <NativeHermesChart
+              alertToast={alertToast}
+              candles={candles}
+              drawings={drawings}
+              indicators={indicators}
+              resetToken={resetToken}
+              selectedTool={selectedTool}
+              tradeLevels={tradeLevels}
+              visionLabels={chartLabels ?? vision.labels}
+              onPriceSelect={onChartPriceSelect}
+            />
+          </div>
         </div>
 
+        <EvidenceStrip
+          footprint={footprint}
+          multiTimeframe={multiTimeframe}
+          strategy={strategy}
+        />
       </div>
     </Panel>
   );

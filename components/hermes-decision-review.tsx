@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ShieldCheck, X } from "lucide-react";
 import { DecisionChecklist } from "@/components/decision-checklist";
-import { ConfidenceBadge, MetricCard, Panel, PanelHeader, StatusPill } from "@/components/ui";
+import { Button, ConfidenceBadge, MetricCard, Panel, PanelHeader, StatusPill } from "@/components/ui";
 import type { DecisionReview } from "@/lib/decision-types";
 import { formatCurrency } from "@/lib/market-data";
 import { HermesScoreBadge } from "@/components/hermes-score-badge";
@@ -147,32 +147,19 @@ export function HermesDecisionReview({
                 >
                   Yes, I accept the risk
                 </button>
-                <button
-                  className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-amberline/30 hover:bg-amberline/10 hover:text-white"
-                  onClick={onRevise}
-                  type="button"
-                >
+                <Button variant="secondary" onClick={onRevise}>
                   I need to rethink
-                </button>
+                </Button>
               </div>
             </section>
 
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                className="rounded-lg border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-amberline/30 hover:bg-amberline/10 hover:text-white"
-                onClick={onRevise}
-                type="button"
-              >
-                Revise Trade
-              </button>
-              <button
-                className="rounded-lg bg-mint-400 px-5 py-3 text-sm font-bold text-surface-950 transition hover:bg-mint-300 disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={!acceptedRisk}
-                onClick={onConfirm}
-                type="button"
-              >
-                Execute Paper Trade Anyway
-              </button>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={onRevise}>
+                Revise trade
+              </Button>
+              <Button variant="primary" disabled={!acceptedRisk} onClick={onConfirm}>
+                Execute paper trade
+              </Button>
             </div>
           </div>
         </Panel>

@@ -20,7 +20,7 @@ import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
 import type { TraderReason, DecisionSimulationResult } from "@/lib/decision-simulator-types";
 import { buildDecisionSimulation, markSimulationStale } from "@/lib/decision-simulation-service";
-import { Panel, PanelHeader } from "./ui";
+import { Panel, PanelHeader, PrefixInput, SegmentedControl, StatusPill } from "./ui";
 
 export type TradeTicket = {
   action: OrderAction;
@@ -195,46 +195,45 @@ export function TradeControls({
 
   return (
     <Panel>
-      <PanelHeader eyebrow="AI Trade Planner" title={`${quote.symbol}/USD Trade Plan`} />
-      <div className="space-y-5 p-5">
-        <section className="rounded-lg border border-mint-300/20 bg-mint-300/[0.06] p-5 shadow-insetPanel">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-200/80">
-            Current Market Price
+      <PanelHeader eyebrow="Trade plan" title={`${quote.symbol}/USD`} />
+      <div className="space-y-4 p-4 sm:p-5">
+        <section className="rounded-xl border border-mint-300/20 bg-mint-300/[0.05] px-3.5 py-3 shadow-insetPanel">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mint-200/80">
+            Market price
           </p>
-          <p className="mt-3 text-sm font-semibold tracking-wide text-slate-400">{quote.symbol}/USD</p>
-          <p className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.02em] text-white">
-            {formatCurrency(quote.price)}
-          </p>
-          <p className={`mt-3 text-sm font-semibold ${getChangeColor(quote.change24h)}`}>
-            {quote.change24h >= 0 ? "▲" : "▼"} {quote.change24h >= 0 ? "+" : ""}
-            {quote.change24h.toFixed(2)}%
-          </p>
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs font-medium text-slate-500">{quote.symbol}/USD</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-white sm:text-2xl">
+                {formatCurrency(quote.price)}
+              </p>
+            </div>
+            <StatusPill tone={quote.change24h >= 0 ? "mint" : "danger"}>
+              {quote.change24h >= 0 ? "+" : ""}
+              {quote.change24h.toFixed(2)}%
+            </StatusPill>
+          </div>
         </section>
 
         <AssessmentGrid suggestions={suggestions} />
 
-        <section className="space-y-3">
+        <section className="space-y-2">
           <FieldLabel>Position</FieldLabel>
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/10 bg-white/[0.035] p-1">
-            {(["Long", "Short"] as const).map((option) => (
-              <button
-                className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
-                  side === option ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-200"
-                }`}
-                key={option}
-                onClick={() => setSide(option)}
-                type="button"
-              >
-                {option}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            className="w-full"
+            options={[
+              { value: "Long", label: "Long" },
+              { value: "Short", label: "Short" },
+            ]}
+            value={side}
+            onChange={setSide}
+          />
         </section>
 
         <section className="grid gap-3 text-sm">
           <Input label="Amount" prefix="$" value={notional} onChange={setNotional} />
           <Input
-            label="Suggested Entry"
+            label="Entry"
             prefix="$"
             value={entryPrice}
             onChange={setEntryPrice}
@@ -247,7 +246,7 @@ export function TradeControls({
             }
           />
           <Input
-            label="Suggested Stop Loss"
+            label="Stop loss"
             prefix="$"
             value={stopLoss}
             onChange={setStopLoss}
@@ -260,7 +259,7 @@ export function TradeControls({
             }
           />
           <Input
-            label="Suggested Take Profit"
+            label="Take profit"
             prefix="$"
             value={takeProfit}
             onChange={setTakeProfit}
@@ -276,7 +275,7 @@ export function TradeControls({
 
         <RiskRewardCard riskReward={riskReward} />
         {currentTradeQuality ? (
-          <section className="space-y-3">
+          <section className="space-y-2.5">
             <TradeQualityBadge quality={currentTradeQuality} />
             <TradeQualityBreakdown quality={currentTradeQuality} />
           </section>
@@ -311,43 +310,43 @@ export function TradeControls({
         <HermesVerdict verdict={suggestions.verdict} />
 
         {side === "Long" ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <ActionButton
               disabled={openingDisabled}
               icon={<ArrowUpFromLine className="size-4" aria-hidden="true" />}
-              label="Execute Long"
+              label="Execute long"
               tone="mint"
               onClick={() => submit("Buy")}
             />
             <ActionButton
               disabled={closingDisabled}
               icon={<ArrowDownToLine className="size-4" aria-hidden="true" />}
-              label="Close Long"
+              label="Close long"
               tone="rose"
               onClick={() => submit("Sell")}
             />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <ActionButton
               disabled={openingDisabled}
               icon={<ArrowDownToLine className="size-4" aria-hidden="true" />}
-              label="Execute Short"
+              label="Execute short"
               tone="amber"
               onClick={() => submit("Short")}
             />
             <ActionButton
               disabled={closingDisabled}
               icon={<ArrowUpFromLine className="size-4" aria-hidden="true" />}
-              label="Cover Short"
+              label="Cover short"
               tone="slate"
               onClick={() => submit("Cover")}
             />
           </div>
         )}
 
-        <div className="rounded-lg border border-white/10 bg-surface-950/50 p-3 text-xs leading-5 text-slate-400">
-          <p>Buying power: {formatCurrency(buyingPower)}</p>
+        <div className="rounded-xl border border-white/10 bg-surface-950/50 px-3 py-2.5 text-xs leading-5 text-slate-400">
+          <p className="tabular-nums">Buying power: {formatCurrency(buyingPower)}</p>
           <p className="mt-1">{message}</p>
         </div>
       </div>
@@ -478,19 +477,16 @@ function Input({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="block">
+    <label className="block space-y-1.5">
       <FieldLabel>{label}</FieldLabel>
-      <div className="mt-2 flex items-center rounded-lg border border-white/10 bg-surface-950/55 px-3 transition focus-within:border-mint-300/40">
-        <span className="text-slate-500">{prefix}</span>
-        <input
-          className="h-11 w-full bg-transparent px-2 text-sm font-semibold text-white outline-none placeholder:text-slate-600"
-          inputMode="decimal"
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          type="number"
-          value={value}
-        />
-      </div>
+      <PrefixInput
+        inputMode="decimal"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        prefix={prefix}
+        type="number"
+        value={value}
+      />
       {hint}
     </label>
   );
@@ -522,21 +518,21 @@ function RiskRewardCard({ riskReward }: { riskReward: number | null }) {
   const quality = getRiskRewardQuality(riskReward);
 
   return (
-    <section className="rounded-lg border border-white/10 bg-white/[0.035] p-5">
-      <div className="flex items-start justify-between gap-4">
+    <section className="rounded-xl border border-white/10 bg-white/[0.035] px-3.5 py-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <FieldLabel>Risk / Reward</FieldLabel>
-          <p className={`mt-3 text-[28px] font-semibold leading-none tracking-[-0.02em] ${getRiskRewardColor(riskReward)}`}>
+          <FieldLabel>Risk / reward</FieldLabel>
+          <p
+            className={`mt-2 text-xl font-semibold leading-none tracking-tight tabular-nums sm:text-2xl ${getRiskRewardColor(riskReward)}`}
+          >
             {riskReward ? `${riskReward.toFixed(2)} : 1` : "Needs plan"}
           </p>
         </div>
-        <p className={`rounded-md px-2.5 py-1 text-xs font-bold ${quality.badgeTone}`}>
+        <p className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${quality.badgeTone}`}>
           {quality.label}
         </p>
       </div>
-      <p className="mt-4 text-xs leading-5 text-slate-500">
-        {quality.explanation}
-      </p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{quality.explanation}</p>
     </section>
   );
 }
@@ -559,20 +555,18 @@ function HermesNotes({ notes }: { notes: string[] }) {
 
 function HermesVerdict({ verdict }: { verdict: TradeTicketSuggestions["verdict"] }) {
   return (
-    <section className={`rounded-lg border p-4 ${getVerdictSurface(verdict.label)}`}>
+    <section className={`rounded-xl border px-3.5 py-3 ${getVerdictSurface(verdict.label)}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <FieldLabel>Hermes Verdict</FieldLabel>
-          <p className="mt-2 text-lg font-black text-white">{verdict.label}</p>
+          <FieldLabel>Hermes verdict</FieldLabel>
+          <p className="mt-1.5 text-base font-semibold text-white">{verdict.label}</p>
         </div>
-        <p className={`rounded-md px-2 py-1 text-xs font-bold ${getConfidenceBadge(verdict.confidence)}`}>
+        <p className={`rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums ${getConfidenceBadge(verdict.confidence)}`}>
           {verdict.confidence}%
         </p>
       </div>
       <p className="mt-2 text-sm leading-6 text-slate-300">{verdict.explanation}</p>
-      <p className="mt-2 text-xs leading-5 text-slate-500">
-        Hermes suggests. The trader decides.
-      </p>
+      <p className="mt-1.5 text-xs leading-5 text-slate-500">Hermes suggests. The trader decides.</p>
     </section>
   );
 }
@@ -592,7 +586,7 @@ function ActionButton({
 }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold text-surface-950 transition disabled:cursor-not-allowed disabled:opacity-45 ${getActionTone(tone)}`}
+      className={`inline-flex h-9 w-full items-center justify-center gap-2 rounded-md px-3 text-xs font-semibold text-surface-950 transition duration-150 disabled:cursor-not-allowed disabled:opacity-45 sm:text-sm ${getActionTone(tone)}`}
       disabled={disabled}
       onClick={onClick}
       type="button"
@@ -605,7 +599,7 @@ function ActionButton({
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
       {children}
     </p>
   );

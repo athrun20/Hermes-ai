@@ -18,7 +18,7 @@ import { loadHermesState } from "@/lib/local-persistence";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
 import type { ClosedTrade } from "@/lib/paper-trading";
 import { TopNav } from "./top-nav";
-import { InsightCard, Panel, PanelHeader } from "./ui";
+import { Button, InsightCard, PageHeader, PageShell, Panel, PanelHeader } from "./ui";
 
 export function MorningBriefingPage() {
   const router = useRouter();
@@ -104,21 +104,12 @@ export function MorningBriefingPage() {
   return (
     <main>
       <TopNav />
-      <div className="mx-auto max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 xl:px-10">
-        <section className="mb-5 rounded-lg border border-white/10 bg-white/[0.025] px-5 py-7 shadow-insetPanel">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-            Morning Briefing
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Hermes Morning Briefing
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-            Hermes has prepared your market briefing.
-          </p>
-          <p className="mt-4 text-lg font-semibold tracking-tight text-amberline">
-            Begin with clarity. Trade with discipline.
-          </p>
-        </section>
+      <PageShell>
+        <PageHeader
+          eyebrow="Morning"
+          title="Briefing"
+          description="Clarity first. Discipline second. Execution last."
+        />
 
         <GuidedBriefing
           steps={steps}
@@ -136,27 +127,23 @@ export function MorningBriefingPage() {
             })
           }
           completion={
-            <Panel className="p-6 text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-mint-300/80">
-                Briefing Complete
+            <Panel className="px-5 py-8 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-mint-300/75">
+                Complete
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-                Today's briefing complete.
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                Briefing finished
               </h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-400">
-                Carry the plan into the session. Let patience do its work.
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
+                Carry the plan into the session. Patience is part of the edge.
               </p>
-              <button
-                className="mt-6 rounded-lg bg-mint-400 px-5 py-3 text-sm font-bold text-surface-950 transition hover:bg-mint-300"
-                onClick={() => router.push("/")}
-                type="button"
-              >
-                Begin Trading
-              </button>
+              <Button className="mt-5" variant="primary" size="lg" onClick={() => router.push("/")}>
+                Open workspace
+              </Button>
             </Panel>
           }
         />
-      </div>
+      </PageShell>
     </main>
   );
 }

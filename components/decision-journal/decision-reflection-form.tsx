@@ -7,6 +7,7 @@ import type {
   DecisionReflection,
   PlanFollowResponse,
 } from "@/lib/decision-journal-types";
+import { Button } from "@/components/ui";
 
 const reasons: DecisionReason[] = [
   "Trend continuation",
@@ -78,14 +79,15 @@ export function DecisionReflectionForm({
           One lesson learned
         </span>
         <textarea
-          className="mt-2 min-h-24 w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-mint-300/40"
+          className="mt-2 min-h-24 w-full rounded-md border border-white/10 bg-surface-950/60 px-3 py-2.5 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 hover:border-white/15 focus:border-mint-300/40 focus:ring-2 focus:ring-mint-300/25"
           onChange={(event) => setLesson(event.target.value)}
           placeholder="Write the judgment lesson this trade taught you."
           value={lesson}
         />
       </label>
-      <button
-        className="mt-3 rounded-lg bg-mint-400 px-4 py-2.5 text-sm font-bold text-surface-950 transition hover:bg-mint-300"
+      <Button
+        className="mt-3"
+        variant="primary"
         onClick={() =>
           onSave({
             tradeId,
@@ -96,10 +98,9 @@ export function DecisionReflectionForm({
             updatedAt: Date.now(),
           })
         }
-        type="button"
       >
-        Save Reflection
-      </button>
+        Save reflection
+      </Button>
     </div>
   );
 }
