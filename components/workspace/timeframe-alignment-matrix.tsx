@@ -11,7 +11,7 @@ export function TimeframeAlignmentMatrix({
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-mint-300/80">
-            Multi-Timeframe Intelligence
+            Multi-Timeframe
           </p>
           <p className="mt-1 text-xs leading-5 text-slate-400">{intelligence.mentorSummary}</p>
         </div>
@@ -30,12 +30,13 @@ export function TimeframeAlignmentMatrix({
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusPill tone={statusTone(intelligence.alignmentScore)}>{intelligence.status}</StatusPill>
-        <StatusPill tone={intelligence.alignmentImpact >= 0 ? "mint" : "danger"}>
-          Alignment Impact: {intelligence.alignmentImpact >= 0 ? "+" : ""}
-          {intelligence.alignmentImpact}
-        </StatusPill>
-        <StatusPill tone="muted">HTF {intelligence.higherTimeframeDirection}</StatusPill>
+        {intelligence.countertrendWarning ? (
+          <StatusPill tone="gold">Conflict</StatusPill>
+        ) : null}
       </div>
+      {intelligence.countertrendWarning ? (
+        <p className="mt-2 text-xs leading-5 text-amber-100">{intelligence.countertrendWarning}</p>
+      ) : null}
 
       <div className="mt-3 grid gap-1.5">
         {intelligence.rows.map((row) => (

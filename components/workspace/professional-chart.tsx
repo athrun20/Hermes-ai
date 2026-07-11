@@ -5,15 +5,15 @@ import { Bell, RotateCcw, Ruler, SlidersHorizontal } from "lucide-react";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
 import { formatCurrency, formatPercent, type AssetQuote, type Candle } from "@/lib/market-data";
 import { type WorkspaceTimeframe } from "@/lib/market-universe";
-import type { SymbolAnalysis } from "@/lib/symbol-analysis-engine";
 import { HermesVisionPanel } from "@/components/workspace/hermes-vision-panel";
 import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
 import type { HermesVisionLabel, HermesVisionResult } from "@/lib/hermes-vision-types";
-import { HermesScoreBadge } from "@/components/hermes-score-badge";
 import type { HermesScoreResult } from "@/lib/hermes-score-types";
 import type { StrategyIntelligenceResult } from "@/lib/strategy-types";
 import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
+import type { ReasoningResult } from "@/lib/reasoning-types";
+import type { TradeQualityResult } from "@/lib/trade-quality-types";
 import {
   evaluateHermesAlert,
   hermesAlertConditionLabels,
@@ -71,9 +71,10 @@ export function ProfessionalChart({
   drawings,
   tradeLevels,
   selectedTool,
-  analysis,
   vision,
   hermesScore,
+  reasoning,
+  tradeQuality,
   strategy,
   multiTimeframe,
   footprint,
@@ -92,9 +93,10 @@ export function ProfessionalChart({
   drawings: ChartDrawing[];
   tradeLevels: ChartTradeLevels;
   selectedTool: ChartDrawingTool;
-  analysis: SymbolAnalysis;
   vision: HermesVisionResult;
   hermesScore: HermesScoreResult;
+  reasoning?: ReasoningResult;
+  tradeQuality?: TradeQualityResult;
   strategy: StrategyIntelligenceResult;
   multiTimeframe: MultiTimeframeIntelligence;
   footprint: InstitutionalFootprintResult;
@@ -308,10 +310,6 @@ export function ProfessionalChart({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill tone="muted">{timeframe}</StatusPill>
-              <StatusPill tone={analysis.marketBias === "Bullish" ? "mint" : analysis.marketBias === "Bearish" ? "danger" : "gold"}>
-                {analysis.marketBias} / {analysis.confidence}%
-              </StatusPill>
-              <HermesScoreBadge score={hermesScore} />
             </div>
           </div>
 
@@ -438,7 +436,9 @@ export function ProfessionalChart({
           hermesScore={hermesScore}
           footprint={footprint}
           multiTimeframe={multiTimeframe}
+          reasoning={reasoning}
           strategy={strategy}
+          tradeQuality={tradeQuality}
           vision={vision}
         />
         <div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3">

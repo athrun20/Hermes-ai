@@ -1114,7 +1114,6 @@ export function HermesDashboard() {
 
           <div className="min-w-0 space-y-6">
             <ProfessionalChart
-              analysis={workspaceAnalysis}
               candles={candles}
               chartLabels={[
                 ...smartChartIntelligence.annotations,
@@ -1125,6 +1124,8 @@ export function HermesDashboard() {
               drawings={selectedChartDrawings}
               footprint={footprint}
               hermesScore={hermesScore}
+              reasoning={hermesReasoning}
+              tradeQuality={tradeQuality}
               indicators={indicators}
               multiTimeframe={multiTimeframe}
               newsKeywords={chartNewsKeywords}
@@ -1164,10 +1165,15 @@ export function HermesDashboard() {
                 {rightTab === "trade-plan" ? (
                   <FloatingTradePlan
                     buyingPower={portfolio.buyingPower}
+                    portfolio={portfolio}
                     footprint={footprint}
                     hermesScore={hermesScore}
                     tradeQuality={tradeQuality}
                     multiTimeframe={multiTimeframe}
+                    reasoning={hermesReasoning}
+                    memory={hermesMemorySnapshot}
+                    news={newsIntelligence}
+                    timeframe={timeframe}
                     opportunity={selectedOpportunity}
                     quote={selectedQuote}
                     chartLevels={selectedChartTradeLevels}

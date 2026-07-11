@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { DecisionSimulatorPanel } from "@/components/decision-simulator-panel";
 import {
   generateTradeTicketSuggestions,
   type OpportunityScore,
@@ -13,7 +14,12 @@ import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import { TradeQualityBreakdown } from "@/components/trade-quality-breakdown";
 import { TradeQualityBadge } from "@/components/trade-quality-badge";
 import type { TradeQualityPlan, TradeQualityResult } from "@/lib/trade-quality-types";
-import type { OrderAction, PositionSide } from "@/lib/paper-trading";
+import type { OrderAction, PortfolioSnapshot, PositionSide } from "@/lib/paper-trading";
+import type { ReasoningResult } from "@/lib/reasoning-types";
+import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
+import type { NewsIntelligenceResult } from "@/lib/news-types";
+import type { TraderReason, DecisionSimulationResult } from "@/lib/decision-simulator-types";
+import { buildDecisionSimulation, markSimulationStale } from "@/lib/decision-simulation-service";
 import { Panel, PanelHeader } from "./ui";
 
 export type TradeTicket = {
@@ -33,6 +39,11 @@ export function TradeControls({
   chartLevels,
   multiTimeframe,
   footprint,
+  portfolio,
+  reasoning,
+  memory,
+  news,
+  timeframe,
   buildTradeQuality,
   visionCaution,
   onSubmit,
@@ -48,6 +59,11 @@ export function TradeControls({
   };
   multiTimeframe?: MultiTimeframeIntelligence;
   footprint?: InstitutionalFootprintResult;
+  portfolio: PortfolioSnapshot;
+  reasoning?: ReasoningResult;
+  memory?: HermesMemorySnapshot;
+  news?: NewsIntelligenceResult;
+  timeframe: string;
   buildTradeQuality?: (plan: TradeQualityPlan) => TradeQualityResult;
   visionCaution?: {
     active: boolean;
@@ -61,6 +77,8 @@ export function TradeControls({
   const [stopLoss, setStopLoss] = useState("");
   const [takeProfit, setTakeProfit] = useState("");
   const [message, setMessage] = useState("Paper orders only. No broker connection.");
+  const [traderReason, setTraderReason] = useState<TraderReason>("Pullback");
+  const [savedSimulation, setSavedSimulation] = useState<DecisionSimulationResult | null>(null);
   const previousPlanKey = useRef("");
   const suggestions = useMemo(
     () => generateTradeTicketSuggestions({ quote, side, opportunity }),
@@ -111,6 +129,54 @@ export function TradeControls({
         takeProfit: parseNumber(takeProfit) ?? undefined,
       }),
     [buildTradeQuality, entryPrice, notional, side, stopLoss, takeProfit],
+  );
+  const simulatorPlan = useMemo<TradeQualityPlan>(
+    () => ({
+      side,
+      notional: Number(notional),
+      entryPrice: parseNumber(entryPrice) ?? undefined,
+      stopLoss: parseNumber(stopLoss) ?? undefined,
+      takeProfit: parseNumber(takeProfit) ?? undefined,
+    }),
+    [entryPrice, notional, side, stopLoss, takeProfit],
+  );
+  const currentSimulationInput = useMemo(
+    () => ({
+      symbol: quote.symbol,
+      timeframe,
+      currentPrice: quote.price,
+      plan: simulatorPlan,
+      portfolio,
+      tradeQuality: currentTradeQuality,
+      reasoning,
+      memory,
+      multiTimeframe,
+      footprint,
+      news,
+      traderReason,
+    }),
+    [
+      currentTradeQuality,
+      footprint,
+      memory,
+      multiTimeframe,
+      news,
+      portfolio,
+      quote.price,
+      quote.symbol,
+      reasoning,
+      simulatorPlan,
+      timeframe,
+      traderReason,
+    ],
+  );
+  const currentSimulation = useMemo(
+    () => buildDecisionSimulation(currentSimulationInput),
+    [currentSimulationInput],
+  );
+  const displayedSimulation = useMemo(
+    () => markSimulationStale(savedSimulation, currentSimulationInput) ?? currentSimulation,
+    [currentSimulation, currentSimulationInput, savedSimulation],
   );
   const openingDisabled = amountIsInvalid || Number(notional) > buyingPower;
   const closingDisabled = amountIsInvalid;
@@ -215,6 +281,22 @@ export function TradeControls({
             <TradeQualityBreakdown quality={currentTradeQuality} />
           </section>
         ) : null}
+        <DecisionSimulatorPanel
+          hasCompletedSimulation={Boolean(savedSimulation)}
+          simulation={displayedSimulation}
+          symbol={quote.symbol}
+          timeframe={timeframe}
+          traderReason={traderReason}
+          onSimulate={() =>
+            setSavedSimulation(
+              buildDecisionSimulation({
+                ...currentSimulationInput,
+                createdAt: Date.now(),
+              }),
+            )
+          }
+          onTraderReasonChange={setTraderReason}
+        />
         {multiTimeframe ? <MultiTimeframeTradeContext intelligence={multiTimeframe} side={side} /> : null}
         {footprint ? <InstitutionalTradeContext footprint={footprint} side={side} /> : null}
         {visionCaution?.active ? (

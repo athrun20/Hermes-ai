@@ -13,6 +13,10 @@ import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import { TradeQualityBadge } from "@/components/trade-quality-badge";
 import type { TradeQualityPlan, TradeQualityResult } from "@/lib/trade-quality-types";
+import type { PortfolioSnapshot } from "@/lib/paper-trading";
+import type { ReasoningResult } from "@/lib/reasoning-types";
+import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
+import type { NewsIntelligenceResult } from "@/lib/news-types";
 
 type DockMode = "compact" | "expanded" | "collapsed";
 
@@ -24,6 +28,11 @@ export function FloatingTradePlan({
   tradeQuality,
   multiTimeframe,
   footprint,
+  portfolio,
+  reasoning,
+  memory,
+  news,
+  timeframe,
   chartLevels,
   statusMessage,
   visionCaution,
@@ -37,6 +46,11 @@ export function FloatingTradePlan({
   tradeQuality: TradeQualityResult;
   multiTimeframe: MultiTimeframeIntelligence;
   footprint: InstitutionalFootprintResult;
+  portfolio: PortfolioSnapshot;
+  reasoning?: ReasoningResult;
+  memory?: HermesMemorySnapshot;
+  news?: NewsIntelligenceResult;
+  timeframe: string;
   chartLevels: ChartTradeLevels;
   statusMessage?: string;
   visionCaution?: {
@@ -68,6 +82,11 @@ export function FloatingTradePlan({
           buyingPower={buyingPower}
           chartLevels={chartLevels}
           footprint={footprint}
+          portfolio={portfolio}
+          reasoning={reasoning}
+          memory={memory}
+          news={news}
+          timeframe={timeframe}
           buildTradeQuality={buildTradeQuality}
           multiTimeframe={multiTimeframe}
           opportunity={opportunity}

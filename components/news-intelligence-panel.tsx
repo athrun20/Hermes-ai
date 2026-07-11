@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { Newspaper } from "lucide-react";
 import { Panel, StatusPill } from "@/components/ui";
 import type { NewsIntelligenceItem, NewsIntelligenceResult, NewsKeywordMatch } from "@/lib/news-types";
@@ -11,6 +14,15 @@ export function NewsIntelligencePanel({
   onCreateKeywordAlert?: (keyword: string) => void;
 }) {
   const smartEvents = buildSmartMarketEvents(intelligence);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const topStories = useMemo(
+    () => [...intelligence.pressReleases, ...intelligence.news].slice(0, 3),
+    [intelligence.news, intelligence.pressReleases],
+  );
+  const moreStories = useMemo(
+    () => [...intelligence.pressReleases, ...intelligence.news].slice(3),
+    [intelligence.news, intelligence.pressReleases],
+  );
 
   return (
     <Panel className="overflow-hidden bg-surface-950/60 shadow-xl shadow-black/15">
@@ -36,7 +48,25 @@ export function NewsIntelligencePanel({
         </div>
       </div>
       <div className="space-y-3 p-4">
-        <div>
+        <section className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            News Summary
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <StatusPill tone={sentimentTone(intelligence.sentiment)}>
+              Sentiment: {intelligence.sentiment}
+            </StatusPill>
+            <StatusPill tone={urgencyTone(intelligence.urgency)}>
+              Urgency: {intelligence.urgency}
+            </StatusPill>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-300">{intelligence.hermesInterpretation}</p>
+          <p className="mt-2 text-[11px] leading-5 text-slate-500">
+            Thesis effect: {intelligence.possibleMarketImpact}
+          </p>
+        </section>
+
+        <section>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
             Detected Keywords
           </p>
@@ -57,37 +87,55 @@ export function NewsIntelligencePanel({
               <span className="text-xs text-slate-500">No major catalyst keywords detected.</span>
             )}
           </div>
-        </div>
-        <InsightBlock title="Possible Market Impact">
-          {intelligence.possibleMarketImpact}
-        </InsightBlock>
-        <InsightBlock title="Hermes Interpretation">
-          {intelligence.hermesInterpretation}
-        </InsightBlock>
-        <SmartEventsList events={smartEvents} />
-        <NewsList title="Latest Press Releases" items={intelligence.pressReleases} />
-        <NewsList title="Latest News" items={intelligence.news} />
+        </section>
+        <TopEventsList events={smartEvents} stories={topStories} />
+        {moreStories.length > 0 ? (
+          <section>
+            <button
+              className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 transition hover:text-white"
+              onClick={() => setMoreOpen((current) => !current)}
+              type="button"
+            >
+              {moreOpen ? "Hide More News" : `More News (${moreStories.length})`}
+            </button>
+            {moreOpen ? <NewsList title="Older Releases" items={moreStories} /> : null}
+          </section>
+        ) : null}
       </div>
     </Panel>
   );
 }
 
-function SmartEventsList({ events }: { events: SmartMarketEvent[] }) {
+function TopEventsList({
+  events,
+  stories,
+}: {
+  events: SmartMarketEvent[];
+  stories: NewsIntelligenceItem[];
+}) {
+  const top = events.length > 0 ? events.slice(0, 3) : stories.slice(0, 3);
+
   return (
     <section>
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        Smart Market Events
+        Top Events
       </p>
       <div className="mt-2 space-y-2">
-        {events.slice(0, 3).map((event) => (
+        {top.map((event) => (
           <article className="rounded-lg border border-white/10 bg-white/[0.03] p-3" key={event.id}>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone={urgencyTone(event.urgency)}>{event.eventType}</StatusPill>
+              <StatusPill tone={urgencyTone(event.urgency)}>
+                {"eventType" in event ? event.eventType : event.urgency}
+              </StatusPill>
               <StatusPill tone={sentimentTone(event.sentiment)}>{event.sentiment}</StatusPill>
             </div>
             <p className="mt-2 text-sm font-semibold leading-5 text-white">{event.headline}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-400">{event.summary}</p>
-            <p className="mt-2 text-[11px] leading-4 text-slate-500">{event.impact}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-400">
+              {"impact" in event ? event.summary : event.possibleMarketImpact}
+            </p>
+            <p className="mt-2 text-[11px] leading-4 text-slate-500">
+              Thesis effect: {"impact" in event ? event.impact : event.possibleMarketImpact}
+            </p>
           </article>
         ))}
       </div>
@@ -154,15 +202,6 @@ function KeywordPill({
   }
 
   return <span className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${classes}`}>{match.keyword}</span>;
-}
-
-function InsightBlock({ title, children }: { title: string; children: string }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
-      <p className="mt-2 text-xs leading-5 text-slate-300">{children}</p>
-    </div>
-  );
 }
 
 function sentimentTone(sentiment: NewsIntelligenceResult["sentiment"]) {
