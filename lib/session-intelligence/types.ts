@@ -92,12 +92,18 @@ export type SessionIntelligence = {
   currentRisks: string[];
   currentStrengths: string[];
   /**
-   * Clarity of the session classification (0–100).
+   * Clarity of the session classification (0–100, internal).
    * Educational only — not product Confidence, Readiness, or Trade Quality.
+   * Prefer sessionClarityLabel for user-facing copy.
    */
-  sessionConfidence: number;
+  sessionClarity: number;
+  /** User-facing session-read label — not a primary workspace metric. */
+  sessionClarityLabel: SessionClarityLabel;
   generatedAt: number;
 };
+
+/** Categorical session-read clarity (not product Confidence). */
+export type SessionClarityLabel = "Clear Read" | "Developing Read" | "Unclear Read";
 
 export type SessionIntelligenceInput = {
   candles: Candle[];

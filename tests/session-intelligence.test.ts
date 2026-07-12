@@ -11,6 +11,7 @@ import {
   detectMarketHealth,
   detectOpportunityState,
   detectSessionPhase,
+  labelFromSessionClarity,
   mergeDuplicateEvents,
   type SessionIntelligenceInput,
   type SessionStoryEvent,
@@ -398,8 +399,20 @@ test("does not invent product score fields", () => {
     assert.ok(!keys.includes(banned), `must not include ${banned}`);
   }
   assert.equal(result.kind, "hermes-session-intelligence-v1");
-  // sessionConfidence is session clarity only
-  assert.ok(result.sessionConfidence >= 0 && result.sessionConfidence <= 100);
+  // sessionClarity is internal session-read clarity only — not product Confidence
+  assert.ok(result.sessionClarity >= 0 && result.sessionClarity <= 100);
+  assert.ok(
+    ["Clear Read", "Developing Read", "Unclear Read"].includes(result.sessionClarityLabel),
+  );
+  assert.doesNotMatch(JSON.stringify(result), /sessionConfidence/);
+});
+
+test("sessionClarityLabel maps categorical user-facing reads", () => {
+  assert.equal(labelFromSessionClarity(85), "Clear Read");
+  assert.equal(labelFromSessionClarity(70), "Clear Read");
+  assert.equal(labelFromSessionClarity(55), "Developing Read");
+  assert.equal(labelFromSessionClarity(45), "Developing Read");
+  assert.equal(labelFromSessionClarity(20), "Unclear Read");
 });
 
 test("market health is categorical not a new product score", () => {

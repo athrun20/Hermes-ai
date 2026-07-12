@@ -14,6 +14,7 @@ export type {
   OpportunityWindowKind,
   ParticipationState,
   SessionBias,
+  SessionClarityLabel,
   SessionIntelligence,
   SessionIntelligenceInput,
   SessionPhase,
@@ -27,7 +28,10 @@ export {
   SESSION_STRENGTHS_MAX,
 } from "@/lib/session-intelligence/types";
 
-export { buildSessionIntelligence } from "@/lib/session-intelligence/build-session-intelligence";
+export {
+  buildSessionIntelligence,
+  labelFromSessionClarity,
+} from "@/lib/session-intelligence/build-session-intelligence";
 
 export {
   detectSessionPhase,

@@ -22,6 +22,7 @@ import { detectSessionBias, detectSessionPhase } from "@/lib/session-intelligenc
 import { buildSessionStory } from "@/lib/session-intelligence/session-story";
 import { buildSessionSummary } from "@/lib/session-intelligence/session-summary";
 import type {
+  SessionClarityLabel,
   SessionIntelligence,
   SessionIntelligenceInput,
 } from "@/lib/session-intelligence/types";
@@ -80,12 +81,13 @@ export function buildSessionIntelligence(
     risks: currentRisks,
     strengths: currentStrengths,
   });
-  const sessionConfidence = computeSessionClarity({
+  const sessionClarity = computeSessionClarityScore({
     input,
     phase: sessionPhase,
     health: marketHealth,
     storyCount: sessionStory.length,
   });
+  const sessionClarityLabel = labelFromSessionClarity(sessionClarity);
 
   return {
     kind: "hermes-session-intelligence-v1",
@@ -102,12 +104,17 @@ export function buildSessionIntelligence(
     opportunityWindows,
     currentRisks,
     currentStrengths,
-    sessionConfidence,
+    sessionClarity,
+    sessionClarityLabel,
     generatedAt: now,
   };
 }
 
-function computeSessionClarity(args: {
+/**
+ * Internal 0–100 session-read clarity score.
+ * Calculation preserved from sessionConfidence rename — not product Confidence.
+ */
+function computeSessionClarityScore(args: {
   input: SessionIntelligenceInput;
   phase: SessionPhaseLike;
   health: string;
@@ -123,6 +130,13 @@ function computeSessionClarity(args: {
   if (args.input.news.urgency === "High") clarity -= 5;
   if ((args.input.vision.setupStructureScore ?? 0) >= 60) clarity += 5;
   return Math.max(0, Math.min(100, Math.round(clarity)));
+}
+
+/** Map internal clarity score to user-facing categorical label. */
+export function labelFromSessionClarity(score: number): SessionClarityLabel {
+  if (score >= 70) return "Clear Read";
+  if (score >= 45) return "Developing Read";
+  return "Unclear Read";
 }
 
 type SessionPhaseLike = string;

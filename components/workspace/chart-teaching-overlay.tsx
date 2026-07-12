@@ -197,7 +197,7 @@ function SessionDetail({ session }: { session: SessionIntelligence }) {
         </p>
       ) : null}
       <p className="text-[10px] text-slate-600">
-        Session clarity {session.sessionConfidence}/100 (not product Confidence)
+        Session read: {session.sessionClarityLabel} (not product Confidence)
       </p>
     </div>
   );
