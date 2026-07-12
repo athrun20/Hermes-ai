@@ -97,3 +97,29 @@ export {
   bundleHasPositionSizeFields,
   type HermesIntelligenceInput,
 } from "@/lib/intelligence-v2/orchestrator";
+
+export type {
+  ComparableStatus,
+  HermesShadowComparison,
+  HermesShadowCurrentSnapshot,
+  HermesShadowV2Snapshot,
+  ShadowFieldComparison,
+  ShadowParityStatus,
+  ShadowScalar,
+} from "@/lib/intelligence-v2/shadow-mode-types";
+
+export {
+  buildShadowMemoKey,
+  clearShadowComparisons,
+  compareCurrentToV2,
+  extractV2Snapshot,
+  getLatestShadowComparison,
+  getRecentShadowComparisons,
+  isShadowModeEnabled,
+  logShadowComparisonSummary,
+  recordShadowComparison,
+  runHermesShadowComparison,
+  textsAreSemanticallySimilar,
+  withShadowStoreReset,
+  type RunHermesShadowComparisonInput,
+} from "@/lib/intelligence-v2/shadow-mode";

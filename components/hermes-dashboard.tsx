@@ -74,6 +74,7 @@ import { saveReasoningSnapshot } from "@/lib/reasoning-snapshots";
 import { buildSmartChartIntelligence } from "@/lib/smart-chart-intelligence";
 import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
+
 import {
   DEFAULT_SETTINGS,
   buildPortfolioSnapshot,
@@ -558,6 +559,124 @@ export function HermesDashboard() {
       buildTradeQualityForPlan,
     ],
   );
+
+  /**
+   * Intelligence v2 Shadow Mode (dev/test only).
+   * Reuses already-computed pipeline outputs — does not re-run engines.
+   * Dynamic import keeps production bundles from statically linking v2.
+   * Never rendered; never fed into coach/UI/paper trading.
+   * Current dashboard pipeline remains the sole product authority.
+   */
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_HERMES_SHADOW_MODE !== "1") {
+      return;
+    }
+
+    const hasOpenPosition = positions.some((position) => position.symbol === selectedSymbol);
+    let cancelled = false;
+
+    void import("@/lib/intelligence-v2/shadow-mode")
+      .then((shadow) => {
+        if (cancelled || !shadow.isShadowModeEnabled()) return;
+        shadow.runHermesShadowComparison({
+          current: {
+            symbol: selectedSymbol,
+            timeframe,
+            confidence: hermesReasoning.confidenceScore,
+            readiness: hermesReasoning.tradeReadinessScore,
+            readinessState: hermesReasoning.readinessState,
+            tradeQualityScore: tradeQuality.score,
+            hermesScore: hermesScore.score,
+            thesis: hermesReasoning.reasoningSummary,
+            marketContext: hermesReasoning.marketContext,
+            coachMessage: hermesReasoning.coachingMessage,
+            dataState: hermesReasoning.dataState,
+            hasOpenPosition,
+          },
+          v2Input: {
+            symbol: selectedSymbol,
+            timeframe,
+            sourceTimestamp: hermesReasoning.timestamp,
+            quote: {
+              symbol: selectedQuote.symbol,
+              price: selectedQuote.price,
+              change24h: selectedQuote.change24h,
+            },
+            candles,
+            vision: hermesVision,
+            visionContext: {
+              candleTrend: hermesVisionContext.candleTrend,
+              averageCandleRange: hermesVisionContext.averageCandleRange,
+              currentPrice: hermesVisionContext.currentPrice,
+              volume: hermesVisionContext.volume,
+              rsi: hermesVisionContext.rsi,
+            },
+            multiTimeframe,
+            footprint,
+            news: newsIntelligence,
+            smartChart: smartChartIntelligence,
+            memory: hermesMemorySnapshot,
+            personality: memoryTradingPersonality,
+            dailyGoal: morningBriefing.dailyGoal.text,
+            reasoning: hermesReasoning,
+            tradeQuality,
+            hermesScore,
+            decision: decisionReview ?? undefined,
+            plan: {
+              hasEntry: selectedChartTradeLevels.entry !== undefined,
+              hasStop: selectedChartTradeLevels.stop !== undefined,
+              hasTarget: selectedChartTradeLevels.target !== undefined,
+              riskReward: hermesVisionContext.riskReward,
+            },
+            riskQuality: hermesReasoning.riskQuality,
+            hasOpenPosition,
+            dataFreshness: "fixture",
+            profile: {
+              traderDnaFit: hermesReasoning.traderFit,
+              personality: memoryTradingPersonality.archetype,
+              disciplineScore: hermesMemorySnapshot.scores.discipline,
+            },
+          },
+          silent: false,
+        });
+      })
+      .catch(() => {
+        // Isolation: dynamic import or shadow failures must never affect the dashboard.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    candles,
+    decisionReview,
+    footprint,
+    hermesMemorySnapshot,
+    hermesReasoning,
+    hermesScore,
+    hermesVision,
+    hermesVisionContext.averageCandleRange,
+    hermesVisionContext.candleTrend,
+    hermesVisionContext.currentPrice,
+    hermesVisionContext.riskReward,
+    hermesVisionContext.rsi,
+    hermesVisionContext.volume,
+    memoryTradingPersonality,
+    morningBriefing.dailyGoal.text,
+    multiTimeframe,
+    newsIntelligence,
+    positions,
+    selectedChartTradeLevels.entry,
+    selectedChartTradeLevels.stop,
+    selectedChartTradeLevels.target,
+    selectedQuote.change24h,
+    selectedQuote.price,
+    selectedQuote.symbol,
+    selectedSymbol,
+    smartChartIntelligence,
+    timeframe,
+    tradeQuality,
+  ]);
 
   useEffect(() => {
     const restored = loadHermesState();

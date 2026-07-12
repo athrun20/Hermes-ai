@@ -1,8 +1,8 @@
 # Hermes Intelligence v2 — Architecture
 
-**Status:** Architecture approved · **Implementation:** Phases 0–5 + Orchestrator complete (independent layer; not product source of truth)  
-**Next:** authority cleanup / dashboard wiring (requires explicit approval; UI remains frozen)  
-**Constraints:** UI v1.0 frozen · no dashboard wiring · no scoring formula changes · no paper-trading behavior changes  
+**Status:** Architecture approved · **Implementation:** Phases 0–5 + Orchestrator + Shadow Mode complete (current dashboard pipeline remains product authority)  
+**Next:** authority cleanup / product wiring (requires explicit approval; UI remains frozen; Judgment/Opinion/Conviction/Breakdown not user-facing yet)  
+**Constraints:** UI v1.0 frozen · no production pipeline replacement · no scoring formula changes · no paper-trading behavior changes  
 **Companion:** [`HERMES_ARCHITECTURE.md`](./HERMES_ARCHITECTURE.md) · [`AGENTS.md`](../AGENTS.md)  
 **Code:** `lib/intelligence-v2/` · tests: `tests/intelligence-v2*.test.ts`
 
@@ -336,11 +336,20 @@ Hard rule (AGENTS): Confidence, Readiness, Trade Quality, and scenario probabili
 | 5 Hermes Opinion | `lib/intelligence-v2/opinion.ts` (`buildHermesOpinion`) | Done |
 | Conviction | `lib/intelligence-v2/conviction.ts` (`buildHermesConviction`) | Done |
 | 6 Orchestrator | `lib/intelligence-v2/orchestrator.ts` (`runHermesIntelligence`) | Done |
-| 7 Authority cleanup / dashboard wiring | — | Not started |
+| Shadow Mode | `lib/intelligence-v2/shadow-mode.ts` + silent hook in `hermes-dashboard.tsx` | Done |
+| 7 Authority cleanup / product wiring | — | Not started |
 
-Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 + Orchestrator).  
-Dashboard is **not** rewired yet (UI frozen; no runtime path change).  
-Judgment, Opinion, Conviction, and the orchestrator bundle are **internal only** — not primary workspace UI.
+Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 + Orchestrator + Shadow Mode).  
+
+### Shadow Mode rules
+
+- Current dashboard pipeline remains the **source of truth**.
+- Shadow Mode reuses already-computed outputs and calls `runHermesIntelligence` in dev/test only.
+- Compares Confidence / Readiness / TQ / Hermes Score references with **exact** numeric parity (tolerance 0).
+- Semantic (partial) comparison for thesis/coach wording; Judgment/Conviction marked **Not Comparable**.
+- Failures are caught and recorded — never break chart, paper trading, or UI.
+- Results stay in an in-memory ring buffer (+ optional `console.info`); no user-facing panel.
+- Judgment, Opinion, Conviction, and Confidence Breakdown are **not** exposed to users.
 
 ---
 
