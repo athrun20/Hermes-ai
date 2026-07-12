@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "test": "node --test tests/*.test.mjs && npx --yes tsx --test tests/intelligence-v2.test.ts tests/intelligence-v2-phase3.test.ts tests/intelligence-v2-phase4.test.ts tests/intelligence-v2-phase5-opinion.test.ts tests/intelligence-v2-conviction.test.ts tests/intelligence-v2-orchestrator.test.ts tests/intelligence-v2-shadow-mode.test.ts tests/intelligence-v2-shadow-validation.test.ts tests/learning-engine.test.ts",
+    "test": "node --test tests/*.test.mjs && npx --yes tsx --test tests/intelligence-v2.test.ts tests/intelligence-v2-phase3.test.ts tests/intelligence-v2-phase4.test.ts tests/intelligence-v2-phase5-opinion.test.ts tests/intelligence-v2-conviction.test.ts tests/intelligence-v2-orchestrator.test.ts tests/intelligence-v2-shadow-mode.test.ts tests/intelligence-v2-shadow-validation.test.ts tests/learning-engine.test.ts tests/learning-engine-phase2.test.ts",
     "shadow:validate": "npx --yes tsx scripts/run-shadow-validation.ts",
     "start": "next start",
     "lint": "next lint"

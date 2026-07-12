@@ -134,6 +134,8 @@ export function createJournalReflectionEvent(input: {
   reflection?: string;
   source?: string;
 }): LearningEvent {
+  // Privacy: only persist structured reflection text when explicitly provided.
+  // Callers that map journal UI should omit freeform text entirely.
   return createLearningEvent({
     id: input.id,
     timestamp: input.timestamp,
@@ -141,9 +143,13 @@ export function createJournalReflectionEvent(input: {
     source: input.source ?? "decision-journal",
     outcome: "Neutral",
     tags: uniqueTags([...(input.tags ?? []), "journal"]),
-    metadata: {
-      reflection: input.reflection ?? null,
-    },
+    metadata: input.reflection
+      ? {
+          reflection: input.reflection,
+        }
+      : {
+          structuredOnly: true,
+        },
   });
 }
 

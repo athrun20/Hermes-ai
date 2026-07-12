@@ -74,6 +74,7 @@ import { saveReasoningSnapshot } from "@/lib/reasoning-snapshots";
 import { buildSmartChartIntelligence } from "@/lib/smart-chart-intelligence";
 import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
+import { paperTradeToLearningEvent, recordLearningEvent } from "@/lib/learning-engine";
 
 import {
   DEFAULT_SETTINGS,
@@ -578,9 +579,11 @@ export function HermesDashboard() {
     void import("@/lib/intelligence-v2/shadow-mode")
       .then(async (shadow) => {
         if (cancelled || !shadow.isShadowModeEnabled()) return;
-        // Developer helper: globalThis.__hermesShadowValidation()
+        // Developer helpers: __hermesShadowValidation / __hermesLearningEngine
         const validation = await import("@/lib/intelligence-v2/shadow-validation");
         if (!cancelled) validation.registerShadowValidationDevHelper();
+        const learning = await import("@/lib/learning-engine");
+        if (!cancelled) learning.registerLearningEngineDevHelper();
         if (cancelled) return;
         shadow.runHermesShadowComparison({
           current: {
@@ -854,6 +857,9 @@ export function HermesDashboard() {
         setCash((current) => current + cashReturned);
         closedTrades.forEach((trade) => updateHermesMemory(trade));
         setHistory((current) => [...closedTrades.reverse(), ...current]);
+        closedTrades.forEach((trade) => {
+          recordLearningEvent(paperTradeToLearningEvent(trade, { timeframe }));
+        });
         return undefined;
       }
 
@@ -1074,6 +1080,7 @@ export function HermesDashboard() {
       setPositions((current) => current.filter((item) => item.id !== positionId));
       setCash((current) => current + position.notional + closed.pnl);
       setHistory((current) => [closed, ...current]);
+      recordLearningEvent(paperTradeToLearningEvent(closed, { timeframe }));
       triggerHermesCoach({
         moment: "paper-trade-executed",
         context: {
@@ -1086,7 +1093,7 @@ export function HermesDashboard() {
         },
       });
     },
-    [hermesMemorySnapshot.scores.discipline, morningBriefing, positions, priceMap],
+    [hermesMemorySnapshot.scores.discipline, morningBriefing, positions, priceMap, timeframe],
   );
 
   const resetPaperAccount = useCallback(() => {

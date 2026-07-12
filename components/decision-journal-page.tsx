@@ -25,6 +25,11 @@ import { getHermesMemory, type HermesMemorySnapshot } from "@/lib/hermes-memory"
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import { loadHermesState } from "@/lib/local-persistence";
 import type { ClosedTrade } from "@/lib/paper-trading";
+import {
+  journalToLearningEvent,
+  recordLearningEvent,
+  reviewToLearningEvent,
+} from "@/lib/learning-engine";
 import { TopNav } from "./top-nav";
 
 const filters: DecisionJournalFilter[] = [
@@ -67,6 +72,13 @@ export function DecisionJournalPage() {
 
   const handleSaveReflection = (reflection: DecisionReflection) => {
     setReflections(saveDecisionReflection(reflection));
+    const entry = journal?.entries.find((item) => item.tradeId === reflection.tradeId);
+    const trade = history.find((item) => item.id === reflection.tradeId);
+    // Learning Engine (silent): review + structured journal events only
+    recordLearningEvent(
+      reviewToLearningEvent({ reflection, entry, trade }),
+    );
+    recordLearningEvent(journalToLearningEvent(reflection));
     triggerHermesCoach({
       moment: "reflection-saved",
       context: {

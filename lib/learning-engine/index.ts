@@ -50,3 +50,32 @@ export { detectTraderPatterns } from "@/lib/learning-engine/pattern-detection";
 export { buildTraderLearningProfile } from "@/lib/learning-engine/profile-builder";
 
 export { buildHermesCoachMemory } from "@/lib/learning-engine/coach-memory";
+
+export {
+  paperTradeToLearningEvent,
+  reviewToLearningEvent,
+  journalToLearningEvent,
+  replayToLearningEvent,
+} from "@/lib/learning-engine/adapters";
+
+export {
+  TRADER_MEMORY_STORAGE_KEY,
+  loadTraderMemoryStore,
+  saveTraderMemoryStore,
+  clearTraderMemoryStorage,
+  type LoadTraderMemoryResult,
+  type PersistenceStatus,
+} from "@/lib/learning-engine/persistence";
+
+export {
+  recordLearningEvent,
+  ensureLearningMemoryLoaded,
+  getLearningMemorySnapshot,
+  getLearningProfileSnapshot,
+  resetLearningMemoryCache,
+  inspectLearningEngine,
+  printLearningEngineInspection,
+  registerLearningEngineDevHelper,
+  type RecordLearningEventResult,
+  type LearningEngineInspection,
+} from "@/lib/learning-engine/service";

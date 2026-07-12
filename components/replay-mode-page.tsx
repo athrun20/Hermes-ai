@@ -20,6 +20,7 @@ import { buildMorningBriefing } from "@/lib/morning-briefing";
 import type { ClosedTrade } from "@/lib/paper-trading";
 import { buildReplaySession } from "@/lib/replay-engine";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
+import { recordLearningEvent, replayToLearningEvent } from "@/lib/learning-engine";
 import { TopNav } from "./top-nav";
 
 export function ReplayModePage() {
@@ -61,6 +62,8 @@ export function ReplayModePage() {
     if (!session || announcedReplayRef.current === session.trade.id) return;
 
     announcedReplayRef.current = session.trade.id;
+    // Learning Engine (silent): one ReplayCompleted per trade session announcement
+    recordLearningEvent(replayToLearningEvent(session));
     triggerHermesCoach({
       moment: "replay-finished",
       context: {

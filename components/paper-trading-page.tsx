@@ -22,6 +22,7 @@ import {
   type PaperPosition,
   type PaperSettings,
 } from "@/lib/paper-trading";
+import { paperTradeToLearningEvent, recordLearningEvent } from "@/lib/learning-engine";
 import { PageHeader, PageShell, Panel, PanelHeader, StatusPill } from "@/components/ui";
 
 export function PaperTradingPage() {
@@ -90,6 +91,8 @@ export function PaperTradingPage() {
     setPositions((current) => current.filter((item) => item.id !== positionId));
     setCash((current) => current + position.notional + closed.pnl);
     setHistory((current) => [closed, ...current]);
+    // Learning Engine (silent): never blocks paper close on storage failure
+    recordLearningEvent(paperTradeToLearningEvent(closed, { timeframe }));
   };
 
   return (
