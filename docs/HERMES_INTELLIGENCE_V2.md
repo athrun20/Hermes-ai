@@ -1,7 +1,7 @@
 # Hermes Intelligence v2 — Architecture
 
-**Status:** Architecture approved · **Implementation:** Phases 0–5 Opinion complete (independent layer; not product source of truth)  
-**Next:** Conviction (deferred) · full Orchestrator · authority cleanup (each requires staying within frozen UI / frozen formulas)  
+**Status:** Architecture approved · **Implementation:** Phases 0–5 Opinion + Conviction complete (independent layer; not product source of truth)  
+**Next:** full Orchestrator · authority cleanup (each requires staying within frozen UI / frozen formulas)  
 **Constraints:** UI v1.0 frozen · no dashboard wiring · no scoring formula changes · no paper-trading behavior changes  
 **Companion:** [`HERMES_ARCHITECTURE.md`](./HERMES_ARCHITECTURE.md) · [`AGENTS.md`](../AGENTS.md)  
 **Code:** `lib/intelligence-v2/` · tests: `tests/intelligence-v2*.test.ts`
@@ -137,23 +137,27 @@ ConfidenceBreakdown {
 | Signal | Measures | Primary metric? |
 |--------|----------|-----------------|
 | **Confidence** | Strength of the market thesis | **Yes** |
-| **Conviction** | How aggressively Hermes would **size** given regime + judgment + risk | **No — internal only** |
+| **Conviction** | How strongly Hermes would act on Judgment/Opinion under constraints | **No — internal only** |
 
 ```
-Conviction {
-  level: number;                     // 0–100 internal
-  sizingBias: "None" | "Reduced" | "Standard" | "Elevated";
-  drivers: string[];                 // regime, judgment, readiness, risk
-  note: string;                      // internal coach note
+HermesConviction {
+  level: None | Low | Moderate | High
+  sizingBias: No New Risk | Reduced Risk | Standard Risk | Eligible for Higher Risk
+  summary, primaryDriver, supportingDrivers[], reducingDrivers[]
+  riskConstraints[], conditionsForIncrease[], conditionsForDecrease[]
+  sourceTimestamp
 }
 ```
 
 ### Rules
 
-- Conviction **must not** be merged into Confidence, Readiness, Trade Quality, or scenario probabilities.
-- Conviction **must not** appear as a fourth primary workspace metric in this phase.
-- Default: stored on `HermesIntelligenceBundle` only; UI does not surface unless a later phase approves copy.
-- Implementation should **derive** conviction from existing signals (regime, judgment, readiness, risk quality)—not invent a new public score system.
+- Conviction **must not** be merged into Confidence, Readiness, Trade Quality, Judgment, Opinion, or scenario probabilities.
+- Conviction **must not** appear as a fourth primary workspace metric.
+- High Confidence does **not** automatically create High Conviction.
+- `sizingBias` is **descriptive only** — never changes paper position-size math or orders.
+- "Eligible for Higher Risk" is not an order or size instruction.
+- Implementation derives Conviction from Judgment + Opinion + regime/readiness/risk context — no new score formulas for primary metrics.
+- Module: `lib/intelligence-v2/conviction.ts` (`buildHermesConviction`).
 
 ---
 
@@ -234,7 +238,7 @@ HermesIntelligenceBundle {
 | Trade Readiness (setup actionability) | Reasoning only |
 | Hermes Judgment (personal take) | Judgment only |
 | Hermes Opinion (coherent narrative) | Opinion only (orchestrates Regime + Evidence + Breakdown + Judgment) |
-| Conviction (sizing aggression) | Deferred — not produced in Phase 5 Opinion |
+| Conviction (acting strength / descriptive risk posture) | Conviction only (`buildHermesConviction`) — internal |
 | Trade Quality | Trade Quality engine (Decision stage) |
 | DNA / personality | Memory only |
 | Hermes Score | Secondary / alias policy (existing) |
@@ -315,14 +319,13 @@ Hard rule (AGENTS): Confidence, Readiness, Trade Quality, and scenario probabili
 | 3 Confidence Breakdown packaging | `lib/intelligence-v2/confidence-breakdown.ts` | Done |
 | 4 Judgment | `lib/intelligence-v2/judgment.ts` (`buildHermesJudgment`) | Done |
 | 5 Hermes Opinion | `lib/intelligence-v2/opinion.ts` (`buildHermesOpinion`) | Done |
-| 5b Conviction | — | Deferred (not started; Opinion replaced this slot) |
+| Conviction | `lib/intelligence-v2/conviction.ts` (`buildHermesConviction`) | Done |
 | 6 Orchestrator | — | Not started |
 | 7 Authority cleanup / dashboard wiring | — | Not started |
 
-Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 Opinion).  
+Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 Opinion + Conviction).  
 Dashboard is **not** rewired yet (UI frozen; no runtime path change).  
-Judgment and Opinion are **internal only** — not primary workspace metrics and not surfaced in UI.  
-Conviction is **not** calculated in Phase 5.
+Judgment, Opinion, and Conviction are **internal only** — not primary workspace metrics and not surfaced in UI.
 
 ---
 

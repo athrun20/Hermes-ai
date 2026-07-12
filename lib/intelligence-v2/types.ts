@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — contracts (Phases 0–5 Opinion).
+ * Hermes Intelligence v2 — contracts (Phases 0–5 Opinion + Conviction).
  * Independent of the live dashboard pipeline. Not product source of truth.
  */
 
@@ -197,15 +197,40 @@ export type HermesJudgment = {
   sourceTimestamp: number;
 };
 
-export type ConvictionSizingBias = "None" | "Reduced" | "Standard" | "Elevated";
+/**
+ * How strongly Hermes would act given Judgment/Opinion + regime/risk context.
+ * Not Confidence, Readiness, Trade Quality, Judgment, or position size.
+ * Internal only — never a primary UI metric.
+ */
+export type ConvictionLevel = "None" | "Low" | "Moderate" | "High";
 
-/** Reserved — internal only; never a primary UI metric. Not produced in Phase 5 Opinion. */
+/**
+ * Descriptive risk posture only. Does NOT change paper position-size math.
+ * "Eligible for Higher Risk" is not an order or size instruction.
+ */
+export type ConvictionSizingBias =
+  | "No New Risk"
+  | "Reduced Risk"
+  | "Standard Risk"
+  | "Eligible for Higher Risk";
+
+/**
+ * Hermes Conviction — pure internal stage.
+ * Answers: how strongly would Hermes act on Judgment/Opinion under current constraints?
+ * Does not recompute Confidence/Readiness/TQ, size positions, or emit Buy/Sell.
+ */
 export type HermesConviction = {
   kind: "hermes-conviction-v1";
-  level: number;
+  level: ConvictionLevel;
   sizingBias: ConvictionSizingBias;
-  drivers: string[];
-  note: string;
+  summary: string;
+  primaryDriver: string;
+  supportingDrivers: string[];
+  reducingDrivers: string[];
+  riskConstraints: string[];
+  conditionsForIncrease: string[];
+  conditionsForDecrease: string[];
+  sourceTimestamp: number;
 };
 
 /**
@@ -264,7 +289,7 @@ export type HermesOpinion = {
 
 /**
  * Pipeline bundle contract. Phases 0–2 require regime + evidence.
- * Phase 3 can attach confidenceBreakdown; Phase 4 judgment; Phase 5 opinion.
+ * Phase 3 breakdown; Phase 4 judgment; Phase 5 opinion; Conviction optional.
  */
 export type HermesIntelligenceBundle = {
   kind: "hermes-intelligence-bundle-v2";

@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — Phases 0–5 (Opinion) public surface.
+ * Hermes Intelligence v2 — Phases 0–5 Opinion + Conviction public surface.
  * Independent of dashboard composition. Not product source of truth.
  */
 
@@ -8,6 +8,7 @@ export type {
   ConfidenceBreakdown,
   ConfidenceCapApplied,
   ConfidenceContribution,
+  ConvictionLevel,
   ConvictionSizingBias,
   DataQuality,
   DirectionalBias,
@@ -75,3 +76,10 @@ export {
   opinionContainsTradeCommands,
   type BuildHermesOpinionInput,
 } from "@/lib/intelligence-v2/opinion";
+
+export {
+  buildHermesConviction,
+  convictionContainsSizeRecommendations,
+  convictionContainsTradeCommands,
+  type BuildHermesConvictionInput,
+} from "@/lib/intelligence-v2/conviction";
