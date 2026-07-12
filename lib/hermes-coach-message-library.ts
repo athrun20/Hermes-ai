@@ -8,6 +8,7 @@ export const coachCategoryByMoment: Record<HermesCoachMoment, HermesCoachCategor
   "replay-finished": "Reflection",
   "reflection-saved": "Growth",
   "end-of-day": "Growth",
+  "personalized-learning": "Growth",
 };
 
 export const coachTitlesByCategory: Record<HermesCoachCategory, string> = {

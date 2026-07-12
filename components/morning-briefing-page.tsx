@@ -14,6 +14,10 @@ import { TraderDnaReminderCard } from "@/components/morning-briefing/trader-dna-
 import { WisdomProgressCard } from "@/components/morning-briefing/wisdom-progress-card";
 import { getHermesMemory, type HermesMemorySnapshot } from "@/lib/hermes-memory";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
+import {
+  getWeeklyLearningBriefLinesSafe,
+  type WeeklyLearningBriefLines,
+} from "@/lib/learning-engine/coach-integration";
 import { loadHermesState } from "@/lib/local-persistence";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
 import type { ClosedTrade } from "@/lib/paper-trading";
@@ -24,10 +28,14 @@ export function MorningBriefingPage() {
   const router = useRouter();
   const [memory, setMemory] = useState<HermesMemorySnapshot | undefined>();
   const [history, setHistory] = useState<ClosedTrade[]>([]);
+  /** Compact Learning Engine weekly lines — existing interpretation grid only. */
+  const [weeklyLearning, setWeeklyLearning] = useState<WeeklyLearningBriefLines | null>(null);
 
   useEffect(() => {
     setMemory(getHermesMemory());
     setHistory(loadHermesState()?.history ?? []);
+    // Failure-isolated: never blocks briefing if learning memory fails.
+    setWeeklyLearning(getWeeklyLearningBriefLinesSafe());
   }, []);
 
   const briefing = useMemo(
@@ -55,13 +63,26 @@ export function MorningBriefingPage() {
               </InsightCard>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <InsightCard title="Yesterday's Lesson" tone="gold">
-                  {briefing.intelligence.yesterdayLesson}
+                  {weeklyLearning?.progressSummary ?? briefing.intelligence.yesterdayLesson}
                 </InsightCard>
                 <InsightCard title="Discipline Streak" tone="neutral">
                   {briefing.intelligence.disciplineStreak} planned closes
+                  {weeklyLearning ? (
+                    <span className="mt-1 block text-[11px] text-slate-500">
+                      {weeklyLearning.dataSufficiencyLabel}
+                      {weeklyLearning.strongestBehavior
+                        ? ` · Strength: ${weeklyLearning.strongestBehavior}`
+                        : ""}
+                    </span>
+                  ) : null}
                 </InsightCard>
                 <InsightCard title="Biggest Improvement" tone="mint">
-                  {briefing.intelligence.biggestImprovement}
+                  {weeklyLearning?.mainImprovementFocus ?? briefing.intelligence.biggestImprovement}
+                  {weeklyLearning?.recommendedPractice ? (
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                      Practice: {weeklyLearning.recommendedPractice}
+                    </span>
+                  ) : null}
                 </InsightCard>
               </div>
             </div>
@@ -98,7 +119,7 @@ export function MorningBriefingPage() {
         content: <DailyOathCard oath={briefing.oath} />,
       },
     ],
-    [briefing],
+    [briefing, weeklyLearning],
   );
 
   return (
@@ -116,6 +137,7 @@ export function MorningBriefingPage() {
           onCompleted={() =>
             triggerHermesCoach({
               moment: "morning-briefing-completed",
+              preferPersonalizedLearning: true,
               context: {
                 traderPersonality: briefing.traderDna.tradingStyle,
                 morningGoal: briefing.dailyGoal.text,

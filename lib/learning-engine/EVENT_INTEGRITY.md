@@ -1,10 +1,19 @@
-# Learning Engine — Event Integrity (Phase 2.1) + Phase 3 notes
+# Learning Engine — Event Integrity (Phase 2.1) + Phase 3–4 notes
 
-## Phase 3 coaching (internal only)
+## Phase 3 coaching (summaries)
 
 - `buildPersonalizedCoachingSummary` and `buildWeeklyLearningReview` read TraderLearningProfile + memory only.
-- Not user-facing chrome yet; inspect via `__hermesLearningEngine()`.
 - Does not change market scores or paper execution.
+
+## Phase 4 read-only coach integration
+
+- Presentation adapter: `learningCoachingToCoachMessage` → existing `HermesCoachMessage`.
+- Surfaces: Hermes Coach toast (calm moments), post-trade habit line, Morning Briefing interpretation grid.
+- Priority: critical risk / active position / decision guidance outrank personalized learning.
+- Cooldown + stable `messageId` prevent spam; dismiss records suppress window.
+- Weekly Learning Review: compact lines only on existing Morning Briefing interpretation cards (no new page/panel).
+- Failure isolation: learning load errors never block coach or trading; dev warning only.
+- Inspect via `__hermesLearningEngine()`.
 
 ---
 

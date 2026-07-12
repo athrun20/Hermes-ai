@@ -1,6 +1,7 @@
 import { GraduationCap } from "lucide-react";
 import { analyzeTrade, type HermesMemory } from "@/lib/hermes-brain";
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
+import { buildPersonalizedHabitAdviceLine } from "@/lib/learning-engine/coach-integration";
 import { getDurationLabel, getTradeGrade, type ClosedTrade } from "@/lib/paper-trading";
 import { Panel, PanelHeader } from "./ui";
 
@@ -15,6 +16,11 @@ export function HermesCoach({
 }) {
   const review = trade ? buildReview(trade) : undefined;
   const brainReview = trade ? analyzeTrade(trade) : undefined;
+  // Learning Engine Phase 4: one personalized line when eligible; falls back silently.
+  const learningAdvice = buildPersonalizedHabitAdviceLine();
+  const habitAdvice =
+    learningAdvice ??
+    (hermesMemory ? buildMemoryAdvice(hermesMemory) : memory ? buildHabitAdvice(memory) : null);
 
   return (
     <Panel>
@@ -46,10 +52,8 @@ export function HermesCoach({
               </div>
             </div>
             <CoachRow label="Brain verdict" value={brainReview?.verdict ?? ""} />
-            {hermesMemory ? (
-              <CoachRow label="Habit-based advice" value={buildMemoryAdvice(hermesMemory)} />
-            ) : memory ? (
-              <CoachRow label="Habit-based advice" value={buildHabitAdvice(memory)} />
+            {habitAdvice ? (
+              <CoachRow label="Habit-based advice" value={habitAdvice} />
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <CoachRow label="Followed plan" value={trade.followedPlan ? "Yes" : "Needs work"} />

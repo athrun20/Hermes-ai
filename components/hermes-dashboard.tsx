@@ -782,6 +782,11 @@ export function HermesDashboard() {
     window.sessionStorage.setItem(key, "true");
     triggerHermesCoach({
       moment: "end-of-day",
+      preferPersonalizedLearning: true,
+      priority: {
+        hasOpenPositions: positions.length > 0,
+        hasActivePositionManagement: positions.length > 0,
+      },
       context: {
         morningGoal: morningBriefing.dailyGoal.text,
         disciplineScore: hermesMemorySnapshot.scores.discipline,
@@ -789,7 +794,7 @@ export function HermesDashboard() {
         intelligence: morningBriefing.intelligence,
       },
     });
-  }, [hasRestored, hermesMemorySnapshot.scores.discipline, morningBriefing]);
+  }, [hasRestored, hermesMemorySnapshot.scores.discipline, morningBriefing, positions.length]);
 
   const executePaperTicket = useCallback(
     (ticket: TradeTicket) => {
@@ -905,6 +910,8 @@ export function HermesDashboard() {
     setTradePlanMessage("Hermes is reviewing this paper decision.");
     triggerHermesCoach({
       moment: "trade-plan-created",
+      preferPersonalizedLearning: false,
+      priority: { isDecisionReviewActive: true, moment: "trade-plan-created" },
       context: {
         tradeSymbol: selectedQuote.symbol,
         morningGoal: morningBriefing.dailyGoal.text,
@@ -924,6 +931,8 @@ export function HermesDashboard() {
     const response = executePaperTicket(pendingDecisionTicket);
     triggerHermesCoach({
       moment: "decision-review-completed",
+      preferPersonalizedLearning: false,
+      priority: { isDecisionReviewActive: true, moment: "decision-review-completed" },
       context: {
         tradeSymbol: selectedQuote.symbol,
         morningGoal: morningBriefing.dailyGoal.text,
@@ -937,6 +946,8 @@ export function HermesDashboard() {
     if (!response) {
       triggerHermesCoach({
         moment: "paper-trade-executed",
+        preferPersonalizedLearning: false,
+        priority: { moment: "paper-trade-executed" },
         context: {
           tradeSymbol: selectedQuote.symbol,
           morningGoal: morningBriefing.dailyGoal.text,

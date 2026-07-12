@@ -1,18 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrainCircuit, X } from "lucide-react";
 import { HERMES_COACH_EVENT } from "@/lib/hermes-coach-trigger-system";
 import type { HermesCoachMessage } from "@/lib/hermes-coach-types";
+import { recordPersonalizedCoachDismiss } from "@/lib/learning-engine/coach-integration";
 import { IconButton, StatusPill } from "@/components/ui";
 
 export function HermesCoachCard() {
   const [message, setMessage] = useState<HermesCoachMessage | null>(null);
+  const lastIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleMessage = (event: Event) => {
       const coachEvent = event as CustomEvent<HermesCoachMessage>;
-      setMessage(coachEvent.detail);
+      const next = coachEvent.detail;
+      if (!next) return;
+      // Avoid re-rendering an identical personalized message on every dispatch.
+      if (next.id && next.id === lastIdRef.current && next.moment === "personalized-learning") {
+        return;
+      }
+      lastIdRef.current = next.id;
+      setMessage(next);
     };
 
     window.addEventListener(HERMES_COACH_EVENT, handleMessage);
@@ -27,6 +36,12 @@ export function HermesCoachCard() {
   }, [message]);
 
   if (!message) return null;
+
+  const dismiss = () => {
+    recordPersonalizedCoachDismiss(message.id);
+    lastIdRef.current = message.id;
+    setMessage(null);
+  };
 
   return (
     <aside
@@ -48,7 +63,7 @@ export function HermesCoachCard() {
             </h2>
           </div>
         </div>
-        <IconButton label="Dismiss Hermes Coach" onClick={() => setMessage(null)}>
+        <IconButton label="Dismiss Hermes Coach" onClick={dismiss}>
           <X className="size-4" aria-hidden="true" />
         </IconButton>
       </div>

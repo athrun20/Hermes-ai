@@ -7,7 +7,9 @@ export type HermesCoachMoment =
   | "paper-trade-executed"
   | "replay-finished"
   | "reflection-saved"
-  | "end-of-day";
+  | "end-of-day"
+  /** Phase 4 — Learning Engine personalized coaching (calm moments only). */
+  | "personalized-learning";
 
 export type HermesCoachCategory =
   | "Preparation"

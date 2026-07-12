@@ -1,8 +1,9 @@
 /**
- * Hermes Learning Engine — Phase 1–3 public surface.
+ * Hermes Learning Engine — Phase 1–4 public surface.
  *
  * Market Intelligence (lib/intelligence-v2) and Trader Learning (this module)
  * are separate systems. Learning Engine affects coaching memory only.
+ * Phase 4 surfaces read-only personalized coaching via existing Hermes Coach.
  */
 
 export type {
@@ -114,3 +115,47 @@ export {
   resolveWeekWindow,
   type WeeklyReviewOptions,
 } from "@/lib/learning-engine/weekly-review";
+
+export {
+  learningCoachingToCoachMessage,
+  stablePersonalizedMessageId,
+  buildEvidenceLabel,
+  buildImprovementSentence,
+  buildStrengthSentence,
+  weeklyLearningToBriefLines,
+  type PersonalizedCoachPresentation,
+  type PersonalizedCoachMode,
+  type WeeklyLearningBriefLines,
+} from "@/lib/learning-engine/coach-presentation";
+
+export {
+  resolveCoachDisplayLane,
+  canSurfacePersonalizedLearning,
+  coachLanePriorityRank,
+  HIGH_PRIORITY_COACH_MOMENTS,
+  type CoachDisplayLane,
+  type CoachPriorityContext,
+} from "@/lib/learning-engine/coach-priority";
+
+export {
+  createEmptyLearningCoachDisplayState,
+  shouldShowPersonalizedMessage,
+  applyMessageShown,
+  applyMessageDismissed,
+  loadLearningCoachDisplayState,
+  saveLearningCoachDisplayState,
+  PERSONALIZED_COACH_COOLDOWN_MS,
+  LEARNING_COACH_DISPLAY_STORAGE_KEY,
+  type LearningCoachDisplayState,
+  type PersonalizedShowDecision,
+} from "@/lib/learning-engine/coach-cooldown";
+
+export {
+  buildPersonalizedHermesCoachMessage,
+  presentationToHermesCoachMessage,
+  recordPersonalizedCoachDismiss,
+  buildPersonalizedHabitAdviceLine,
+  getWeeklyLearningBriefLinesSafe,
+  type BuildPersonalizedCoachOptions,
+  type PersonalizedCoachBuildResult,
+} from "@/lib/learning-engine/coach-integration";

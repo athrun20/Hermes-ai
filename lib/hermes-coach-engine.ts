@@ -50,6 +50,11 @@ function buildMessage({ moment, context }: HermesCoachTrigger) {
     return `Reflection saved. ${context?.journalEmotion ? `You marked the emotional state as ${context.journalEmotion.toLowerCase()}. ` : ""}Hermes can now compare judgment, emotion, and outcome over time.`;
   }
 
+  if (moment === "personalized-learning") {
+    // Personalized body is built by Learning Engine adapter; this is fallback only.
+    return "Hermes is building personalized process coaching from completed paper trades.";
+  }
+
   return `Day reviewed. Discipline streak: ${streak}. End the session by protecting the lesson, not by forcing another trade.`;
 }
 
@@ -57,5 +62,6 @@ function getActionLabel(moment: HermesCoachTrigger["moment"]) {
   if (moment === "replay-finished") return "Lesson captured";
   if (moment === "reflection-saved") return "Memory updated";
   if (moment === "paper-trade-executed") return "Paper mode";
+  if (moment === "personalized-learning") return "Learning";
   return "Hermes noted";
 }

@@ -5,6 +5,7 @@
  * Learning Engine remains coaching-only (no score / paper-trading changes).
  */
 
+import { learningCoachingToCoachMessage } from "@/lib/learning-engine/coach-presentation";
 import { ingestLearningEvent } from "@/lib/learning-engine/memory-store";
 import {
   loadTraderMemoryStore,
@@ -188,10 +189,14 @@ export type LearningEngineInspection = {
   weeklyReviewSummary: string;
   weeklyDataSufficiency: string;
   weeklyEvidenceCount: number;
+  /** Phase 4 presentation (internal) */
+  presentationMessageId: string | null;
+  presentationTitle: string | null;
+  presentationEligible: boolean;
 };
 
 /**
- * Development-only inspection of Learning Engine memory + Phase 3 coaching.
+ * Development-only inspection of Learning Engine memory + Phase 3–4 coaching.
  */
 export function inspectLearningEngine(options?: {
   now?: number;
@@ -208,6 +213,7 @@ export function inspectLearningEngine(options?: {
     now: options?.now,
     timeZone: options?.timeZone,
   });
+  const presentation = learningCoachingToCoachMessage(coaching);
   return {
     totalAcceptedEvents: store.eventCount,
     sessionAcceptedEvents: sessionAccepted,
@@ -230,6 +236,9 @@ export function inspectLearningEngine(options?: {
     weeklyReviewSummary: weekly.progressSummary,
     weeklyDataSufficiency: weekly.dataSufficiency,
     weeklyEvidenceCount: weekly.evidence.length,
+    presentationMessageId: presentation?.messageId ?? null,
+    presentationTitle: presentation?.title ?? null,
+    presentationEligible: Boolean(presentation),
   };
 }
 
