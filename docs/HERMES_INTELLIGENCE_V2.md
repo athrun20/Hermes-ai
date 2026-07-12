@@ -1,7 +1,7 @@
 # Hermes Intelligence v2 — Architecture
 
-**Status:** Architecture approved · **Implementation:** Phases 0–5 Opinion + Conviction complete (independent layer; not product source of truth)  
-**Next:** full Orchestrator · authority cleanup (each requires staying within frozen UI / frozen formulas)  
+**Status:** Architecture approved · **Implementation:** Phases 0–5 + Orchestrator complete (independent layer; not product source of truth)  
+**Next:** authority cleanup / dashboard wiring (requires explicit approval; UI remains frozen)  
 **Constraints:** UI v1.0 frozen · no dashboard wiring · no scoring formula changes · no paper-trading behavior changes  
 **Companion:** [`HERMES_ARCHITECTURE.md`](./HERMES_ARCHITECTURE.md) · [`AGENTS.md`](../AGENTS.md)  
 **Code:** `lib/intelligence-v2/` · tests: `tests/intelligence-v2*.test.ts`
@@ -272,16 +272,30 @@ HermesIntelligenceBundle {
 ## 8. Orchestrator contract
 
 ```
-runHermesIntelligence(input: MarketSessionInput): HermesIntelligenceBundle
+runHermesIntelligence(input: HermesIntelligenceInput): HermesIntelligenceBundle
 ```
 
-- Pure, deterministic, testable.
-- Dashboard eventually replaces multi-`useMemo` chain with one call (wiring only; UI frozen).
-- Satellite routes may call the same function or stage adapters later.
-- Strategy evaluated **once** after institutional evidence is available.
-- Reasoning does **not** consume a “final TQ-mirrored Hermes Score” as authority; it consumes evidence.
-- Judgment runs **after** Reasoning, **before** Decision.
-- Trade Quality remains plan evaluation under Decision.
+Module: `lib/intelligence-v2/orchestrator.ts`.
+
+### Stage order
+
+1. Market Regime  
+2. Evidence Collection  
+3. Existing Reasoning package (supplied; not recomputed)  
+4. Confidence Breakdown packaging  
+5. Hermes Judgment  
+6. Hermes Opinion  
+7. Hermes Conviction  
+8. Decision / Trade Quality / Hermes Score references (supplied only)  
+9. Coach-ready fields derived from the bundle  
+
+### Rules
+
+- Pure, deterministic, testable composition boundary — **not** a second analysis engine.
+- Prefer already-computed engine outputs over re-running engines.
+- Does **not** independently recalculate Confidence, Readiness, Trade Quality, Hermes Score, position size, or scenario probabilities.
+- Missing Reasoning → skip Breakdown/Opinion with warnings; Judgment degrades to Insufficient Data rather than inventing scores.
+- Dashboard is **not** wired yet (UI frozen).
 
 ### Non-goals of first implementation phases
 
@@ -290,6 +304,7 @@ runHermesIntelligence(input: MarketSessionInput): HermesIntelligenceBundle
 - No changes to paper execution  
 - No surfacing Conviction or Confidence Breakdown as primary chrome  
 - No generative AI  
+- No authority cleanup / legacy deletion yet
 
 ---
 
@@ -320,12 +335,12 @@ Hard rule (AGENTS): Confidence, Readiness, Trade Quality, and scenario probabili
 | 4 Judgment | `lib/intelligence-v2/judgment.ts` (`buildHermesJudgment`) | Done |
 | 5 Hermes Opinion | `lib/intelligence-v2/opinion.ts` (`buildHermesOpinion`) | Done |
 | Conviction | `lib/intelligence-v2/conviction.ts` (`buildHermesConviction`) | Done |
-| 6 Orchestrator | — | Not started |
+| 6 Orchestrator | `lib/intelligence-v2/orchestrator.ts` (`runHermesIntelligence`) | Done |
 | 7 Authority cleanup / dashboard wiring | — | Not started |
 
-Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 Opinion + Conviction).  
+Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 + Orchestrator).  
 Dashboard is **not** rewired yet (UI frozen; no runtime path change).  
-Judgment, Opinion, and Conviction are **internal only** — not primary workspace metrics and not surfaced in UI.
+Judgment, Opinion, Conviction, and the orchestrator bundle are **internal only** — not primary workspace UI.
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — Phases 0–5 Opinion + Conviction public surface.
+ * Hermes Intelligence v2 — Phases 0–5 + Orchestrator public surface.
  * Independent of dashboard composition. Not product source of truth.
  */
 
@@ -10,6 +10,7 @@ export type {
   ConfidenceContribution,
   ConvictionLevel,
   ConvictionSizingBias,
+  DataFreshness,
   DataQuality,
   DirectionalBias,
   EventRegime,
@@ -17,18 +18,24 @@ export type {
   EvidenceChartReference,
   EvidenceDirection,
   EvidenceReliability,
+  HermesCoachReady,
   HermesConviction,
+  HermesDecisionPackage,
   HermesEvidence,
   HermesIntelligenceBundle,
+  HermesIntelligenceProvenance,
   HermesJudgment,
   HermesJudgmentStance,
   HermesOpinion,
   HermesOpinionEvidenceRef,
+  HermesReasoningPackage,
   IntelligenceStage,
   JudgmentRegimeEffect,
   JudgmentTraderFitEffect,
   LiquidityRegime,
   MarketRegime,
+  StageProvenance,
+  StageStatus,
   StructureRegime,
   VolatilityRegime,
 } from "@/lib/intelligence-v2/types";
@@ -83,3 +90,10 @@ export {
   convictionContainsTradeCommands,
   type BuildHermesConvictionInput,
 } from "@/lib/intelligence-v2/conviction";
+
+export {
+  runHermesIntelligence,
+  bundleContainsTradeCommands,
+  bundleHasPositionSizeFields,
+  type HermesIntelligenceInput,
+} from "@/lib/intelligence-v2/orchestrator";

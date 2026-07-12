@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — contracts (Phases 0–5 Opinion + Conviction).
+ * Hermes Intelligence v2 — contracts (Phases 0–5 + Orchestrator).
  * Independent of the live dashboard pipeline. Not product source of truth.
  */
 
@@ -287,30 +287,107 @@ export type HermesOpinion = {
   summary: string;
 };
 
+/** Freshness label for provenance — never implies a new score. */
+export type DataFreshness = "live" | "delayed" | "stale" | "fixture" | "unknown";
+
+export type StageStatus = "ok" | "degraded" | "skipped" | "missing";
+
+/** Per-stage provenance for audit / coaching transparency. */
+export type StageProvenance = {
+  stage: string;
+  sourceModules: string[];
+  sourceTimestamp: number;
+  inputRefs: string[];
+  limitations: string[];
+  freshness: DataFreshness;
+  status: StageStatus;
+};
+
+export type HermesIntelligenceProvenance = {
+  stages: StageProvenance[];
+  overallFreshness: DataFreshness;
+  sourceModules: string[];
+  limitations: string[];
+};
+
 /**
- * Pipeline bundle contract. Phases 0–2 require regime + evidence.
- * Phase 3 breakdown; Phase 4 judgment; Phase 5 opinion; Conviction optional.
+ * Coach-ready fields derived only from the composed bundle.
+ * Not a second coaching engine. No Buy/Sell language.
+ */
+export type HermesCoachReady = {
+  headline: string;
+  explanation: string;
+  primaryRisk: string;
+  nextFocus: string;
+  conditionsToProceed: string[];
+  conditionsToAvoid: string[];
+  sourceEvidenceIds: string[];
+};
+
+/**
+ * Decision / Trade Quality / Hermes Score references only.
+ * Orchestrator never recomputes these.
+ */
+export type HermesDecisionPackage = {
+  source: "supplied" | "absent";
+  tradeQualityScore?: number;
+  tradeQualityGrade?: string;
+  tradeQualityLabel?: string;
+  tradeQualitySummary?: string;
+  suggestedNextAction?: string;
+  riskReward?: number | null;
+  planCompleteness?: number;
+  decisionRecommendation?: string;
+  decisionConfidence?: number;
+  /** Secondary score reference when caller supplied Hermes Score — not recomputed. */
+  hermesScore?: number;
+  hermesScoreLabel?: string;
+};
+
+/**
+ * Reasoning package on the bundle — mirrors existing ReasoningResult scores.
+ * confidenceBreakdown is attached when packaging succeeds; scores are not recomputed.
+ */
+export type HermesReasoningPackage = {
+  source: "supplied" | "absent";
+  thesis?: string;
+  confidence?: number;
+  readiness?: number;
+  readinessState?: string;
+  readinessBlockers?: string[];
+  recommendedAction?: string;
+  riskQuality?: string;
+  traderFit?: string;
+  dataState?: "Ready" | "Insufficient Data" | "Stale";
+  coachingMessage?: string;
+  confirmationConditions?: string[];
+  invalidationConditions?: string[];
+  timestamp?: number;
+};
+
+/**
+ * Full Intelligence v2 bundle produced by `runHermesIntelligence`.
+ * Composition boundary only — not product UI source of truth until wired.
  */
 export type HermesIntelligenceBundle = {
   kind: "hermes-intelligence-bundle-v2";
   version: 2;
   symbol: CoinSymbol;
+  timeframe?: string;
   generatedAt: number;
+  sourceTimestamp: number;
+  dataQuality: DataQuality;
+  /** True when one or more stages degraded or were skipped due to incomplete inputs. */
+  degraded: boolean;
+  warnings: string[];
   regime: MarketRegime;
   evidence: HermesEvidence[];
-  reasoning?: {
-    thesis?: string;
-    confidence: number;
-    readiness?: number;
-    confidenceBreakdown: ConfidenceBreakdown;
-  };
-  judgment?: HermesJudgment;
+  reasoning: HermesReasoningPackage;
+  confidenceBreakdown?: ConfidenceBreakdown;
+  judgment: HermesJudgment;
   opinion?: HermesOpinion;
-  conviction?: HermesConviction;
-  decision?: {
-    tradeQualityScore?: number;
-  };
-  coach?: {
-    explanation: string;
-  };
+  conviction: HermesConviction;
+  decision: HermesDecisionPackage;
+  coach: HermesCoachReady;
+  provenance: HermesIntelligenceProvenance;
 };
