@@ -1,4 +1,9 @@
-import { buildFallbackCandles, type AssetQuote, type Candle, type CoinSymbol } from "@/lib/market-data";
+import {
+  buildFallbackCandles,
+  type AssetQuote,
+  type Candle,
+  type CoinSymbol,
+} from "@/lib/market-data/legacy";
 
 export type AssetType = "Crypto" | "Stock" | "ETF";
 export type WorkspaceTimeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D" | "1W";

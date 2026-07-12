@@ -1,3 +1,9 @@
+/**
+ * Legacy market-data surface (pre Live Market Data Foundation).
+ * Preserved for compatibility. New code should use MarketQuote / MarketCandle
+ * via adapters-compat and marketDataService.
+ */
+
 export type CoinSymbol =
   | "BTC"
   | "ETH"
@@ -132,6 +138,11 @@ export const journal = [
 
 const coinIds = supportedAssets.map((asset) => asset.coingeckoId).join(",");
 
+/**
+ * Legacy CoinGecko quote fetch (not used by dashboard Step A).
+ * Prefer crypto-provider + marketDataService for new code.
+ * @deprecated Use market-data crypto provider via service / route handlers.
+ */
 export async function fetchLiveQuotes(): Promise<AssetQuote[]> {
   const response = await fetch(
     `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd&include_24hr_change=true&include_last_updated_at=true`,
@@ -165,6 +176,10 @@ export async function fetchLiveQuotes(): Promise<AssetQuote[]> {
   });
 }
 
+/**
+ * Legacy CoinGecko candles (not used by dashboard Step A).
+ * @deprecated Use crypto-provider via service / route handlers.
+ */
 export async function fetchMarketCandles(
   coinId: string,
   timeframe: Timeframe,
@@ -187,9 +202,15 @@ export function pricesToCandles(
   prices: [number, number][],
   timeframe: Timeframe,
 ): Candle[] {
-  const bucketMs = timeframe === "1H" ? 5 * 60 * 1000 : timeframe === "4H" ? 15 * 60 * 1000 : 60 * 60 * 1000;
+  const bucketMs =
+    timeframe === "1H" ? 5 * 60 * 1000 : timeframe === "4H" ? 15 * 60 * 1000 : 60 * 60 * 1000;
   const now = Date.now();
-  const windowMs = timeframe === "1H" ? 60 * 60 * 1000 : timeframe === "4H" ? 4 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const windowMs =
+    timeframe === "1H"
+      ? 60 * 60 * 1000
+      : timeframe === "4H"
+        ? 4 * 60 * 60 * 1000
+        : 24 * 60 * 60 * 1000;
 
   const buckets = new Map<number, number[]>();
 
@@ -250,7 +271,9 @@ export function analyzeMarket(quote: AssetQuote, candles: Candle[]): HermesAnaly
   const move = ((last - first) / first) * 100;
   const ranges = candles.map((candle) => ((candle.high - candle.low) / candle.close) * 100);
   const averageRange =
-    ranges.length > 0 ? ranges.reduce((sum, value) => sum + value, 0) / ranges.length : Math.abs(quote.change24h) / 2;
+    ranges.length > 0
+      ? ranges.reduce((sum, value) => sum + value, 0) / ranges.length
+      : Math.abs(quote.change24h) / 2;
 
   const bias: Bias =
     quote.change24h > 1 && move > 0
@@ -268,8 +291,14 @@ export function analyzeMarket(quote: AssetQuote, candles: Candle[]): HermesAnaly
       : averageRange > 0.8 || Math.abs(quote.change24h) > 1.5
         ? "Medium"
         : "Low";
-  const riskLevel = volatility === "High" ? "Elevated" : bias === "Neutral" ? "Moderate" : "Controlled";
-  const trend = move > 0.35 ? "Short-term uptrend" : move < -0.35 ? "Short-term downtrend" : "Sideways consolidation";
+  const riskLevel =
+    volatility === "High" ? "Elevated" : bias === "Neutral" ? "Moderate" : "Controlled";
+  const trend =
+    move > 0.35
+      ? "Short-term uptrend"
+      : move < -0.35
+        ? "Short-term downtrend"
+        : "Sideways consolidation";
   const suggestedAction: SuggestedAction =
     bias === "Bullish" && riskLevel !== "Elevated"
       ? "Paper Trade Setup"
