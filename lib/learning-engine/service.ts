@@ -13,11 +13,15 @@ import {
 } from "@/lib/learning-engine/persistence";
 import { buildTraderLearningProfile } from "@/lib/learning-engine/profile-builder";
 import { buildHermesCoachMemory } from "@/lib/learning-engine/coach-memory";
+import { buildPersonalizedCoachingSummary } from "@/lib/learning-engine/personalized-coaching";
+import { buildWeeklyLearningReview } from "@/lib/learning-engine/weekly-review";
 import type {
   HermesCoachMemory,
   LearningEvent,
+  PersonalizedCoachingSummary,
   TraderLearningProfile,
   TraderMemoryStore,
+  WeeklyLearningReview,
 } from "@/lib/learning-engine/types";
 
 export type RecordLearningEventResult = {
@@ -172,14 +176,38 @@ export type LearningEngineInspection = {
   persistenceStatus: PersistenceStatus | "saved" | "save_failed";
   schemaVersion: 1;
   eventCount: number;
+  /** Phase 3 coaching (internal) */
+  coachingHeadline: string;
+  currentStrength: string;
+  primaryImprovementArea: string;
+  currentFocus: string;
+  recommendedPractice: string;
+  coachingConfidence: number;
+  coachingDataSufficiency: string;
+  coachingEvidenceCount: number;
+  weeklyReviewSummary: string;
+  weeklyDataSufficiency: string;
+  weeklyEvidenceCount: number;
 };
 
 /**
- * Development-only inspection of Learning Engine memory.
+ * Development-only inspection of Learning Engine memory + Phase 3 coaching.
  */
-export function inspectLearningEngine(): LearningEngineInspection {
+export function inspectLearningEngine(options?: {
+  now?: number;
+  timeZone?: string;
+}): LearningEngineInspection {
   const store = ensureLearningMemoryLoaded();
-  const profile = buildTraderLearningProfile(store);
+  const profile = buildTraderLearningProfile(store, options?.now);
+  const coaching = buildPersonalizedCoachingSummary(store, {
+    profile,
+    now: options?.now,
+  });
+  const weekly = buildWeeklyLearningReview(store, {
+    profile,
+    now: options?.now,
+    timeZone: options?.timeZone,
+  });
   return {
     totalAcceptedEvents: store.eventCount,
     sessionAcceptedEvents: sessionAccepted,
@@ -191,7 +219,36 @@ export function inspectLearningEngine(): LearningEngineInspection {
     persistenceStatus: lastPersistenceStatus,
     schemaVersion: 1,
     eventCount: store.eventCount,
+    coachingHeadline: coaching.headline,
+    currentStrength: coaching.currentStrength,
+    primaryImprovementArea: coaching.primaryImprovementArea,
+    currentFocus: coaching.currentFocus,
+    recommendedPractice: coaching.recommendedPractice,
+    coachingConfidence: coaching.confidenceInCoaching,
+    coachingDataSufficiency: coaching.dataSufficiency,
+    coachingEvidenceCount: coaching.evidenceFromHistory.length,
+    weeklyReviewSummary: weekly.progressSummary,
+    weeklyDataSufficiency: weekly.dataSufficiency,
+    weeklyEvidenceCount: weekly.evidence.length,
   };
+}
+
+export function getPersonalizedCoachingSnapshot(options?: {
+  now?: number;
+}): PersonalizedCoachingSummary {
+  const store = ensureLearningMemoryLoaded();
+  return buildPersonalizedCoachingSummary(store, { now: options?.now });
+}
+
+export function getWeeklyLearningReviewSnapshot(options?: {
+  now?: number;
+  timeZone?: string;
+}): WeeklyLearningReview {
+  const store = ensureLearningMemoryLoaded();
+  return buildWeeklyLearningReview(store, {
+    now: options?.now,
+    timeZone: options?.timeZone,
+  });
 }
 
 export function printLearningEngineInspection(): LearningEngineInspection {

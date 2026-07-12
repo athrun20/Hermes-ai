@@ -1,4 +1,12 @@
-# Learning Engine — Event Integrity (Phase 2.1)
+# Learning Engine — Event Integrity (Phase 2.1) + Phase 3 notes
+
+## Phase 3 coaching (internal only)
+
+- `buildPersonalizedCoachingSummary` and `buildWeeklyLearningReview` read TraderLearningProfile + memory only.
+- Not user-facing chrome yet; inspect via `__hermesLearningEngine()`.
+- Does not change market scores or paper execution.
+
+---
 
 ## Replay completion policy
 

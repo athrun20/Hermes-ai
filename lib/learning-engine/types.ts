@@ -147,6 +147,77 @@ export type HermesCoachMemory = {
   evidenceFromHistory: string[];
 };
 
+/**
+ * Data-sufficiency ladder for coaching conclusions (Phase 3).
+ * Never treat one mistake as a habit.
+ */
+export type DataSufficiency =
+  | "Insufficient Data"
+  | "Early Signal"
+  | "Developing Pattern"
+  | "Reliable Pattern";
+
+/**
+ * Structured evidence for a coaching conclusion (no raw journal text).
+ */
+export type CoachingEvidence = {
+  behavior: string;
+  observationCount: number;
+  relevantSampleSize: number;
+  dateRange: { start: number | null; end: number | null };
+  sourceEventIds: string[];
+  confidence: number;
+  explanation: string;
+};
+
+/**
+ * Deterministic personalized coaching summary — internal only in Phase 3.
+ * Not a market score. Not user-facing chrome yet.
+ */
+export type PersonalizedCoachingSummary = {
+  kind: "hermes-personalized-coaching-v1";
+  headline: string;
+  currentStrength: string;
+  primaryImprovementArea: string;
+  recurringPattern: string;
+  disciplineTrend: TrendDirection;
+  executionTrend: TrendDirection;
+  currentFocus: string;
+  recommendedPractice: string;
+  evidenceFromHistory: CoachingEvidence[];
+  confidenceInCoaching: number;
+  sampleSize: number;
+  dataSufficiency: DataSufficiency;
+  generatedAt: number;
+};
+
+/**
+ * Weekly learning review — rolling 7-day or optional calendar week.
+ * Internal only in Phase 3.
+ */
+export type WeeklyLearningReview = {
+  kind: "hermes-weekly-learning-review-v1";
+  periodStart: number;
+  periodEnd: number;
+  tradesReviewed: number;
+  wins: number;
+  losses: number;
+  planFollowRate: number | null;
+  averageTradeGrade: string | null;
+  strongestBehavior: string;
+  mostFrequentMistake: string;
+  disciplineTrend: TrendDirection;
+  executionTrend: TrendDirection;
+  progressSummary: string;
+  keyLesson: string;
+  nextWeekFocus: string;
+  recommendedPractice: string;
+  evidence: CoachingEvidence[];
+  confidence: number;
+  dataSufficiency: DataSufficiency;
+  generatedAt: number;
+};
+
 /** Caps keep memory bounded (summaries, not unlimited raw history). */
 export const LEARNING_MEMORY_CAPS = {
   maxSeenEventIds: 200,
@@ -154,4 +225,13 @@ export const LEARNING_MEMORY_CAPS = {
   maxLessonSummaries: 20,
   minSampleForReliablePattern: 3,
   minSampleForProfileClaims: 5,
+} as const;
+
+/** Sample-size thresholds for coaching data sufficiency. */
+export const COACHING_DATA_THRESHOLDS = {
+  insufficientMax: 2,
+  earlySignalMax: 4,
+  developingMax: 9,
+  /** 10+ → Reliable Pattern (when behavior also repeats). */
+  reliableMin: 10,
 } as const;

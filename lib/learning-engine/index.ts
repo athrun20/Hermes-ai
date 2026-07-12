@@ -1,5 +1,5 @@
 /**
- * Hermes Learning Engine — Phase 1 public surface.
+ * Hermes Learning Engine — Phase 1–3 public surface.
  *
  * Market Intelligence (lib/intelligence-v2) and Trader Learning (this module)
  * are separate systems. Learning Engine affects coaching memory only.
@@ -8,6 +8,8 @@
 export type {
   BehaviorCountMap,
   BehaviorKey,
+  CoachingEvidence,
+  DataSufficiency,
   DetectedPattern,
   HermesCoachMemory,
   HoldBucket,
@@ -15,15 +17,17 @@ export type {
   LearningEventOutcome,
   LearningEventSource,
   LearningEventType,
+  PersonalizedCoachingSummary,
   PnlSign,
   TradeLearningSummary,
   TradeQualityBand,
   TraderLearningProfile,
   TraderMemoryStore,
   TrendDirection,
+  WeeklyLearningReview,
 } from "@/lib/learning-engine/types";
 
-export { LEARNING_MEMORY_CAPS } from "@/lib/learning-engine/types";
+export { LEARNING_MEMORY_CAPS, COACHING_DATA_THRESHOLDS } from "@/lib/learning-engine/types";
 
 export {
   createLearningEvent,
@@ -80,6 +84,8 @@ export {
   ensureLearningMemoryLoaded,
   getLearningMemorySnapshot,
   getLearningProfileSnapshot,
+  getPersonalizedCoachingSnapshot,
+  getWeeklyLearningReviewSnapshot,
   resetLearningMemoryCache,
   inspectLearningEngine,
   printLearningEngineInspection,
@@ -87,3 +93,24 @@ export {
   type RecordLearningEventResult,
   type LearningEngineInspection,
 } from "@/lib/learning-engine/service";
+
+export {
+  dataSufficiencyFromSampleSize,
+  canClaimRecurringBehavior,
+  coachingConfidenceFromSufficiency,
+} from "@/lib/learning-engine/data-sufficiency";
+
+export {
+  getPracticeExercise,
+  patternKeyToPracticeFocus,
+  type PracticeFocusKey,
+  type PracticeExercise,
+} from "@/lib/learning-engine/practice-library";
+
+export { buildPersonalizedCoachingSummary } from "@/lib/learning-engine/personalized-coaching";
+
+export {
+  buildWeeklyLearningReview,
+  resolveWeekWindow,
+  type WeeklyReviewOptions,
+} from "@/lib/learning-engine/weekly-review";

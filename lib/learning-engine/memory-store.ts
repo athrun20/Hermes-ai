@@ -175,6 +175,12 @@ function applyTradeBehaviors(
   if (event.tags.includes("revenge")) {
     bump(next, "revenge_trading");
   }
+  if (event.tags.includes("overtrading")) {
+    bump(next, "overtrading");
+  }
+  if (event.tags.includes("early_entry")) {
+    bump(next, "entering_too_early");
+  }
   if (summary.strategyContext?.toLowerCase().includes("trend") && summary.outcome === "Win") {
     bump(next, "good_trend_identification");
   }
