@@ -6,7 +6,7 @@ import type { HermesVisionResult } from "@/lib/hermes-vision-types";
 import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
-import type { SmartChartIntelligenceResult } from "@/lib/smart-chart-intelligence-types";
+import type { AnySmartChartIntelligenceResult } from "@/lib/smart-chart-intelligence-types";
 import type { HermesMemorySnapshot, TradingPersonalityProfile } from "@/lib/hermes-memory";
 import type { HermesEvidence, MarketRegime } from "@/lib/intelligence-v2/types";
 import type { CoinSymbol } from "@/lib/market-data";
@@ -27,7 +27,7 @@ export type CollectEvidenceInput = {
   multiTimeframe?: MultiTimeframeIntelligence;
   footprint?: InstitutionalFootprintResult;
   news?: NewsIntelligenceResult;
-  smartChart?: SmartChartIntelligenceResult;
+  smartChart?: AnySmartChartIntelligenceResult;
   memory?: HermesMemorySnapshot;
   personality?: TradingPersonalityProfile;
   dailyGoal?: string;

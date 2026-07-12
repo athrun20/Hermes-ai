@@ -72,6 +72,7 @@ import type { TradeQualityPlan } from "@/lib/trade-quality-types";
 import { buildHermesReasoning } from "@/lib/reasoning-engine";
 import { saveReasoningSnapshot } from "@/lib/reasoning-snapshots";
 import { buildSmartChartIntelligence } from "@/lib/smart-chart-intelligence";
+import { buildMarketRegime, collectHermesEvidence } from "@/lib/intelligence-v2";
 import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
 import { paperTradeToLearningEvent, recordLearningEvent } from "@/lib/learning-engine";
@@ -466,27 +467,50 @@ export function HermesDashboard() {
     () => buildNewsCatalystMarker({ candles, news: newsIntelligence }),
     [candles, newsIntelligence],
   );
-  const smartChartIntelligence = useMemo(
-    () =>
-      buildSmartChartIntelligence({
-        candles,
-        context: hermesVisionContext,
-        vision: hermesVision,
-        reasoning: hermesReasoning,
-        multiTimeframe,
-        footprint,
-        news: newsIntelligence,
-      }),
-    [
+  const smartChartIntelligence = useMemo(() => {
+    // Intelligence v2 regime + evidence feed chart teaching only.
+    // Does not replace product Confidence / Readiness / TQ authority.
+    const regime = buildMarketRegime({
+      quote: selectedQuote,
       candles,
-      footprint,
-      hermesReasoning,
-      hermesVision,
-      hermesVisionContext,
+      visionContext: hermesVisionContext,
+      vision: hermesVision,
       multiTimeframe,
-      newsIntelligence,
-    ],
-  );
+      news: newsIntelligence,
+    });
+    const evidence = collectHermesEvidence({
+      regime,
+      vision: hermesVision,
+      multiTimeframe,
+      footprint,
+      news: newsIntelligence,
+      symbol: selectedQuote.symbol,
+      // Intentionally omit smartChart to avoid evidence↔annotation cycle.
+    });
+    return buildSmartChartIntelligence({
+      candles,
+      context: hermesVisionContext,
+      vision: hermesVision,
+      reasoning: hermesReasoning,
+      multiTimeframe,
+      footprint,
+      news: newsIntelligence,
+      intelligence: {
+        regime,
+        evidence,
+        currentConfidence: hermesReasoning.confidenceScore,
+      },
+    });
+  }, [
+    candles,
+    footprint,
+    hermesReasoning,
+    hermesVision,
+    hermesVisionContext,
+    multiTimeframe,
+    newsIntelligence,
+    selectedQuote,
+  ]);
   const liveIntelligence = useMemo(
     () =>
       buildHermesLiveIntelligence({
@@ -1256,6 +1280,7 @@ export function HermesDashboard() {
               newsKeywords={chartNewsKeywords}
               quote={selectedQuote}
               selectedTool={selectedChartTool}
+              smartChart={smartChartIntelligence}
               strategy={strategyIntelligence}
               timeframe={timeframe}
               tradeLevels={selectedChartTradeLevels}

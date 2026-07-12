@@ -22,7 +22,7 @@ import type { HermesVisionContext, HermesVisionResult } from "@/lib/hermes-visio
 import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
-import type { SmartChartIntelligenceResult } from "@/lib/smart-chart-intelligence-types";
+import type { AnySmartChartIntelligenceResult } from "@/lib/smart-chart-intelligence-types";
 import type { HermesMemorySnapshot, TradingPersonalityProfile } from "@/lib/hermes-memory";
 import type { ReasoningResult, ReasoningRiskQuality } from "@/lib/reasoning-types";
 import type { TradeQualityResult } from "@/lib/trade-quality-types";
@@ -68,7 +68,7 @@ export type HermesIntelligenceInput = {
   multiTimeframe?: MultiTimeframeIntelligence;
   footprint?: InstitutionalFootprintResult;
   news?: NewsIntelligenceResult;
-  smartChart?: SmartChartIntelligenceResult;
+  smartChart?: AnySmartChartIntelligenceResult;
   memory?: HermesMemorySnapshot;
   personality?: TradingPersonalityProfile;
   dailyGoal?: string;

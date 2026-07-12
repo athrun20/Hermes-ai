@@ -300,7 +300,7 @@ test("news urgency maps strength and risk caution remains contradictory", () => 
 
 test("smart chart evidence maps annotations without buy/sell language", () => {
   const smart: SmartChartIntelligenceResult = {
-    kind: "hermes-smart-chart-intelligence-v1",
+    kind: "hermes-smart-chart-intelligence-v2",
     annotations: [
       {
         id: "a1",
@@ -320,6 +320,9 @@ test("smart chart evidence maps annotations without buy/sell language", () => {
     ],
     confidenceDelta: 3,
     thesisImpact: "Constructive reclaim.",
+    marketStory: [],
+    confidenceHistory: [],
+    activeAnnotationCount: 1,
   };
   const items = adaptSmartChartEvidence(smart, { symbol: "BTC", now: NOW });
   assert.equal(items.length, 1);

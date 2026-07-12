@@ -5,6 +5,7 @@ import { Bell, RotateCcw, Ruler, SlidersHorizontal } from "lucide-react";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
 import { formatCurrency, formatPercent, type AssetQuote, type Candle } from "@/lib/market-data";
 import { type WorkspaceTimeframe } from "@/lib/market-universe";
+import { ChartTeachingOverlay } from "@/components/workspace/chart-teaching-overlay";
 import { DecisionHeader } from "@/components/workspace/decision-header";
 import { EvidenceStrip } from "@/components/workspace/evidence-cards";
 import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
@@ -15,6 +16,7 @@ import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import type { ReasoningResult } from "@/lib/reasoning-types";
 import type { TradeQualityResult } from "@/lib/trade-quality-types";
+import type { SmartChartIntelligenceResult } from "@/lib/smart-chart-intelligence-types";
 import {
   evaluateHermesAlert,
   hermesAlertConditionLabels,
@@ -80,6 +82,7 @@ export function ProfessionalChart({
   multiTimeframe,
   footprint,
   chartLabels,
+  smartChart = null,
   newsKeywords = [],
   onTimeframeChange,
   onToggleIndicator,
@@ -102,6 +105,8 @@ export function ProfessionalChart({
   multiTimeframe: MultiTimeframeIntelligence;
   footprint: InstitutionalFootprintResult;
   chartLabels?: HermesVisionLabel[];
+  /** Smart Chart Intelligence v2 — chart teaching only (not a new dashboard panel). */
+  smartChart?: SmartChartIntelligenceResult | null;
   newsKeywords?: string[];
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
   onToggleIndicator: (indicator: keyof IndicatorVisibility) => void;
@@ -458,6 +463,7 @@ export function ProfessionalChart({
               visionLabels={chartLabels ?? vision.labels}
               onPriceSelect={onChartPriceSelect}
             />
+            <ChartTeachingOverlay smartChart={smartChart} />
           </div>
         </div>
 

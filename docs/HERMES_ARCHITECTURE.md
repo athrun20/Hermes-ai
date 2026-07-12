@@ -120,7 +120,7 @@ Business logic lives under `lib/` as pure(ish) functions returning typed results
 | Reasoning | `reasoning-engine.ts` | Thesis, evidence, **confidence**, **trade readiness** |
 | Trade Quality | `trade-quality-engine.ts` | Full plan quality grade and caps |
 | Hermes Score | `hermes-score-engine.ts` | Product composite (currently often mirrors TQ) |
-| Smart Chart Intelligence | `smart-chart-intelligence.ts` | Chart annotations + confidence delta |
+| Smart Chart Intelligence v2 | `smart-chart-intelligence.ts` | Top 3–5 chart annotations, market story timeline, confidence history (chart teaching only) |
 | Live intelligence | `hermes-live-engine.ts` | Live mentor snapshot |
 | Confidence (live) | `confidence-engine.ts` | Weighted live confidence snapshot |
 | Symbol analysis | `symbol-analysis-engine.ts` | Per-symbol workspace analysis |

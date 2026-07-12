@@ -8,7 +8,10 @@ import type { HermesVisionResult } from "@/lib/hermes-vision-types";
 import type { MultiTimeframeIntelligence } from "@/lib/multi-timeframe-types";
 import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import type { NewsIntelligenceResult } from "@/lib/news-types";
-import type { SmartChartIntelligenceResult } from "@/lib/smart-chart-intelligence-types";
+import type {
+  AnySmartChartIntelligenceResult,
+  SmartChartIntelligenceResult,
+} from "@/lib/smart-chart-intelligence-types";
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import type { TradingPersonalityProfile } from "@/lib/hermes-memory";
 import type {
@@ -281,7 +284,7 @@ export function adaptNewsEvidence(
 }
 
 export function adaptSmartChartEvidence(
-  smartChart: SmartChartIntelligenceResult,
+  smartChart: AnySmartChartIntelligenceResult | SmartChartIntelligenceResult,
   options?: { symbol?: CoinSymbol; now?: number },
 ): HermesEvidence[] {
   const now = options?.now ?? 0;
@@ -466,9 +469,7 @@ function mapVisionDimension(
   return "Risk/Reward";
 }
 
-function mapSmartChartKind(
-  kind: SmartChartIntelligenceResult["annotations"][number]["kind"],
-): EvidenceCategory {
+function mapSmartChartKind(kind: string): EvidenceCategory {
   if (kind === "volume") return "Volume Quality";
   if (kind === "momentum") return "Momentum";
   if (kind === "footprint" || kind === "liquidity") return "Institutional Activity";
