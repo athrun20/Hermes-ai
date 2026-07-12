@@ -1,10 +1,10 @@
 # Hermes Intelligence v2 — Architecture
 
-**Status:** Architecture approved · **Implementation:** Phases 0–2 complete (independent layer; not product source of truth)  
-**Next:** Phase 3+ requires separate approval  
+**Status:** Architecture approved · **Implementation:** Phases 0–4 complete (independent layer; not product source of truth)  
+**Next:** Phase 5 Conviction · Phase 6 Orchestrator · Phase 7 authority cleanup (each requires staying within frozen UI / frozen formulas)  
 **Constraints:** UI v1.0 frozen · no dashboard wiring · no scoring formula changes · no paper-trading behavior changes  
 **Companion:** [`HERMES_ARCHITECTURE.md`](./HERMES_ARCHITECTURE.md) · [`AGENTS.md`](../AGENTS.md)  
-**Code:** `lib/intelligence-v2/` · tests: `tests/intelligence-v2.test.ts`
+**Code:** `lib/intelligence-v2/` · tests: `tests/intelligence-v2*.test.ts`
 
 This document is the **source of truth for Intelligence v2**. It supersedes the informal pipeline sketch from the design conversation where they conflict.
 
@@ -182,11 +182,12 @@ HermesReasoningResult {
   scenarios, confirmation, invalidation
 }
 
-HermesJudgmentResult {
-  wouldTakeTrade: boolean | "Conditional";
-  stance: "Take" | "Wait" | "Avoid" | "Manage";
-  reasons: string[];
-  conditions: string[];
+HermesJudgment (Phase 4 contract) {
+  stance: Take | Take With Caution | Wait | Avoid | Manage Existing Position | Insufficient Data
+  wouldTakeTrade: boolean | "Conditional"
+  summary, primaryReason, supportingReasons, blockingReasons
+  conditionsToProceed, conditionsToAvoid
+  regimeEffect, traderFitEffect, sourceTimestamp
 }
 
 HermesIntelligenceBundle {
@@ -299,13 +300,14 @@ Hard rule (AGENTS): Confidence, Readiness, Trade Quality, and scenario probabili
 | 1 Market Regime | `lib/intelligence-v2/market-regime.ts` | Done |
 | 2 Evidence Collection | `evidence-adapters.ts`, `collect-evidence.ts`, `dedupe-evidence.ts` | Done |
 | 3 Confidence Breakdown packaging | `lib/intelligence-v2/confidence-breakdown.ts` | Done |
-| 4 Judgment | — | Not started |
+| 4 Judgment | `lib/intelligence-v2/judgment.ts` (`buildHermesJudgment`) | Done |
 | 5 Conviction | — | Not started |
 | 6 Orchestrator | — | Not started |
 | 7 Authority cleanup / dashboard wiring | — | Not started |
 
-Public exports: `lib/intelligence-v2/index.ts` (Phases 0–2 only).  
-Dashboard is **not** rewired yet (UI frozen; no runtime path change).
+Public exports: `lib/intelligence-v2/index.ts` (Phases 0–4).  
+Dashboard is **not** rewired yet (UI frozen; no runtime path change).  
+Judgment is **internal only** — not a primary workspace metric and not surfaced in UI.
 
 ---
 

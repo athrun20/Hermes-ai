@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — contracts (Phases 0–3).
+ * Hermes Intelligence v2 — contracts (Phases 0–4).
  * Independent of the live dashboard pipeline. Not product source of truth.
  */
 
@@ -147,15 +147,54 @@ export type ConfidenceBreakdown = {
   unresolvedConflicts: string[];
 };
 
-export type HermesJudgmentStance = "Take" | "Wait" | "Avoid" | "Manage";
+/**
+ * Phase 4 stance values — personal coach authority only.
+ * Not Buy/Sell. Not a primary workspace metric.
+ */
+export type HermesJudgmentStance =
+  | "Take"
+  | "Take With Caution"
+  | "Wait"
+  | "Avoid"
+  | "Manage Existing Position"
+  | "Insufficient Data";
 
-/** Reserved for Phase 4 — not produced in Phases 0–3. */
+/**
+ * How regime conditioned the judgment explanation (not a score).
+ */
+export type JudgmentRegimeEffect = {
+  level: "Supportive" | "Neutral" | "Cautionary" | "Hostile" | "Unknown";
+  summary: string;
+  factors: string[];
+};
+
+/**
+ * How trader DNA / memory conditioned judgment (coaching modifier only).
+ */
+export type JudgmentTraderFitEffect = {
+  level: "Aligned" | "Neutral" | "Conflict" | "Unknown";
+  summary: string;
+  notes: string[];
+};
+
+/**
+ * Phase 4 — personal take/don't-take stance (internal coach authority).
+ * Distinct from Confidence, Trade Readiness, and Trade Quality.
+ * Produced by `buildHermesJudgment` — does not recompute those scores.
+ */
 export type HermesJudgment = {
   kind: "hermes-judgment-v1";
-  wouldTakeTrade: boolean | "Conditional";
   stance: HermesJudgmentStance;
-  reasons: string[];
-  conditions: string[];
+  wouldTakeTrade: boolean | "Conditional";
+  summary: string;
+  primaryReason: string;
+  supportingReasons: string[];
+  blockingReasons: string[];
+  conditionsToProceed: string[];
+  conditionsToAvoid: string[];
+  regimeEffect: JudgmentRegimeEffect;
+  traderFitEffect: JudgmentTraderFitEffect;
+  sourceTimestamp: number;
 };
 
 export type ConvictionSizingBias = "None" | "Reduced" | "Standard" | "Elevated";
