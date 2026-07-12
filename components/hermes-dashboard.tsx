@@ -72,6 +72,7 @@ import type { TradeQualityPlan } from "@/lib/trade-quality-types";
 import { buildHermesReasoning } from "@/lib/reasoning-engine";
 import { saveReasoningSnapshot } from "@/lib/reasoning-snapshots";
 import { buildSmartChartIntelligence } from "@/lib/smart-chart-intelligence";
+import { buildSessionIntelligence } from "@/lib/session-intelligence";
 import { buildMarketRegime, collectHermesEvidence } from "@/lib/intelligence-v2";
 import type { HermesVisionContext } from "@/lib/hermes-vision-types";
 import { triggerHermesCoach } from "@/lib/hermes-coach-trigger-system";
@@ -511,6 +512,31 @@ export function HermesDashboard() {
     newsIntelligence,
     selectedQuote,
   ]);
+  const sessionIntelligence = useMemo(
+    () =>
+      buildSessionIntelligence({
+        candles,
+        context: hermesVisionContext,
+        vision: hermesVision,
+        reasoning: hermesReasoning,
+        multiTimeframe,
+        footprint,
+        news: newsIntelligence,
+        smartChart: smartChartIntelligence,
+        productConfidence: hermesReasoning.confidenceScore,
+        productReadiness: hermesReasoning.tradeReadinessScore,
+      }),
+    [
+      candles,
+      footprint,
+      hermesReasoning,
+      hermesVision,
+      hermesVisionContext,
+      multiTimeframe,
+      newsIntelligence,
+      smartChartIntelligence,
+    ],
+  );
   const liveIntelligence = useMemo(
     () =>
       buildHermesLiveIntelligence({
@@ -1281,6 +1307,7 @@ export function HermesDashboard() {
               quote={selectedQuote}
               selectedTool={selectedChartTool}
               smartChart={smartChartIntelligence}
+              sessionIntelligence={sessionIntelligence}
               strategy={strategyIntelligence}
               timeframe={timeframe}
               tradeLevels={selectedChartTradeLevels}

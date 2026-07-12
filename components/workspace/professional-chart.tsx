@@ -17,6 +17,7 @@ import type { InstitutionalFootprintResult } from "@/lib/footprint-types";
 import type { ReasoningResult } from "@/lib/reasoning-types";
 import type { TradeQualityResult } from "@/lib/trade-quality-types";
 import type { SmartChartIntelligenceResult } from "@/lib/smart-chart-intelligence-types";
+import type { SessionIntelligence } from "@/lib/session-intelligence";
 import {
   evaluateHermesAlert,
   hermesAlertConditionLabels,
@@ -83,6 +84,7 @@ export function ProfessionalChart({
   footprint,
   chartLabels,
   smartChart = null,
+  sessionIntelligence = null,
   newsKeywords = [],
   onTimeframeChange,
   onToggleIndicator,
@@ -107,6 +109,8 @@ export function ProfessionalChart({
   chartLabels?: HermesVisionLabel[];
   /** Smart Chart Intelligence v2 — chart teaching only (not a new dashboard panel). */
   smartChart?: SmartChartIntelligenceResult | null;
+  /** Session Intelligence v1 — session evolution teaching (chart overlay only). */
+  sessionIntelligence?: SessionIntelligence | null;
   newsKeywords?: string[];
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
   onToggleIndicator: (indicator: keyof IndicatorVisibility) => void;
@@ -463,7 +467,10 @@ export function ProfessionalChart({
               visionLabels={chartLabels ?? vision.labels}
               onPriceSelect={onChartPriceSelect}
             />
-            <ChartTeachingOverlay smartChart={smartChart} />
+            <ChartTeachingOverlay
+              smartChart={smartChart}
+              sessionIntelligence={sessionIntelligence}
+            />
           </div>
         </div>
 
