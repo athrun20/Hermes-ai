@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — Phases 0–4 public surface.
+ * Hermes Intelligence v2 — Phases 0–5 (Opinion) public surface.
  * Independent of dashboard composition. Not product source of truth.
  */
 
@@ -21,6 +21,8 @@ export type {
   HermesIntelligenceBundle,
   HermesJudgment,
   HermesJudgmentStance,
+  HermesOpinion,
+  HermesOpinionEvidenceRef,
   IntelligenceStage,
   JudgmentRegimeEffect,
   JudgmentTraderFitEffect,
@@ -66,3 +68,10 @@ export {
   type JudgmentPlanInput,
   type JudgmentProfileInput,
 } from "@/lib/intelligence-v2/judgment";
+
+export {
+  buildHermesOpinion,
+  isJudgmentStance,
+  opinionContainsTradeCommands,
+  type BuildHermesOpinionInput,
+} from "@/lib/intelligence-v2/opinion";

@@ -1,7 +1,7 @@
 # Hermes Intelligence v2 — Architecture
 
-**Status:** Architecture approved · **Implementation:** Phases 0–4 complete (independent layer; not product source of truth)  
-**Next:** Phase 5 Conviction · Phase 6 Orchestrator · Phase 7 authority cleanup (each requires staying within frozen UI / frozen formulas)  
+**Status:** Architecture approved · **Implementation:** Phases 0–5 Opinion complete (independent layer; not product source of truth)  
+**Next:** Conviction (deferred) · full Orchestrator · authority cleanup (each requires staying within frozen UI / frozen formulas)  
 **Constraints:** UI v1.0 frozen · no dashboard wiring · no scoring formula changes · no paper-trading behavior changes  
 **Companion:** [`HERMES_ARCHITECTURE.md`](./HERMES_ARCHITECTURE.md) · [`AGENTS.md`](../AGENTS.md)  
 **Code:** `lib/intelligence-v2/` · tests: `tests/intelligence-v2*.test.ts`
@@ -190,6 +190,17 @@ HermesJudgment (Phase 4 contract) {
   regimeEffect, traderFitEffect, sourceTimestamp
 }
 
+HermesOpinion (Phase 5 contract) {
+  opinion, why
+  supportingEvidence[], contradictingEvidence[]   // traceable refs
+  whatWouldChangeOpinion[]
+  biggestRisk, commonTraderMistake, nextFocus
+  stance, confidenceFinalScore, readinessScore?
+  regimeSummary, sourceEvidenceIds[], sourceTimestamp, summary
+  // Pure orchestration of Regime + Evidence + Breakdown + Judgment
+  // Does not recompute scores or produce Conviction / Buy-Sell
+}
+
 HermesIntelligenceBundle {
   marketDataRef,
   regime: MarketRegime,
@@ -201,8 +212,9 @@ HermesIntelligenceBundle {
   traderProfile,
   memory,
   reasoning: HermesReasoningResult,
-  judgment: HermesJudgmentResult,
-  conviction: Conviction,              // internal
+  judgment: HermesJudgment,
+  opinion: HermesOpinion,              // Phase 5 — internal
+  conviction: Conviction,              // deferred; not Phase 5
   decision: {
     tradeQuality?,
     executionReadiness?,               // plan-level readiness (TQ / gate)
@@ -221,7 +233,8 @@ HermesIntelligenceBundle {
 | Confidence Breakdown | Reasoning only (attached to Confidence) |
 | Trade Readiness (setup actionability) | Reasoning only |
 | Hermes Judgment (personal take) | Judgment only |
-| Conviction (sizing aggression) | Judgment+Regime+Risk derivation (internal) |
+| Hermes Opinion (coherent narrative) | Opinion only (orchestrates Regime + Evidence + Breakdown + Judgment) |
+| Conviction (sizing aggression) | Deferred — not produced in Phase 5 Opinion |
 | Trade Quality | Trade Quality engine (Decision stage) |
 | DNA / personality | Memory only |
 | Hermes Score | Secondary / alias policy (existing) |
@@ -301,13 +314,15 @@ Hard rule (AGENTS): Confidence, Readiness, Trade Quality, and scenario probabili
 | 2 Evidence Collection | `evidence-adapters.ts`, `collect-evidence.ts`, `dedupe-evidence.ts` | Done |
 | 3 Confidence Breakdown packaging | `lib/intelligence-v2/confidence-breakdown.ts` | Done |
 | 4 Judgment | `lib/intelligence-v2/judgment.ts` (`buildHermesJudgment`) | Done |
-| 5 Conviction | — | Not started |
+| 5 Hermes Opinion | `lib/intelligence-v2/opinion.ts` (`buildHermesOpinion`) | Done |
+| 5b Conviction | — | Deferred (not started; Opinion replaced this slot) |
 | 6 Orchestrator | — | Not started |
 | 7 Authority cleanup / dashboard wiring | — | Not started |
 
-Public exports: `lib/intelligence-v2/index.ts` (Phases 0–4).  
+Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 Opinion).  
 Dashboard is **not** rewired yet (UI frozen; no runtime path change).  
-Judgment is **internal only** — not a primary workspace metric and not surfaced in UI.
+Judgment and Opinion are **internal only** — not primary workspace metrics and not surfaced in UI.  
+Conviction is **not** calculated in Phase 5.
 
 ---
 

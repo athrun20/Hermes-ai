@@ -1,5 +1,5 @@
 /**
- * Hermes Intelligence v2 — contracts (Phases 0–4).
+ * Hermes Intelligence v2 — contracts (Phases 0–5 Opinion).
  * Independent of the live dashboard pipeline. Not product source of truth.
  */
 
@@ -199,7 +199,7 @@ export type HermesJudgment = {
 
 export type ConvictionSizingBias = "None" | "Reduced" | "Standard" | "Elevated";
 
-/** Reserved for Phase 5 — internal only; never a primary UI metric. */
+/** Reserved — internal only; never a primary UI metric. Not produced in Phase 5 Opinion. */
 export type HermesConviction = {
   kind: "hermes-conviction-v1";
   level: number;
@@ -209,8 +209,62 @@ export type HermesConviction = {
 };
 
 /**
+ * Traceable evidence line inside Hermes Opinion.
+ * Points at Phase 2 evidence, Phase 3 breakdown rows, Judgment, or Regime — not new scores.
+ */
+export type HermesOpinionEvidenceRef = {
+  /** Phase 2 HermesEvidence.id when available */
+  evidenceId?: string;
+  claim: string;
+  category?: EvidenceCategory;
+  direction: EvidenceDirection;
+  source: "evidence" | "confidence-breakdown" | "judgment" | "regime";
+  /** Claim strength or |contribution| for audit — not a product score */
+  weightHint?: number;
+};
+
+/**
+ * Phase 5 — Hermes Opinion (pure orchestration / coaching narrative).
+ *
+ * Answers what Hermes thinks and why, with full traceability to Regime,
+ * Evidence, Confidence Breakdown, and Judgment. Does not recompute scores,
+ * calculate Conviction, emit Buy/Sell, or grade Trade Quality.
+ */
+export type HermesOpinion = {
+  kind: "hermes-opinion-v1";
+  /** 1. What does Hermes think? */
+  opinion: string;
+  /** 2. Why? */
+  why: string;
+  /** 3. Supporting evidence (traceable) */
+  supportingEvidence: HermesOpinionEvidenceRef[];
+  /** 4. Contradicting evidence (traceable) */
+  contradictingEvidence: HermesOpinionEvidenceRef[];
+  /** 5. What would change Hermes' opinion? */
+  whatWouldChangeOpinion: string[];
+  /** 6. Biggest current risk */
+  biggestRisk: string;
+  /** 7. Most common trader mistake in this situation */
+  commonTraderMistake: string;
+  /** 8. What the trader should focus on next */
+  nextFocus: string;
+  /** Judgment stance echoed for audit (not recomputed) */
+  stance: HermesJudgmentStance;
+  /** Existing Confidence finalScore mirrored for context only */
+  confidenceFinalScore: number;
+  /** Optional readiness mirror when provided — not recomputed */
+  readinessScore?: number;
+  regimeSummary: string;
+  /** All referenced evidence IDs for audit */
+  sourceEvidenceIds: string[];
+  sourceTimestamp: number;
+  /** Compact one-line coach summary */
+  summary: string;
+};
+
+/**
  * Pipeline bundle contract. Phases 0–2 require regime + evidence.
- * Phase 3 can attach confidenceBreakdown without full reasoning authority.
+ * Phase 3 can attach confidenceBreakdown; Phase 4 judgment; Phase 5 opinion.
  */
 export type HermesIntelligenceBundle = {
   kind: "hermes-intelligence-bundle-v2";
@@ -226,6 +280,7 @@ export type HermesIntelligenceBundle = {
     confidenceBreakdown: ConfidenceBreakdown;
   };
   judgment?: HermesJudgment;
+  opinion?: HermesOpinion;
   conviction?: HermesConviction;
   decision?: {
     tradeQualityScore?: number;
