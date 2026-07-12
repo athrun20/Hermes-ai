@@ -24,7 +24,8 @@ import type {
   ShadowScalar,
 } from "@/lib/intelligence-v2/shadow-mode-types";
 
-const MAX_RECENT_COMPARISONS = 25;
+/** Ring buffer capacity for recent shadow comparisons (dev/test memory only). */
+export const SHADOW_RING_BUFFER_CAPACITY = 25;
 
 let recentComparisons: HermesShadowComparison[] = [];
 
@@ -602,7 +603,7 @@ function nowMs(): number {
 // --- In-memory store (dev/test only; not user-facing) ---
 
 export function recordShadowComparison(result: HermesShadowComparison): void {
-  recentComparisons = [result, ...recentComparisons].slice(0, MAX_RECENT_COMPARISONS);
+  recentComparisons = [result, ...recentComparisons].slice(0, SHADOW_RING_BUFFER_CAPACITY);
 }
 
 export function getRecentShadowComparisons(): readonly HermesShadowComparison[] {

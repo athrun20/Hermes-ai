@@ -576,8 +576,12 @@ export function HermesDashboard() {
     let cancelled = false;
 
     void import("@/lib/intelligence-v2/shadow-mode")
-      .then((shadow) => {
+      .then(async (shadow) => {
         if (cancelled || !shadow.isShadowModeEnabled()) return;
+        // Developer helper: globalThis.__hermesShadowValidation()
+        const validation = await import("@/lib/intelligence-v2/shadow-validation");
+        if (!cancelled) validation.registerShadowValidationDevHelper();
+        if (cancelled) return;
         shadow.runHermesShadowComparison({
           current: {
             symbol: selectedSymbol,

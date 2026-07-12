@@ -121,5 +121,17 @@ export {
   runHermesShadowComparison,
   textsAreSemanticallySimilar,
   withShadowStoreReset,
+  SHADOW_RING_BUFFER_CAPACITY,
   type RunHermesShadowComparisonInput,
 } from "@/lib/intelligence-v2/shadow-mode";
+
+export {
+  buildShadowValidationReport,
+  formatShadowValidationMarkdown,
+  inspectHermesShadowBuffer,
+  printShadowValidationTable,
+  registerShadowValidationDevHelper,
+  type ShadowDifferenceClass,
+  type ShadowValidationReport,
+  type ShadowValidationRow,
+} from "@/lib/intelligence-v2/shadow-validation";

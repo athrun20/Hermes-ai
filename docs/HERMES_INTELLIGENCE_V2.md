@@ -351,6 +351,14 @@ Public exports: `lib/intelligence-v2/index.ts` (Phases 0–5 + Orchestrator + Sh
 - Results stay in an in-memory ring buffer (+ optional `console.info`); no user-facing panel.
 - Judgment, Opinion, Conviction, and Confidence Breakdown are **not** exposed to users.
 
+### Shadow Validation Pass (developer-only)
+
+- Utility: `lib/intelligence-v2/shadow-validation.ts`
+  - `buildShadowValidationReport`, `printShadowValidationTable`, `inspectHermesShadowBuffer`
+  - Devtools helper: `globalThis.__hermesShadowValidation()`
+- Scenario runner: `npm.cmd run shadow:validate` (`scripts/run-shadow-validation.ts`)
+- Writes local reports under `tmp/` (gitignored); never a product route/panel.
+
 ---
 
 ## 11. Document maintenance
