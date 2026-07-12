@@ -90,14 +90,15 @@ test("paper trade event mapping is structured and deterministic", () => {
   const trade = sampleTrade();
   const a = paperTradeToLearningEvent(trade, { timeframe: "1H" });
   const b = paperTradeToLearningEvent(trade, { timeframe: "1H" });
-  assert.equal(a.eventType, "TradeCompleted");
-  assert.equal(a.id, "trade-completed:trade-1");
-  assert.equal(a.symbol, "BTC");
-  assert.equal(a.timeframe, "1H");
-  assert.equal(a.outcome, "Win");
-  assert.ok(a.tags.includes("stop_defined"));
-  assert.ok(a.tags.includes("plan_followed"));
-  assert.ok(a.tags.includes("target_touched") || a.tags.includes("exit_discipline"));
+  assert.ok(a);
+  assert.equal(a!.eventType, "TradeCompleted");
+  assert.equal(a!.id, `paper-trading:trade-completed:trade-1:${T0}`);
+  assert.equal(a!.symbol, "BTC");
+  assert.equal(a!.timeframe, "1H");
+  assert.equal(a!.outcome, "Win");
+  assert.ok(a!.tags.includes("stop_defined"));
+  assert.ok(a!.tags.includes("plan_followed"));
+  assert.ok(a!.tags.includes("target_touched") || a!.tags.includes("exit_discipline"));
   assert.deepEqual(a, b);
 });
 
@@ -174,8 +175,9 @@ test("duplicate prevention via recordLearningEvent", () => {
   resetLearningMemoryCache();
   clearTraderMemoryStorage();
   const event = paperTradeToLearningEvent(sampleTrade());
-  const first = recordLearningEvent(event);
-  const second = recordLearningEvent(event);
+  assert.ok(event);
+  const first = recordLearningEvent(event!);
+  const second = recordLearningEvent(event!);
   assert.equal(first.accepted, true);
   assert.equal(second.accepted, false);
   assert.equal(second.duplicate, true);
@@ -188,7 +190,8 @@ test("persistence round-trip uses dedicated storage key", () => {
   resetLearningMemoryCache();
   clearTraderMemoryStorage();
   const event = paperTradeToLearningEvent(sampleTrade({ id: "persist-1" }));
-  const result = recordLearningEvent(event);
+  assert.ok(event);
+  const result = recordLearningEvent(event!);
   assert.equal(result.accepted, true);
   assert.ok(result.persistenceStatus === "saved" || result.persistenceStatus === "ok");
   assert.ok(storage.getItem(TRADER_MEMORY_STORAGE_KEY));
@@ -196,7 +199,11 @@ test("persistence round-trip uses dedicated storage key", () => {
   resetLearningMemoryCache();
   const loaded = loadTraderMemoryStore();
   assert.equal(loaded.store.eventCount, 1);
-  assert.equal(loaded.store.tradeSummaries[0]?.eventId, "trade-completed:persist-1");
+  assert.ok(
+    loaded.store.tradeSummaries[0]?.eventId.startsWith(
+      "paper-trading:trade-completed:persist-1:",
+    ),
+  );
 });
 
 test("malformed storage recovers to empty store", () => {
@@ -217,9 +224,9 @@ test("storage failure isolation — recordLearningEvent does not throw", () => {
   window.localStorage.setItem = () => {
     throw new Error("quota exceeded");
   };
-  const result = recordLearningEvent(
-    paperTradeToLearningEvent(sampleTrade({ id: "fail-save" })),
-  );
+  const failEvent = paperTradeToLearningEvent(sampleTrade({ id: "fail-save" }));
+  assert.ok(failEvent);
+  const result = recordLearningEvent(failEvent!);
   window.localStorage.setItem = original;
   assert.equal(result.accepted, true); // accepted in-memory
   assert.equal(result.persistenceStatus, "save_failed");
@@ -249,17 +256,18 @@ test("profile updates after accepted events", () => {
   assert.equal(before.tradeSampleSize, 0);
 
   for (let i = 0; i < 6; i += 1) {
-    recordLearningEvent(
-      paperTradeToLearningEvent(
-        sampleTrade({
-          id: `profile-${i}`,
-          pnl: 10,
-          followedPlan: true,
-          qualityScore: 80,
-          closedAt: T0 + i,
-        }),
-      ),
+    const e = paperTradeToLearningEvent(
+      sampleTrade({
+        id: `profile-${i}`,
+        pnl: 10,
+        followedPlan: true,
+        qualityScore: 80,
+        closedAt: T0 + i,
+      }),
+      { closeKind: "full" },
     );
+    assert.ok(e);
+    recordLearningEvent(e!);
   }
   const after = inspectLearningEngine();
   assert.ok(after.tradeSampleSize >= 6);
@@ -286,7 +294,9 @@ test("no score / intelligence-v2 fields introduced by integration outputs", () =
   installMemoryLocalStorage();
   resetLearningMemoryCache();
   clearTraderMemoryStorage();
-  const result = recordLearningEvent(paperTradeToLearningEvent(sampleTrade({ id: "iso-1" })));
+  const iso = paperTradeToLearningEvent(sampleTrade({ id: "iso-1" }));
+  assert.ok(iso);
+  const result = recordLearningEvent(iso!);
   assert.equal("confidenceScore" in result.profile, false);
   assert.equal("tradeReadinessScore" in result.profile, false);
   assert.equal("hermesScore" in result.profile, false);
@@ -298,15 +308,15 @@ test("caps remain enforced after many integrated trades", () => {
   resetLearningMemoryCache();
   clearTraderMemoryStorage();
   for (let i = 0; i < 60; i += 1) {
-    recordLearningEvent(
-      paperTradeToLearningEvent(
-        sampleTrade({
-          id: `cap-${i}`,
-          closedAt: T0 + i,
-          pnl: i % 2 === 0 ? 5 : -3,
-        }),
-      ),
+    const e = paperTradeToLearningEvent(
+      sampleTrade({
+        id: `cap-${i}`,
+        closedAt: T0 + i,
+        pnl: i % 2 === 0 ? 5 : -3,
+      }),
     );
+    assert.ok(e);
+    recordLearningEvent(e!);
   }
   const store = getLearningMemorySnapshot();
   assert.ok(store.tradeSummaries.length <= 50);

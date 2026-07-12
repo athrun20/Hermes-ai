@@ -2,8 +2,11 @@
  * Learning Engine integration adapters.
  * Map existing product artifacts → LearningEvent without embedding pattern logic.
  *
- * Uses structural input types (not hard imports from paper-trading / journal engines)
- * so Learning Engine stays isolated from market and execution modules.
+ * Event integrity (Phase 2.1):
+ * - IDs are source-derived and deterministic (see event-ids.ts)
+ * - Full position close only → TradeCompleted
+ * - Partial reductions do not emit TradeCompleted
+ * - ReplayCompleted adapter exists but is NOT wired until a reliable completion signal exists
  */
 
 import {
@@ -13,6 +16,7 @@ import {
   createReplayCompletedEvent,
   outcomeFromPnl,
 } from "@/lib/learning-engine/events";
+import { buildLearningEventId } from "@/lib/learning-engine/event-ids";
 import type { LearningEvent } from "@/lib/learning-engine/types";
 
 /** Structural paper-trade shape for adapters (compatible with ClosedTrade). */
@@ -57,28 +61,50 @@ export type ReplaySessionLearningInput = {
     grade: string;
     lessonLearned: string;
   };
+  /** Optional finalized completion timestamp; required for stable id. */
+  completedAt?: number;
   review?: {
     couldImprove?: string[];
     decisionQuality?: string;
   };
 };
 
+export type PaperTradeCloseKind = "full" | "partial";
+
 /**
  * Map a closed paper trade into TradeCompleted.
- * Uses only structured trade fields — no emotional inference.
+ *
+ * Partial reductions return null — they are not completed-trade events.
+ * Full close of a position → one TradeCompleted with stable id.
  */
 export function paperTradeToLearningEvent(
   trade: PaperTradeLearningInput,
-  options?: { timeframe?: string; strategyContext?: string },
-): LearningEvent {
+  options?: {
+    timeframe?: string;
+    strategyContext?: string;
+    /** Default "full". Partial closes must pass "partial" and will not emit. */
+    closeKind?: PaperTradeCloseKind;
+  },
+): LearningEvent | null {
+  const closeKind = options?.closeKind ?? "full";
+  if (closeKind === "partial") {
+    return null;
+  }
+
   const holdMinutes = Math.max(
     1,
     Math.floor((trade.closedAt - trade.openedAt) / 60_000),
   );
   const tags = buildPaperTradeTags(trade, holdMinutes);
+  const id = buildLearningEventId({
+    sourceType: "paper-trading",
+    sourceRecordId: trade.id,
+    action: "trade-completed",
+    completedTimestamp: trade.closedAt,
+  });
 
   return createTradeCompletedEvent({
-    id: `trade-completed:${trade.id}`,
+    id,
     timestamp: trade.closedAt,
     symbol: trade.symbol,
     timeframe: options?.timeframe,
@@ -97,12 +123,14 @@ export function paperTradeToLearningEvent(
       hasTarget: Boolean(trade.takeProfit),
       grade: trade.coach?.grade ?? null,
       planDefined: Boolean(trade.stopLoss && trade.takeProfit),
+      closeKind: "full",
     },
   });
 }
 
 /**
  * Map a decision-journal reflection + entry context into TradeReviewed.
+ * Process/plan evidence only — emotion is handled by journalToLearningEvent.
  */
 export function reviewToLearningEvent(input: {
   reflection: DecisionReflectionLearningInput;
@@ -123,8 +151,15 @@ export function reviewToLearningEvent(input: {
     entry?.needsReview ? "needs_review" : "",
   ];
 
+  const id = buildLearningEventId({
+    sourceType: "decision-journal",
+    sourceRecordId: reflection.tradeId,
+    action: "trade-reviewed",
+    completedTimestamp: reflection.updatedAt,
+  });
+
   return createTradeReviewedEvent({
-    id: `trade-reviewed:${reflection.tradeId}:${reflection.updatedAt}`,
+    id,
     timestamp: reflection.updatedAt,
     symbol: entry?.symbol ?? trade?.symbol,
     outcome: entry
@@ -144,23 +179,27 @@ export function reviewToLearningEvent(input: {
 
 /**
  * Map journal reflection into JournalReflectionAdded.
- * Structured fields only — raw lesson text is NOT stored in learning memory.
+ * Emotion/context tags only — plan adherence is owned by TradeReviewed to avoid double-count.
+ * Raw lesson text is NOT stored.
  */
 export function journalToLearningEvent(
   reflection: DecisionReflectionLearningInput,
 ): LearningEvent {
+  const id = buildLearningEventId({
+    sourceType: "decision-journal",
+    sourceRecordId: reflection.tradeId,
+    action: "journal-reflection",
+    completedTimestamp: reflection.updatedAt,
+  });
+
   return createJournalReflectionEvent({
-    id: `journal-reflection:${reflection.tradeId}:${reflection.updatedAt}`,
+    id,
     timestamp: reflection.updatedAt,
     tags: [
       "journal",
       `reason:${slug(reflection.reason)}`,
       `emotion:${slug(reflection.emotion)}`,
-      reflection.followedPlan === "Yes"
-        ? "plan_followed"
-        : reflection.followedPlan === "No"
-          ? "plan_broken"
-          : "plan_partial",
+      // Emotion-only process signals (not plan_followed — that lives on TradeReviewed)
       reflection.emotion === "FOMO" ? "fomo" : "",
       reflection.reason === "Impulse" ? "early_entry" : "",
     ],
@@ -170,10 +209,20 @@ export function journalToLearningEvent(
 }
 
 /**
- * Map a completed replay session view into ReplayCompleted.
+ * Map a finalized replay into ReplayCompleted.
+ *
+ * IMPORTANT (Phase 2.1): The product currently has no reliable replay-completion
+ * signal (session build / first announcement is NOT completion). This adapter is
+ * kept for future wiring. Callers must pass a finalized completedAt and only
+ * invoke after a true completion state exists.
+ *
+ * Do not call from replay start or first session announcement.
  */
-export function replayToLearningEvent(session: ReplaySessionLearningInput): LearningEvent {
+export function replayToLearningEvent(
+  session: ReplaySessionLearningInput,
+): LearningEvent {
   const trade = session.trade;
+  const completedAt = session.completedAt ?? trade.closedAt;
   const missedStop = !trade.stopLoss;
   const missedTarget = !trade.takeProfit;
   const tags = [
@@ -184,13 +233,28 @@ export function replayToLearningEvent(session: ReplaySessionLearningInput): Lear
     `grade:${String(session.summary.grade).toLowerCase()}`,
   ];
 
+  const id = buildLearningEventId({
+    sourceType: "paper-replay",
+    sourceRecordId: trade.id,
+    action: "replay-completed",
+    completedTimestamp: completedAt,
+  });
+
   return createReplayCompletedEvent({
-    id: `replay-completed:${trade.id}`,
-    timestamp: Date.now(),
+    id,
+    timestamp: completedAt,
     symbol: trade.symbol,
     tags,
     lesson: clipStructured(session.summary.lessonLearned, 160),
   });
+}
+
+/**
+ * Policy helper: whether a paper close should emit TradeCompleted.
+ * Full close only.
+ */
+export function shouldEmitTradeCompleted(closeKind: PaperTradeCloseKind): boolean {
+  return closeKind === "full";
 }
 
 function buildPaperTradeTags(trade: PaperTradeLearningInput, holdMinutes: number): string[] {
@@ -248,4 +312,3 @@ function clipStructured(text: string | undefined, max: number): string | undefin
   if (!t) return undefined;
   return t.length <= max ? t : `${t.slice(0, max - 1).trim()}…`;
 }
-

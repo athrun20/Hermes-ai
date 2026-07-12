@@ -829,10 +829,11 @@ export function HermesDashboard() {
 
           const closedNotional = Math.min(remainingNotional, position.notional);
           const closeRatio = closedNotional / position.notional;
+          const isFullClose = closeRatio >= 1;
           const closedPosition: PaperPosition = {
             ...position,
             id:
-              closeRatio >= 1
+              isFullClose
                 ? position.id
                 : `${position.id}-partial-${Date.now()}`,
             quantity: position.quantity * closeRatio,
@@ -841,10 +842,18 @@ export function HermesDashboard() {
           const closed = closePosition(closedPosition, exitPrice);
 
           closedTrades.push(closed);
+          // Learning Engine: only full position closes become TradeCompleted
+          if (isFullClose) {
+            const learningEvent = paperTradeToLearningEvent(closed, {
+              timeframe,
+              closeKind: "full",
+            });
+            if (learningEvent) recordLearningEvent(learningEvent);
+          }
           cashReturned += closedNotional + closed.pnl;
           remainingNotional -= closedNotional;
 
-          if (closeRatio < 1) {
+          if (!isFullClose) {
             nextPositions.push({
               ...position,
               quantity: position.quantity - closedPosition.quantity,
@@ -857,9 +866,6 @@ export function HermesDashboard() {
         setCash((current) => current + cashReturned);
         closedTrades.forEach((trade) => updateHermesMemory(trade));
         setHistory((current) => [...closedTrades.reverse(), ...current]);
-        closedTrades.forEach((trade) => {
-          recordLearningEvent(paperTradeToLearningEvent(trade, { timeframe }));
-        });
         return undefined;
       }
 
@@ -1080,7 +1086,13 @@ export function HermesDashboard() {
       setPositions((current) => current.filter((item) => item.id !== positionId));
       setCash((current) => current + position.notional + closed.pnl);
       setHistory((current) => [closed, ...current]);
-      recordLearningEvent(paperTradeToLearningEvent(closed, { timeframe }));
+      {
+        const learningEvent = paperTradeToLearningEvent(closed, {
+          timeframe,
+          closeKind: "full",
+        });
+        if (learningEvent) recordLearningEvent(learningEvent);
+      }
       triggerHermesCoach({
         moment: "paper-trade-executed",
         context: {

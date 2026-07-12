@@ -40,11 +40,22 @@ let lastPersistenceStatus: PersistenceStatus | "saved" | "save_failed" = "empty"
  */
 export function ensureLearningMemoryLoaded(): TraderMemoryStore {
   if (cachedStore) return cachedStore;
+  return refreshStoreFromPersistence();
+}
+
+/**
+ * Re-read disk before ingest to reduce cross-tab duplicate acceptance.
+ * Prefer disk when it has equal/more events; otherwise keep richer in-memory cache
+ * (e.g. after a prior save failure).
+ */
+function refreshStoreFromPersistence(): TraderMemoryStore {
   const loaded = loadTraderMemoryStore();
-  cachedStore = loaded.store;
   lastPersistenceStatus = loaded.recoveredFromMalformed
     ? "error"
     : loaded.status;
+  if (!cachedStore || loaded.store.eventCount >= cachedStore.eventCount) {
+    cachedStore = loaded.store;
+  }
   return cachedStore;
 }
 
@@ -54,7 +65,8 @@ export function ensureLearningMemoryLoaded(): TraderMemoryStore {
 export function recordLearningEvent(event: LearningEvent): RecordLearningEventResult {
   try {
     validateEventShape(event);
-    const before = ensureLearningMemoryLoaded();
+    // Always consult latest persisted store before accept (reload integrity).
+    const before = refreshStoreFromPersistence();
     const alreadySeen = before.seenEventIds.includes(event.id);
     if (alreadySeen) {
       sessionDuplicatesIgnored += 1;

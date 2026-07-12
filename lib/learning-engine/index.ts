@@ -56,7 +56,15 @@ export {
   reviewToLearningEvent,
   journalToLearningEvent,
   replayToLearningEvent,
+  shouldEmitTradeCompleted,
+  type PaperTradeCloseKind,
+  type PaperTradeLearningInput,
+  type DecisionReflectionLearningInput,
+  type DecisionJournalEntryLearningInput,
+  type ReplaySessionLearningInput,
 } from "@/lib/learning-engine/adapters";
+
+export { buildLearningEventId, type LearningEventIdParts } from "@/lib/learning-engine/event-ids";
 
 export {
   TRADER_MEMORY_STORAGE_KEY,

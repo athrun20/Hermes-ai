@@ -48,7 +48,18 @@ export function ingestLearningEvent(
   if (event.eventType === "TradeCompleted") {
     const summary = summarizeTradeEvent(event);
     tradeSummaries = capList([summary, ...tradeSummaries], LEARNING_MEMORY_CAPS.maxTradeSummaries);
+    // TradeCompleted owns plan/risk/outcome behavior counts (no secondary tag pass).
     behaviorCounts = applyTradeBehaviors(behaviorCounts, summary, event);
+  } else if (event.eventType === "TradeReviewed") {
+    // Review owns plan-adherence / process-review signals once.
+    behaviorCounts = applyReviewBehaviors(behaviorCounts, event);
+    const lesson = extractLesson(event);
+    if (lesson) {
+      lessonSummaries = capList([lesson, ...lessonSummaries], LEARNING_MEMORY_CAPS.maxLessonSummaries);
+    }
+  } else if (event.eventType === "JournalReflectionAdded") {
+    // Journal owns emotion/context signals only — never re-counts plan_followed.
+    behaviorCounts = applyJournalBehaviors(behaviorCounts, event);
   } else {
     behaviorCounts = applyNonTradeBehaviors(behaviorCounts, event);
     const lesson = extractLesson(event);
@@ -56,9 +67,6 @@ export function ingestLearningEvent(
       lessonSummaries = capList([lesson, ...lessonSummaries], LEARNING_MEMORY_CAPS.maxLessonSummaries);
     }
   }
-
-  // Tag-driven behavior hints (all event types)
-  behaviorCounts = applyTagBehaviors(behaviorCounts, event.tags);
 
   return {
     ...store,
@@ -174,6 +182,27 @@ function applyTradeBehaviors(
   return next;
 }
 
+function applyReviewBehaviors(counts: BehaviorCountMap, event: LearningEvent): BehaviorCountMap {
+  const next = { ...counts };
+  // Plan adherence counted once on review (not again on journal for same save).
+  if (event.tags.includes("plan_followed")) bump(next, "plan_followed");
+  if (event.tags.includes("plan_broken")) bump(next, "plan_broken");
+  if (event.tags.includes("reason_impulse") || event.tags.some((t) => t === "reason:impulse")) {
+    // Impulse as review process note — not the same as journal early_entry emotion path
+  }
+  return next;
+}
+
+function applyJournalBehaviors(counts: BehaviorCountMap, event: LearningEvent): BehaviorCountMap {
+  const next = { ...counts };
+  // Emotion / impulse context only — at most one early-entry bump per journal event
+  if (event.tags.includes("early_entry") || event.tags.includes("fomo")) {
+    bump(next, "entering_too_early");
+  }
+  // Explicitly do NOT count plan_followed / plan_broken here.
+  return next;
+}
+
 function applyNonTradeBehaviors(counts: BehaviorCountMap, event: LearningEvent): BehaviorCountMap {
   const next = { ...counts };
   if (event.eventType === "ReplayCompleted") {
@@ -182,28 +211,6 @@ function applyNonTradeBehaviors(counts: BehaviorCountMap, event: LearningEvent):
   }
   if (event.tags.includes("overtrading")) {
     bump(next, "overtrading");
-  }
-  return next;
-}
-
-function applyTagBehaviors(counts: BehaviorCountMap, tags: string[]): BehaviorCountMap {
-  const next = { ...counts };
-  const map: Record<string, BehaviorKey> = {
-    patience: "strong_patience",
-    early_entry: "entering_too_early",
-    chase: "chasing_breakouts",
-    chasing_breakouts: "chasing_breakouts",
-    ignored_stop: "ignoring_stops",
-    overtrading: "overtrading",
-    against_htf: "trading_against_htf",
-    countertrend: "trading_against_htf",
-    revenge: "revenge_trading",
-    risk_control: "good_risk_control",
-    exit_discipline: "good_exit_discipline",
-  };
-  for (const tag of tags) {
-    const key = map[tag];
-    if (key) bump(next, key);
   }
   return next;
 }

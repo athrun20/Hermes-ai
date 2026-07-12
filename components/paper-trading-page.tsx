@@ -92,7 +92,13 @@ export function PaperTradingPage() {
     setCash((current) => current + position.notional + closed.pnl);
     setHistory((current) => [closed, ...current]);
     // Learning Engine (silent): never blocks paper close on storage failure
-    recordLearningEvent(paperTradeToLearningEvent(closed, { timeframe }));
+    {
+      const learningEvent = paperTradeToLearningEvent(closed, {
+        timeframe,
+        closeKind: "full",
+      });
+      if (learningEvent) recordLearningEvent(learningEvent);
+    }
   };
 
   return (
