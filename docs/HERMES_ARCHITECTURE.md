@@ -122,7 +122,7 @@ Business logic lives under `lib/` as pure(ish) functions returning typed results
 | Hermes Score | `hermes-score-engine.ts` | Product composite (currently often mirrors TQ) |
 | Smart Chart Intelligence v2 | `smart-chart-intelligence.ts` | Top 3–5 chart annotations, market story timeline, confidence history (chart teaching only) |
 | Session Intelligence v1 | `session-intelligence/` | How today's session is evolving (phase, health, opportunity, story, sessionClarity) — chart overlay only; not product Confidence |
-| Market Data Foundation (Steps A–D) | `lib/market-data/` + `paper-trading-market-authority.ts` | Quotes/candles + quality awareness; paper fills gated on Fixture/Live/Delayed marks only |
+| Market Data Foundation (Steps A–E) | `lib/market-data/` (+ `consumers.ts`, `paper-trading-market-authority.ts`) | Shared service consumers; quality awareness; paper authority; cross-surface mark consistency |
 | Live intelligence | `hermes-live-engine.ts` | Live mentor snapshot |
 | Confidence (live) | `confidence-engine.ts` | Weighted live confidence snapshot |
 | Symbol analysis | `symbol-analysis-engine.ts` | Per-symbol workspace analysis |

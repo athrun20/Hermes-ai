@@ -1,5 +1,5 @@
 import type { ChartDrawing, ChartTradeLevels } from "@/lib/chart-types";
-import type { AssetQuote } from "@/lib/market-data";
+import type { AssetQuote, Candle } from "@/lib/market-data";
 import type { WorkspaceTimeframe } from "@/lib/market-universe";
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
 import {
@@ -23,6 +23,7 @@ export function analyzeMultiTimeframeIntelligence({
   traderMemory,
   traderDna,
   dailyGoal,
+  candlesByTimeframe,
 }: {
   quote: AssetQuote;
   activeTimeframe: WorkspaceTimeframe;
@@ -31,6 +32,8 @@ export function analyzeMultiTimeframeIntelligence({
   traderMemory: HermesMemorySnapshot;
   traderDna: string;
   dailyGoal: string;
+  /** Step E: MarketDataService-backed candles per TF (shared with workspace). */
+  candlesByTimeframe?: Partial<Record<WorkspaceTimeframe, Candle[]>>;
 }): MultiTimeframeIntelligence {
   const rows = buildTimeframeContexts({
     quote,
@@ -38,6 +41,7 @@ export function analyzeMultiTimeframeIntelligence({
     tradeLevels,
     traderDna,
     dailyGoal,
+    candlesByTimeframe,
   }).map(({ timeframe, context }) => analyzeTimeframe({ timeframe, context }));
   const alignmentScore = calculateTimeframeAlignmentScore(rows);
   const pattern = detectAlignmentPattern(rows);

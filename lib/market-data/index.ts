@@ -130,6 +130,29 @@ export {
   dataQualityTone,
 } from "@/lib/market-data/data-quality-awareness";
 
+export type {
+  HermesMarketQuotesSnapshot,
+  HermesTimeframeCandleEntry,
+  HermesTimeframeCandleMap,
+  HermesTickerMarketRef,
+  HermesMarketConsistencyReport,
+  LoadHermesMarketQuotesArgs,
+  LoadHermesTimeframeCandlesArgs,
+} from "@/lib/market-data/consumers";
+
+export {
+  HERMES_MULTI_TIMEFRAMES,
+  loadHermesMarketQuotesSnapshot,
+  loadHermesTimeframeCandleMap,
+  timeframeCandlesFromMap,
+  buildPriceMapFromQuotes,
+  resolveQuoteFromSnapshot,
+  buildMarketConsistencyReport,
+  marksAreConsistent,
+  createHermesMarketDataService,
+  qualityFromSnapshot,
+} from "@/lib/market-data/consumers";
+
 // ── Legacy surface (engines still use AssetQuote / Candle contracts) ──────
 export type {
   AssetQuote,

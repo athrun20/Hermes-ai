@@ -1,4 +1,8 @@
-export { buildOpportunityScanner } from "@/lib/opportunity-engine";
+export {
+  buildOpportunityScanner,
+  type OpportunityScannerWithMarketConsistency,
+  type OpportunityEngineInput,
+} from "@/lib/opportunity-engine";
 export { mockMarketDataProvider } from "@/lib/opportunity-market-data";
 export { ruleBasedConfidenceEngine } from "@/lib/opportunity-confidence-engine";
 export { ruleBasedLessonGenerator } from "@/lib/opportunity-lesson-generator";

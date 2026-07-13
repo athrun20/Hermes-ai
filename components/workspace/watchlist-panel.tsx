@@ -1,21 +1,36 @@
 "use client";
 
 import { X } from "lucide-react";
-import { formatCurrency, formatPercent, type CoinSymbol } from "@/lib/market-data";
+import {
+  formatCurrency,
+  formatPercent,
+  type AssetQuote,
+  type CoinSymbol,
+} from "@/lib/market-data";
 import { getMarketAsset } from "@/lib/market-universe";
 import { Panel, PanelHeader, StatusPill } from "@/components/ui";
+import { useMemo } from "react";
 
 export function WorkspaceWatchlistPanel({
   symbols,
   selectedSymbol,
   onSelect,
   onRemove,
+  quotes,
 }: {
   symbols: CoinSymbol[];
   selectedSymbol: CoinSymbol;
   onSelect: (symbol: CoinSymbol) => void;
   onRemove: (symbol: CoinSymbol) => void;
+  /** Step E: service-backed quotes for mark consistency with workspace. */
+  quotes?: AssetQuote[];
 }) {
+  const quoteBySymbol = useMemo(() => {
+    const map = new Map<string, AssetQuote>();
+    for (const quote of quotes ?? []) map.set(quote.symbol, quote);
+    return map;
+  }, [quotes]);
+
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
@@ -25,7 +40,11 @@ export function WorkspaceWatchlistPanel({
       />
       <div className="divide-y divide-white/10">
         {symbols.map((symbol) => {
-          const asset = getMarketAsset(symbol);
+          const catalog = getMarketAsset(symbol);
+          const live = quoteBySymbol.get(symbol);
+          const asset = live
+            ? { ...catalog, price: live.price, change24h: live.change24h }
+            : catalog;
           const selected = selectedSymbol === symbol;
           return (
             <div

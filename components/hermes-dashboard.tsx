@@ -14,12 +14,15 @@ import { type TradeTicket } from "@/components/trade-controls";
 import {
   analyzeMarket,
   createPendingWorkspaceDataQuality,
+  loadHermesMarketQuotesSnapshot,
+  loadHermesTimeframeCandleMap,
   loadWorkspaceMarketSeries,
-  loadWorkspaceQuotes,
   notifyWorkspaceSelectionChanged,
+  timeframeCandlesFromMap,
   type AssetQuote,
   type Candle,
   type CoinSymbol,
+  type HermesMarketQuotesSnapshot,
   type Timeframe,
   type WorkspaceDataQuality,
 } from "@/lib/market-data";
@@ -27,6 +30,7 @@ import {
   defaultWorkspaceWatchlist,
   getMarketAsset,
   marketUniverse,
+  type WorkspaceTimeframe,
 } from "@/lib/market-universe";
 import { analyzeWorkspaceSymbol, quoteToOpportunityInputs } from "@/lib/symbol-analysis-engine";
 import { buildHermesVisionContext } from "@/lib/chart-context-builder";
@@ -105,6 +109,13 @@ export function HermesDashboard() {
     useState<WorkspaceDataQuality>(() =>
       createPendingWorkspaceDataQuality("BTC", "1H"),
     );
+  /** Step E: MarketDataService candles for multi-timeframe (shared authority). */
+  const [mtfCandlesByTimeframe, setMtfCandlesByTimeframe] = useState<
+    Partial<Record<WorkspaceTimeframe, Candle[]>>
+  >({});
+  /** Step E: shared quote snapshot for paper marks + briefing consistency. */
+  const [marketSnapshot, setMarketSnapshot] =
+    useState<HermesMarketQuotesSnapshot | null>(null);
   const [cash, setCash] = useState(STARTING_BALANCE);
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [history, setHistory] = useState<ClosedTrade[]>([]);
@@ -151,11 +162,10 @@ export function HermesDashboard() {
   // Workspace quote catalog via MarketDataService (fixture default; live opt-in).
   useEffect(() => {
     let cancelled = false;
-    void loadWorkspaceQuotes({
-      symbols: marketUniverse.map((asset) => asset.symbol),
-    }).then((result) => {
-      if (cancelled || result.quotes.length === 0) return;
-      setQuotes(result.quotes);
+    void loadHermesMarketQuotesSnapshot().then((snapshot) => {
+      if (cancelled || snapshot.quotes.length === 0) return;
+      setMarketSnapshot(snapshot);
+      setQuotes(snapshot.quotes);
     });
     return () => {
       cancelled = true;
@@ -189,6 +199,18 @@ export function HermesDashboard() {
       cancelled = true;
     };
   }, [selectedSymbol, timeframe]);
+
+  // Multi-timeframe candle bundle through the same MarketDataService (Step E).
+  useEffect(() => {
+    let cancelled = false;
+    void loadHermesTimeframeCandleMap({ symbol: selectedSymbol }).then((map) => {
+      if (cancelled) return;
+      setMtfCandlesByTimeframe(timeframeCandlesFromMap(map));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSymbol]);
 
   const analysis = useMemo(
     () => analyzeMarket(selectedQuote, candles),
@@ -323,8 +345,13 @@ export function HermesDashboard() {
     [brainHabits, brainRisk],
   );
   const morningBriefing = useMemo(
-    () => buildMorningBriefing({ memory: hermesMemorySnapshot, history }),
-    [hermesMemorySnapshot, history],
+    () =>
+      buildMorningBriefing({
+        memory: hermesMemorySnapshot,
+        history,
+        marketSnapshot,
+      }),
+    [hermesMemorySnapshot, history, marketSnapshot],
   );
   const hermesVisionContext = useMemo<HermesVisionContext>(
     () =>
@@ -361,11 +388,13 @@ export function HermesDashboard() {
         traderMemory: hermesMemorySnapshot,
         traderDna: memoryTradingPersonality.archetype,
         dailyGoal: morningBriefing.dailyGoal.text,
+        candlesByTimeframe: mtfCandlesByTimeframe,
       }),
     [
       hermesMemorySnapshot,
       memoryTradingPersonality.archetype,
       morningBriefing.dailyGoal.text,
+      mtfCandlesByTimeframe,
       selectedChartDrawings,
       selectedChartTradeLevels,
       selectedQuote,
@@ -1374,6 +1403,7 @@ export function HermesDashboard() {
                   onAdd={addToWatchlist}
                   onRemove={removeFromWatchlist}
                   onSelect={selectWorkspaceSymbol}
+                  quotes={quotes}
                   selectedSymbol={selectedSymbol}
                   symbols={watchlistSymbols}
                 />

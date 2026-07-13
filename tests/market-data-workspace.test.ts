@@ -163,7 +163,7 @@ test("dashboard wires through workspace helper, not providers or CoinGecko", asy
     "utf8",
   );
   assert.match(dash, /loadWorkspaceMarketSeries/);
-  assert.match(dash, /loadWorkspaceQuotes/);
+  assert.match(dash, /loadHermesMarketQuotesSnapshot|loadWorkspaceQuotes/);
   assert.doesNotMatch(dash, /CryptoMarketDataProvider|api\.coingecko|coingecko\.com/i);
   assert.doesNotMatch(dash, /createCryptoMarketDataProvider|FixtureMarketDataProvider/);
   // Direct mock builder no longer owns the workspace candle path.

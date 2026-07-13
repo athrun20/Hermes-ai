@@ -1,4 +1,9 @@
 import type { HermesMemorySnapshot } from "@/lib/hermes-memory";
+import {
+  buildMarketConsistencyReport,
+  type HermesMarketConsistencyReport,
+  type HermesMarketQuotesSnapshot,
+} from "@/lib/market-data/consumers";
 import { ruleBasedConfidenceEngine } from "@/lib/opportunity-confidence-engine";
 import { ruleBasedLessonGenerator } from "@/lib/opportunity-lesson-generator";
 import { mockMarketDataProvider } from "@/lib/opportunity-market-data";
@@ -26,6 +31,15 @@ export type OpportunityEngineDependencies = {
 export type OpportunityEngineInput = {
   memory?: HermesMemorySnapshot;
   dependencies?: Partial<OpportunityEngineDependencies>;
+  /**
+   * Step E: shared MarketDataService quote snapshot.
+   * Attaches consistency metadata only — does not change opportunity scores.
+   */
+  marketSnapshot?: HermesMarketQuotesSnapshot | null;
+};
+
+export type OpportunityScannerWithMarketConsistency = OpportunityScannerResult & {
+  marketConsistency: HermesMarketConsistencyReport;
 };
 
 const defaultDependencies: OpportunityEngineDependencies = {
@@ -38,7 +52,8 @@ const defaultDependencies: OpportunityEngineDependencies = {
 export function buildOpportunityScanner({
   memory,
   dependencies = {},
-}: OpportunityEngineInput = {}): OpportunityScannerResult {
+  marketSnapshot = null,
+}: OpportunityEngineInput = {}): OpportunityScannerWithMarketConsistency {
   const services = {
     ...defaultDependencies,
     ...dependencies,
@@ -92,6 +107,11 @@ export function buildOpportunityScanner({
     } satisfies OpportunityStudy;
   }).sort((a, b) => b.strategyScore - a.strategyScore || b.confidence - a.confidence);
 
+  const marketConsistency = buildMarketConsistencyReport(
+    opportunities.map((item) => item.ticker),
+    marketSnapshot,
+  );
+
   return {
     summary: buildScannerSummary({
       opportunities,
@@ -100,6 +120,7 @@ export function buildOpportunityScanner({
     pipeline: services.marketDataProvider.getPipelineStats(),
     marketMood: services.marketDataProvider.getMarketMood(),
     opportunities,
+    marketConsistency,
   };
 }
 

@@ -526,7 +526,10 @@ test("dashboard does not call providers or CoinGecko directly (Step B)", async (
     "utf8",
   );
   // Step B: workspace helper only — no provider / env flag plumbing in the component.
-  assert.match(dash, /loadWorkspaceMarketSeries|loadWorkspaceQuotes/);
+  assert.match(
+    dash,
+    /loadWorkspaceMarketSeries|loadWorkspaceQuotes|loadHermesMarketQuotesSnapshot/,
+  );
   assert.match(dash, /marketUniverse/);
   assert.doesNotMatch(dash, /CryptoMarketDataProvider|api\.coingecko|coingecko\.com/i);
   assert.doesNotMatch(dash, /createCryptoMarketDataProvider|FixtureMarketDataProvider/);

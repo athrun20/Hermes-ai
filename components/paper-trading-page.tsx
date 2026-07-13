@@ -8,8 +8,13 @@ import { PerformanceDashboard } from "@/components/performance-dashboard";
 import { TopNav } from "@/components/top-nav";
 import { TradeHistory } from "@/components/trade-history";
 import { TradeJournal } from "@/components/trade-journal";
-import { formatCurrency, type CoinSymbol } from "@/lib/market-data";
-import { marketUniverse } from "@/lib/market-universe";
+import {
+  formatCurrency,
+  loadHermesMarketQuotesSnapshot,
+  qualityFromSnapshot,
+  type CoinSymbol,
+  type HermesMarketQuotesSnapshot,
+} from "@/lib/market-data";
 import { defaultJournalEntries, defaultPersistedState, loadHermesState, saveHermesState } from "@/lib/local-persistence";
 import {
   DEFAULT_SETTINGS,
@@ -22,6 +27,7 @@ import {
   type PaperPosition,
   type PaperSettings,
 } from "@/lib/paper-trading";
+import { evaluatePaperMarketDataAuthority } from "@/lib/paper-trading-market-authority";
 import { paperTradeToLearningEvent, recordLearningEvent } from "@/lib/learning-engine";
 import { PageHeader, PageShell, Panel, PanelHeader, StatusPill } from "@/components/ui";
 
@@ -34,14 +40,24 @@ export function PaperTradingPage() {
   const [selectedSymbol, setSelectedSymbol] = useState<CoinSymbol>("BTC");
   const [timeframe, setTimeframe] = useState(defaultPersistedState.timeframe);
   const [restored, setRestored] = useState(false);
+  /** Step E: shared MarketDataService quotes (same authority as workspace). */
+  const [marketSnapshot, setMarketSnapshot] =
+    useState<HermesMarketQuotesSnapshot | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadHermesMarketQuotesSnapshot().then((snapshot) => {
+      if (!cancelled) setMarketSnapshot(snapshot);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const priceMap = useMemo(
-    () =>
-      marketUniverse.reduce<Partial<Record<CoinSymbol, number>>>((prices, quote) => {
-        prices[quote.symbol] = quote.price;
-        return prices;
-      }, {}),
-    [],
+    () => marketSnapshot?.priceMap ?? {},
+    [marketSnapshot],
   );
   const portfolio = useMemo(
     () => buildPortfolioSnapshot({ cash, positions, prices: priceMap, history }),
@@ -86,11 +102,28 @@ export function PaperTradingPage() {
   const closePaperPosition = (positionId: string) => {
     const position = positions.find((item) => item.id === positionId);
     if (!position) return;
-    const exitPrice = priceMap[position.symbol] ?? position.entryPrice;
+    const markPrice = priceMap[position.symbol] ?? position.entryPrice;
+    const dataQuality = qualityFromSnapshot(
+      marketSnapshot,
+      position.symbol,
+      timeframe,
+    );
+    const authority = evaluatePaperMarketDataAuthority({
+      symbol: position.symbol,
+      price: markPrice,
+      dataQuality,
+      purpose: "close",
+    });
+    if (!authority.allowed || authority.fillPrice == null) {
+      setStatusMessage(authority.message);
+      return;
+    }
+    const exitPrice = authority.fillPrice;
     const closed = closePosition(position, exitPrice);
     setPositions((current) => current.filter((item) => item.id !== positionId));
     setCash((current) => current + position.notional + closed.pnl);
     setHistory((current) => [closed, ...current]);
+    setStatusMessage(undefined);
     // Learning Engine (silent): never blocks paper close on storage failure
     {
       const learningEvent = paperTradeToLearningEvent(closed, {
@@ -115,6 +148,10 @@ export function PaperTradingPage() {
             </StatusPill>
           }
         />
+
+        {statusMessage ? (
+          <p className="text-sm text-amberline">{statusMessage}</p>
+        ) : null}
 
         <PaperPortfolio snapshot={portfolio} />
         <OpenPositions positions={positions} prices={priceMap} onClose={closePaperPosition} />

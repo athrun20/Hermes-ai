@@ -8,7 +8,8 @@ Provider-neutral market-data layer for Hermes.
 | **B** — Main workspace read path via `MarketDataService` | Done |
 | **C** — Data quality awareness metadata + minimal workspace UI | Done |
 | **D** — Paper trading market-data authority (refuse invalid marks) | Done |
-| **E+** — Score caution hooks, satellite surfaces, per-symbol quality | Not started |
+| **E** — Market data consistency across Hermes surfaces | Done |
+| **F+** — Score caution hooks, per-symbol quality map, shadow scripts | Not started |
 
 ## Goals
 
@@ -39,6 +40,7 @@ lib/market-data/
   adapters-compat.ts
   workspace.ts                 # Step B: dashboard read-path helper
   data-quality-awareness.ts    # Step C: WorkspaceDataQuality builder
+  consumers.ts                 # Step E: shared surface loaders + consistency
   legacy.ts
   index.ts
 ```
@@ -159,3 +161,31 @@ executePaperTicket / closePaperTrade (selected symbol)
 | Stale / Partial | **Blocked** (not in executable set) |
 
 Scores and Learning Engine are not modified — only whether a paper fill may proceed.
+
+## Consistency (Step E)
+
+Shared consumer API: `lib/market-data/consumers.ts`.
+
+| Loader | Surfaces |
+|--------|----------|
+| `loadHermesMarketQuotesSnapshot` | Dashboard quotes, paper marks, scanner/briefing join, watchlist prices |
+| `loadHermesTimeframeCandleMap` | Multi-timeframe engine (replaces independent `buildMockWorkspaceCandles`) |
+| `buildMarketConsistencyReport` | Scanner + morning briefing ticker ↔ Hermes universe join |
+
+```
+All eligible surfaces
+  → consumers (MarketDataService)
+  → same mark for same symbol
+  → WorkspaceDataQuality / consistency metadata available
+```
+
+**Does not** change Confidence, Trade Readiness, Trade Quality, Hermes Score, Learning Engine, or Smart Chart formulas.
+
+### Remaining legacy / non-product paths
+
+| Path | Status |
+|------|--------|
+| `marketUniverse` catalog / search metadata | Still used for symbol discovery + assetType labels |
+| `buildMockWorkspaceCandles` | Offline tools only (e.g. `scripts/run-shadow-validation.ts`); not workspace MTF |
+| Opportunity **study candidates** (setups/mood) | Still fixture study scenarios; **prices** for overlapping Hermes tickers join via snapshot |
+| Replay page briefing | May call `buildMorningBriefing` without snapshot (metadata empty until load) |

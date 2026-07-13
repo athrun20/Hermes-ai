@@ -5,6 +5,10 @@ import { MarketMood } from "@/components/opportunity-scanner/market-mood";
 import { OpportunityCard } from "@/components/opportunity-scanner/opportunity-card";
 import { OpportunitySummaryCards } from "@/components/opportunity-scanner/summary-cards";
 import { QualityPipeline } from "@/components/opportunity-scanner/quality-pipeline";
+import {
+  loadHermesMarketQuotesSnapshot,
+  type HermesMarketQuotesSnapshot,
+} from "@/lib/market-data";
 import { buildOpportunityScanner } from "@/lib/opportunity-scanner";
 import { getHermesMemory, type HermesMemorySnapshot } from "@/lib/hermes-memory";
 import { TopNav } from "./top-nav";
@@ -12,12 +16,24 @@ import { PageHeader, PageShell } from "@/components/ui";
 
 export function OpportunityScannerPage() {
   const [memory, setMemory] = useState<HermesMemorySnapshot | undefined>();
+  const [marketSnapshot, setMarketSnapshot] =
+    useState<HermesMarketQuotesSnapshot | null>(null);
 
   useEffect(() => {
     setMemory(getHermesMemory());
+    let cancelled = false;
+    void loadHermesMarketQuotesSnapshot().then((snapshot) => {
+      if (!cancelled) setMarketSnapshot(snapshot);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const scanner = useMemo(() => buildOpportunityScanner({ memory }), [memory]);
+  const scanner = useMemo(
+    () => buildOpportunityScanner({ memory, marketSnapshot }),
+    [marketSnapshot, memory],
+  );
 
   return (
     <main>

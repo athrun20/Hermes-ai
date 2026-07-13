@@ -1,20 +1,33 @@
 "use client";
 
 import { Search, Plus } from "lucide-react";
-import { formatCurrency, formatPercent, type CoinSymbol } from "@/lib/market-data";
-import { searchMarketAssets, type MarketAsset } from "@/lib/market-universe";
+import {
+  formatCurrency,
+  formatPercent,
+  type AssetQuote,
+  type CoinSymbol,
+} from "@/lib/market-data";
+import {
+  getMarketAsset,
+  searchMarketAssets,
+  type MarketAsset,
+} from "@/lib/market-universe";
 import { Panel, PanelHeader, StatusPill } from "@/components/ui";
 import { useMemo, useState } from "react";
 
 export function MarketSearch({
   onSelect,
   onAdd,
+  quotes,
 }: {
   onSelect: (symbol: CoinSymbol) => void;
   onAdd: (symbol: CoinSymbol) => void;
+  /** Step E: service-backed quotes for consistent marks. */
+  quotes?: AssetQuote[];
 }) {
   const [query, setQuery] = useState("");
   const results = useMemo(() => searchMarketAssets(query), [query]);
+  const quoteBySymbol = useMemo(() => indexQuotes(quotes), [quotes]);
 
   return (
     <Panel>
@@ -32,7 +45,7 @@ export function MarketSearch({
         <div className="mt-3 grid gap-2">
           {results.map((asset) => (
             <SearchResult
-              asset={asset}
+              asset={mergeAssetQuote(asset, quoteBySymbol.get(asset.symbol))}
               key={asset.symbol}
               onAdd={() => onAdd(asset.symbol)}
               onSelect={() => onSelect(asset.symbol)}
@@ -50,16 +63,23 @@ export function WorkspaceMarketsPanel({
   onSelect,
   onAdd,
   onRemove,
+  quotes,
 }: {
   symbols: CoinSymbol[];
   selectedSymbol: CoinSymbol;
   onSelect: (symbol: CoinSymbol) => void;
   onAdd: (symbol: CoinSymbol) => void;
   onRemove: (symbol: CoinSymbol) => void;
+  /** Step E: MarketDataService-backed quotes (same as workspace priceMap). */
+  quotes?: AssetQuote[];
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const results = useMemo(() => searchMarketAssets(query).slice(0, 6), [query]);
+  const quoteBySymbol = useMemo(() => indexQuotes(quotes), [quotes]);
+  const results = useMemo(() => {
+    const base = searchMarketAssets(query).slice(0, 6);
+    return base.map((asset) => mergeAssetQuote(asset, quoteBySymbol.get(asset.symbol)));
+  }, [query, quoteBySymbol]);
 
   const selectSymbol = (symbol: CoinSymbol) => {
     onAdd(symbol);
@@ -132,7 +152,8 @@ export function WorkspaceMarketsPanel({
         </div>
         <div className="space-y-1.5">
           {symbols.map((symbol) => {
-            const asset = searchMarketAssets(symbol)[0];
+            const catalog = getMarketAsset(symbol);
+            const asset = mergeAssetQuote(catalog, quoteBySymbol.get(symbol));
             const selected = selectedSymbol === symbol;
             return (
               <div
@@ -171,6 +192,27 @@ export function WorkspaceMarketsPanel({
       </div>
     </Panel>
   );
+}
+
+function indexQuotes(quotes?: AssetQuote[]) {
+  const map = new Map<string, AssetQuote>();
+  for (const quote of quotes ?? []) {
+    map.set(quote.symbol, quote);
+  }
+  return map;
+}
+
+function mergeAssetQuote(
+  asset: MarketAsset,
+  quote?: AssetQuote,
+): MarketAsset {
+  if (!quote) return asset;
+  return {
+    ...asset,
+    price: quote.price,
+    change24h: quote.change24h,
+    lastUpdated: quote.lastUpdated,
+  };
 }
 
 function SearchResult({

@@ -3,6 +3,10 @@ import {
   buildHermesIntelligenceLayer,
   type HermesIntelligenceLayer,
 } from "@/lib/hermes-intelligence-layer";
+import type {
+  HermesMarketConsistencyReport,
+  HermesMarketQuotesSnapshot,
+} from "@/lib/market-data/consumers";
 import { buildOpportunityScanner } from "@/lib/opportunity-scanner";
 import type { ClosedTrade } from "@/lib/paper-trading";
 import type { LivingScroll } from "@/components/living-scroll-modal";
@@ -47,16 +51,21 @@ export type MorningBriefing = {
     nextLevel: number;
   };
   intelligence: HermesIntelligenceLayer;
+  /** Step E: shared market-data join for opportunity tickers (metadata only). */
+  marketConsistency: HermesMarketConsistencyReport;
 };
 
 export function buildMorningBriefing({
   memory,
   history = [],
+  marketSnapshot = null,
 }: {
   memory?: HermesMemorySnapshot;
   history?: ClosedTrade[];
+  /** Shared MarketDataService snapshot — does not change briefing scores. */
+  marketSnapshot?: HermesMarketQuotesSnapshot | null;
 } = {}): MorningBriefing {
-  const scanner = buildOpportunityScanner({ memory });
+  const scanner = buildOpportunityScanner({ memory, marketSnapshot });
   const traderDna = buildTraderDnaBrief(memory);
   const biggestRisk = detectBiggestRisk(memory);
   const dailyGoal = buildDailyGoal({ memory, biggestRisk });
@@ -96,6 +105,7 @@ export function buildMorningBriefing({
       nextLevel: 200,
     },
     intelligence,
+    marketConsistency: scanner.marketConsistency,
   };
 }
 

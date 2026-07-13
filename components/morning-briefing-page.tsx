@@ -19,6 +19,10 @@ import {
   type WeeklyLearningBriefLines,
 } from "@/lib/learning-engine/coach-integration";
 import { loadHermesState } from "@/lib/local-persistence";
+import {
+  loadHermesMarketQuotesSnapshot,
+  type HermesMarketQuotesSnapshot,
+} from "@/lib/market-data";
 import { buildMorningBriefing } from "@/lib/morning-briefing";
 import type { ClosedTrade } from "@/lib/paper-trading";
 import { TopNav } from "./top-nav";
@@ -30,17 +34,26 @@ export function MorningBriefingPage() {
   const [history, setHistory] = useState<ClosedTrade[]>([]);
   /** Compact Learning Engine weekly lines — existing interpretation grid only. */
   const [weeklyLearning, setWeeklyLearning] = useState<WeeklyLearningBriefLines | null>(null);
+  const [marketSnapshot, setMarketSnapshot] =
+    useState<HermesMarketQuotesSnapshot | null>(null);
 
   useEffect(() => {
     setMemory(getHermesMemory());
     setHistory(loadHermesState()?.history ?? []);
     // Failure-isolated: never blocks briefing if learning memory fails.
     setWeeklyLearning(getWeeklyLearningBriefLinesSafe());
+    let cancelled = false;
+    void loadHermesMarketQuotesSnapshot().then((snapshot) => {
+      if (!cancelled) setMarketSnapshot(snapshot);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const briefing = useMemo(
-    () => buildMorningBriefing({ memory, history }),
-    [history, memory],
+    () => buildMorningBriefing({ memory, history, marketSnapshot }),
+    [history, marketSnapshot, memory],
   );
   const steps = useMemo<GuidedBriefingStep[]>(
     () => [
