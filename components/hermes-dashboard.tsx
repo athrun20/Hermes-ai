@@ -92,6 +92,7 @@ import {
   type PaperPosition,
   type PaperSettings,
 } from "@/lib/paper-trading";
+import { evaluatePaperMarketDataAuthority } from "@/lib/paper-trading-market-authority";
 
 export function HermesDashboard() {
   // Quotes/candles load through MarketDataService (Step B). Fixture is default.
@@ -898,6 +899,19 @@ export function HermesDashboard() {
         return "Enter a valid paper position size.";
       }
 
+      const isClose = ticket.action === "Sell" || ticket.action === "Cover";
+      const markPrice = priceMap[selectedQuote.symbol] ?? selectedQuote.price;
+      const authority = evaluatePaperMarketDataAuthority({
+        symbol: selectedQuote.symbol,
+        price: markPrice,
+        dataQuality: workspaceDataQuality,
+        purpose: isClose ? "close" : "open",
+      });
+      if (!authority.allowed || authority.fillPrice == null) {
+        return authority.message;
+      }
+      const fillPrice = authority.fillPrice;
+
       if (ticket.action === "Sell" || ticket.action === "Cover") {
         const sideToClose = ticket.action === "Sell" ? "Long" : "Short";
         const matchingPositions = positions.filter(
@@ -911,7 +925,7 @@ export function HermesDashboard() {
             : "No open short position to cover.";
         }
 
-        const exitPrice = priceMap[selectedQuote.symbol] ?? selectedQuote.price;
+        const exitPrice = fillPrice;
         let remainingNotional = ticket.notional;
         let cashReturned = 0;
         const closedTrades: ClosedTrade[] = [];
@@ -986,8 +1000,8 @@ export function HermesDashboard() {
         id: createBrowserSafeId(),
         symbol: selectedQuote.symbol,
         side: ticket.action === "Short" ? "Short" : "Long",
-        entryPrice: selectedQuote.price,
-        quantity: ticket.notional / selectedQuote.price,
+        entryPrice: fillPrice,
+        quantity: ticket.notional / fillPrice,
         notional: ticket.notional,
         stopLoss: ticket.stopLoss,
         takeProfit: ticket.takeProfit,
@@ -998,7 +1012,14 @@ export function HermesDashboard() {
       setCash((current) => current - ticket.notional);
       return undefined;
     },
-    [portfolio.buyingPower, positions, priceMap, selectedQuote],
+    [
+      portfolio.buyingPower,
+      positions,
+      priceMap,
+      selectedQuote,
+      timeframe,
+      workspaceDataQuality,
+    ],
   );
 
   const handlePaperTicket = useCallback((ticket: TradeTicket) => {
@@ -1187,7 +1208,29 @@ export function HermesDashboard() {
         return;
       }
 
-      const exitPrice = priceMap[position.symbol] ?? position.entryPrice;
+      const markPrice = priceMap[position.symbol] ?? position.entryPrice;
+      let exitPrice = markPrice;
+      // Full quality authority when closing the selected workspace symbol.
+      // Other symbols only require a valid mark until per-symbol quality is tracked.
+      if (position.symbol === selectedSymbol) {
+        const authority = evaluatePaperMarketDataAuthority({
+          symbol: position.symbol,
+          price: markPrice,
+          dataQuality: workspaceDataQuality,
+          purpose: "close",
+        });
+        if (!authority.allowed || authority.fillPrice == null) {
+          setTradePlanMessage(authority.message);
+          return;
+        }
+        exitPrice = authority.fillPrice;
+      } else if (!Number.isFinite(markPrice) || markPrice <= 0) {
+        setTradePlanMessage(
+          "Hermes cannot execute this paper trade. What failed: Exit mark is invalid. Why: No finite positive price for this position. What is needed: A valid fixture or live/delayed quote.",
+        );
+        return;
+      }
+
       const closed = closePosition(position, exitPrice);
       updateHermesMemory(closed);
       setPositions((current) => current.filter((item) => item.id !== positionId));
@@ -1212,7 +1255,15 @@ export function HermesDashboard() {
         },
       });
     },
-    [hermesMemorySnapshot.scores.discipline, morningBriefing, positions, priceMap, timeframe],
+    [
+      hermesMemorySnapshot.scores.discipline,
+      morningBriefing,
+      positions,
+      priceMap,
+      selectedSymbol,
+      timeframe,
+      workspaceDataQuality,
+    ],
   );
 
   const resetPaperAccount = useCallback(() => {

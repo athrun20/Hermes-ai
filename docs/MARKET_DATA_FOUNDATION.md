@@ -7,7 +7,8 @@ Provider-neutral market-data layer for Hermes.
 | **A** — Contracts, providers, service, API proxies, tests | Done |
 | **B** — Main workspace read path via `MarketDataService` | Done |
 | **C** — Data quality awareness metadata + minimal workspace UI | Done |
-| **D+** — Paper refuse-order, score caution hooks, satellite surfaces | Not started |
+| **D** — Paper trading market-data authority (refuse invalid marks) | Done |
+| **E+** — Score caution hooks, satellite surfaces, per-symbol quality | Not started |
 
 ## Goals
 
@@ -132,10 +133,29 @@ loadWorkspaceMarketSeries
 | `limitations` / `summary` | Honest caveats for UI / future mentor copy |
 | `isFixture`, `isDelayed`, `isLive`, `isUnavailable`, `timeframeUnsupported` | Booleans for future layers |
 
-**Does not** change Confidence, Trade Readiness, Trade Quality, Hermes Score, paper trading, or Learning Engine formulas.
+**Does not** change Confidence, Trade Readiness, Trade Quality, Hermes Score, or Learning Engine formulas.
 
 UI: compact chart-header indicator (status pill + source + summary tooltip/line). No redesign.
 
-## Paper trading
+## Paper trading (Step D)
 
-**Unchanged** in Steps B–C. Future unavailable-price refuse-order rule is approved but not wired.
+Paper fills go through `evaluatePaperMarketDataAuthority` (`lib/paper-trading-market-authority.ts`) before open/close/reduce on the main workspace.
+
+```
+executePaperTicket / closePaperTrade (selected symbol)
+  → evaluatePaperMarketDataAuthority({ price, workspaceDataQuality })
+  → allowed? fill at authority.fillPrice
+  → blocked? Hermes coach message (what / why / what is needed)
+```
+
+| Mark quality | Paper execution |
+|--------------|-----------------|
+| Fixture | Allowed (practice default) |
+| Live / Delayed | Allowed when price finite & > 0 |
+| Unavailable | **Blocked** |
+| Unsupported TF (live 1m–30m crypto) | **Blocked** |
+| Missing quality snapshot | **Blocked** |
+| Invalid / non-positive price | **Blocked** |
+| Stale / Partial | **Blocked** (not in executable set) |
+
+Scores and Learning Engine are not modified — only whether a paper fill may proceed.
