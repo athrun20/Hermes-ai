@@ -811,6 +811,79 @@ export function HermesDashboard() {
     tradeQuality,
   ]);
 
+  /**
+   * Intelligence v3 Shadow Mode (Phase 1 — silent observer only).
+   * Requires reasoning + trade quality + workspace data quality.
+   * Dynamic import keeps failures isolated; never renders or feeds product path.
+   */
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV === "production" &&
+      process.env.NEXT_PUBLIC_HERMES_INTELLIGENCE_V3_SHADOW !== "1"
+    ) {
+      return;
+    }
+
+    // Gate: only after product intelligence + market quality are available.
+    if (!hermesReasoning || !tradeQuality || !workspaceDataQuality) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void import("@/lib/intelligence-v3/shadow-mode")
+      .then((shadow) => {
+        if (cancelled || !shadow.isIntelligenceV3ShadowEnabled()) return;
+        shadow.runIntelligenceV3Shadow({
+          symbol: selectedSymbol,
+          timeframe,
+          confidence: {
+            score: hermesReasoning.confidenceScore,
+            thesisSummary: hermesReasoning.reasoningSummary,
+          },
+          tradeReadiness: {
+            score: hermesReasoning.tradeReadinessScore,
+            state: hermesReasoning.readinessState,
+            blockers: hermesReasoning.readinessBlockers,
+          },
+          tradeQuality: {
+            score: tradeQuality.score,
+            grade: tradeQuality.grade,
+            notes: tradeQuality.improvements,
+          },
+          dataQuality: workspaceDataQuality,
+          multiTimeframe: {
+            alignmentScore: multiTimeframe.alignmentScore,
+            status: multiTimeframe.status,
+            pattern: multiTimeframe.pattern,
+            countertrendWarning: multiTimeframe.countertrendWarning,
+          },
+          analysisContext: {
+            surface: "workspace",
+            mode: "practice",
+          },
+          silent: true,
+        });
+      })
+      .catch(() => {
+        // Isolation: dynamic import or shadow failures must never affect the dashboard.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    hermesReasoning,
+    multiTimeframe.alignmentScore,
+    multiTimeframe.countertrendWarning,
+    multiTimeframe.pattern,
+    multiTimeframe.status,
+    selectedSymbol,
+    timeframe,
+    tradeQuality,
+    workspaceDataQuality,
+  ]);
+
   useEffect(() => {
     const restored = loadHermesState();
     const workspace = loadWorkspaceSettings();
