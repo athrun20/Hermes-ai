@@ -1,6 +1,12 @@
-# Live Market Data Foundation (Step A)
+# Live Market Data Foundation
 
-Provider-neutral market-data layer for Hermes. **Step A only** — not wired to the dashboard.
+Provider-neutral market-data layer for Hermes.
+
+| Step | Status |
+|------|--------|
+| **A** — Contracts, providers, service, API proxies, tests | Done |
+| **B** — Main workspace read path via `MarketDataService` | Done |
+| **C+** — Quality labels UI, paper refuse-order, satellite surfaces | Not started |
 
 ## Goals
 
@@ -29,6 +35,7 @@ lib/market-data/
   policy.ts
   service.ts
   adapters-compat.ts
+  workspace.ts          # Step B: dashboard read-path helper
   legacy.ts
   index.ts
 ```
@@ -37,9 +44,26 @@ lib/market-data/
 
 ```
 HERMES_LIVE_MARKET_DATA=1
+# Client workspace (browser) also accepts:
+NEXT_PUBLIC_HERMES_LIVE_MARKET_DATA=1
 ```
 
-Live crypto remains **opt-in**. Default path is fixture until Steps B–E are approved.
+Live crypto remains **opt-in**. Default path is fixture.
+
+## Step B read path
+
+```
+HermesDashboard
+    → loadWorkspaceQuotes / loadWorkspaceMarketSeries  (lib/market-data/workspace.ts)
+        → MarketDataService
+            → registry (fixture | coingecko)
+        → adapters-compat (MarketQuote/Candle → AssetQuote/Candle)
+    → existing engines (unchanged contracts)
+```
+
+- Engines still consume legacy `AssetQuote` / `Candle`.
+- No provider or CoinGecko calls from React components.
+- Intelligence scores, paper trading, Learning Engine, Session Intelligence: **unchanged authority**.
 
 ## Route Handlers (isolated)
 
@@ -69,7 +93,7 @@ CoinGecko is **not** described as exchange-grade real-time. Fresh CoinGecko quot
 
 | Hermes TF | Phase 1 live |
 |-----------|--------------|
-| 1m–30m | Unsupported |
+| 1m–30m | Unsupported (honest Unavailable — no silent fixture-as-live) |
 | 1H, 4H, 1D | Supported (aggregator) |
 | 1W | Aggregate from daily only |
 
@@ -81,10 +105,13 @@ No coarse-to-fine fabrication. No invented volume.
 - Dev/test fixtures allowed when policy permits.
 - Stocks/ETFs → fixture provider always.
 
-## Dashboard
+## Dashboard (Step B)
 
-**Unchanged.** Workspace still uses `marketUniverse` + `buildMockWorkspaceCandles`.
+Workspace quotes and selected candles load through `loadWorkspaceQuotes` / `loadWorkspaceMarketSeries`.
+
+- Flag **off**: fixture provider (catalog prices from `marketUniverse`).
+- Flag **on**: crypto supported TFs via CoinGecko proxy; stocks/ETFs still fixture; unsupported crypto TFs return honest Unavailable series.
 
 ## Paper trading
 
-**Unchanged** in Step A. Future unavailable-price refuse-order rule is approved but not wired.
+**Unchanged** in Step B. Future unavailable-price refuse-order rule is approved but not wired.

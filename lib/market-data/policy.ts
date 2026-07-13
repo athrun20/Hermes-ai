@@ -8,13 +8,19 @@
 import type { MarketDataRuntimeEnv } from "@/lib/market-data/types";
 
 export const LIVE_MARKET_DATA_ENV_FLAG = "HERMES_LIVE_MARKET_DATA";
+/** Client-visible alias so the browser workspace can opt into live crypto. */
+export const LIVE_MARKET_DATA_PUBLIC_ENV_FLAG =
+  "NEXT_PUBLIC_HERMES_LIVE_MARKET_DATA";
 
 export function isLiveMarketDataEnabled(
   env: MarketDataRuntimeEnv = {},
 ): boolean {
   if (env.liveMarketDataEnabled != null) return env.liveMarketDataEnabled;
   if (typeof process !== "undefined" && process.env) {
-    return process.env[LIVE_MARKET_DATA_ENV_FLAG] === "1";
+    return (
+      process.env[LIVE_MARKET_DATA_ENV_FLAG] === "1" ||
+      process.env[LIVE_MARKET_DATA_PUBLIC_ENV_FLAG] === "1"
+    );
   }
   return false;
 }

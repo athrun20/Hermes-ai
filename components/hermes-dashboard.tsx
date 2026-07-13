@@ -13,13 +13,15 @@ import { PageShell, SegmentedControl, SkeletonLoader } from "@/components/ui";
 import { type TradeTicket } from "@/components/trade-controls";
 import {
   analyzeMarket,
+  loadWorkspaceMarketSeries,
+  loadWorkspaceQuotes,
+  notifyWorkspaceSelectionChanged,
   type AssetQuote,
   type Candle,
   type CoinSymbol,
   type Timeframe,
 } from "@/lib/market-data";
 import {
-  buildMockWorkspaceCandles,
   defaultWorkspaceWatchlist,
   getMarketAsset,
   marketUniverse,
@@ -90,12 +92,11 @@ import {
 } from "@/lib/paper-trading";
 
 export function HermesDashboard() {
-  const [quotes] = useState<AssetQuote[]>(marketUniverse);
+  // Quotes/candles load through MarketDataService (Step B). Fixture is default.
+  const [quotes, setQuotes] = useState<AssetQuote[]>(marketUniverse);
   const [selectedSymbol, setSelectedSymbol] = useState<CoinSymbol>("BTC");
   const [timeframe, setTimeframe] = useState<Timeframe>("1H");
-  const [candles, setCandles] = useState<Candle[]>(() =>
-    buildMockWorkspaceCandles(getMarketAsset("BTC"), "1H"),
-  );
+  const [candles, setCandles] = useState<Candle[]>([]);
   const [cash, setCash] = useState(STARTING_BALANCE);
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [history, setHistory] = useState<ClosedTrade[]>([]);
@@ -139,9 +140,43 @@ export function HermesDashboard() {
     (drawing) => drawing.symbol === selectedSymbol,
   );
 
+  // Workspace quote catalog via MarketDataService (fixture default; live opt-in).
   useEffect(() => {
-    setCandles(buildMockWorkspaceCandles(selectedQuote, timeframe));
-  }, [selectedQuote, timeframe]);
+    let cancelled = false;
+    void loadWorkspaceQuotes({
+      symbols: marketUniverse.map((asset) => asset.symbol),
+    }).then((result) => {
+      if (cancelled || result.quotes.length === 0) return;
+      setQuotes(result.quotes);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Selected symbol/timeframe series via MarketDataService → legacy adapters.
+  useEffect(() => {
+    let cancelled = false;
+    const generation = notifyWorkspaceSelectionChanged();
+    void loadWorkspaceMarketSeries({
+      symbol: selectedSymbol,
+      timeframe,
+      options: { generation },
+    }).then((series) => {
+      if (cancelled) return;
+      setCandles(series.candles);
+      setQuotes((previous) => {
+        const index = previous.findIndex((q) => q.symbol === series.quote.symbol);
+        if (index === -1) return [...previous, series.quote];
+        const next = previous.slice();
+        next[index] = series.quote;
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSymbol, timeframe]);
 
   const analysis = useMemo(
     () => analyzeMarket(selectedQuote, candles),

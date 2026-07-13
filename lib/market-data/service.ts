@@ -1,6 +1,6 @@
 /**
  * Market data service — sole application entry for quotes/candles.
- * Cache, dedupe, policy. Dashboard not wired in Step A.
+ * Cache, dedupe, policy. Workspace read path uses this via workspace.ts (Step B).
  */
 
 import type { MarketDataProvider } from "@/lib/market-data/provider";
@@ -281,7 +281,7 @@ export function createMarketDataService(
   return new MarketDataService(deps);
 }
 
-/** Lazy singleton for future wiring — not used by dashboard in Step A. */
+/** Lazy singleton for workspace / app read paths. */
 let _marketDataService: MarketDataService | null = null;
 export function getMarketDataService(): MarketDataService {
   if (!_marketDataService) _marketDataService = createMarketDataService();

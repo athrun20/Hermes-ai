@@ -520,13 +520,17 @@ test("timeframeIntervalMs known values", () => {
   assert.equal(timeframeIntervalMs("1D"), 86_400_000);
 });
 
-test("no dashboard import of market data service wiring", async () => {
+test("dashboard does not call providers or CoinGecko directly (Step B)", async () => {
   const dash = await fs.promises.readFile(
     path.join(process.cwd(), "components", "hermes-dashboard.tsx"),
     "utf8",
   );
-  assert.doesNotMatch(dash, /createMarketDataService|marketDataService|HERMES_LIVE_MARKET_DATA/);
-  assert.match(dash, /buildMockWorkspaceCandles|marketUniverse/);
+  // Step B: workspace helper only — no provider / env flag plumbing in the component.
+  assert.match(dash, /loadWorkspaceMarketSeries|loadWorkspaceQuotes/);
+  assert.match(dash, /marketUniverse/);
+  assert.doesNotMatch(dash, /CryptoMarketDataProvider|api\.coingecko|coingecko\.com/i);
+  assert.doesNotMatch(dash, /createCryptoMarketDataProvider|FixtureMarketDataProvider/);
+  assert.doesNotMatch(dash, /HERMES_LIVE_MARKET_DATA/);
 });
 
 test("foundation modules do not import paper-trading or intelligence-v2 authority", async () => {

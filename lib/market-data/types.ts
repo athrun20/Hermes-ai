@@ -130,7 +130,7 @@ export type MarketDataRequestOptions = {
 
 /** Environment / policy for routing and fallbacks. */
 export type MarketDataRuntimeEnv = {
-  /** When true, live crypto path is eligible (still not dashboard-wired in Step A). */
+  /** When true, live crypto path is eligible (workspace opt-in via env flags). */
   liveMarketDataEnabled?: boolean;
   /** production | development | test */
   nodeEnv?: string;

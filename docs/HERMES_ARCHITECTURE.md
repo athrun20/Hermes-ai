@@ -122,7 +122,7 @@ Business logic lives under `lib/` as pure(ish) functions returning typed results
 | Hermes Score | `hermes-score-engine.ts` | Product composite (currently often mirrors TQ) |
 | Smart Chart Intelligence v2 | `smart-chart-intelligence.ts` | Top 3–5 chart annotations, market story timeline, confidence history (chart teaching only) |
 | Session Intelligence v1 | `session-intelligence/` | How today's session is evolving (phase, health, opportunity, story, sessionClarity) — chart overlay only; not product Confidence |
-| Market Data Foundation (Step A) | `lib/market-data/` | Provider-neutral quotes/candles contracts, fixture + CoinGecko providers, caches; **not wired to dashboard yet** |
+| Market Data Foundation (Steps A–B) | `lib/market-data/` | Provider-neutral quotes/candles; workspace read path via `workspace.ts` → `MarketDataService` → compat adapters (fixture default; live crypto opt-in) |
 | Live intelligence | `hermes-live-engine.ts` | Live mentor snapshot |
 | Confidence (live) | `confidence-engine.ts` | Weighted live confidence snapshot |
 | Symbol analysis | `symbol-analysis-engine.ts` | Per-symbol workspace analysis |
@@ -305,12 +305,15 @@ All other scores are **secondary diagnostics** unless product ownership is forma
 
 | Data | Source module | Content |
 |------|---------------|---------|
-| Symbol universe / quotes | `lib/market-universe.ts` | Static fixture quotes (crypto + stocks + ETFs) |
-| Workspace candles | `buildMockWorkspaceCandles` / `buildFallbackCandles` in `market-universe.ts` / `market-data.ts` | Deterministic synthetic OHLCV-like series |
-| Optional CoinGecko HTTP helpers | `lib/market-data.ts` (`fetchLiveQuotes`, `fetchMarketCandles`) | Implemented helpers for a subset of crypto IDs |
+| Symbol universe catalog | `lib/market-universe.ts` | Symbol metadata + fixture seed prices |
+| Workspace quotes / candles | `lib/market-data/workspace.ts` → `MarketDataService` | Fixture default; live crypto when `HERMES_LIVE_MARKET_DATA` / `NEXT_PUBLIC_HERMES_LIVE_MARKET_DATA=1` |
+| Compat adapters | `lib/market-data/adapters-compat.ts` | `MarketQuote`/`MarketCandle` → legacy `AssetQuote`/`Candle` for engines |
+| CoinGecko proxies | `app/api/market/*` | Isolated route handlers (React must not call CoinGecko directly) |
 | News | `lib/mock-news-feed.ts` | Curated mock headlines by symbol |
-| Journal seed samples | `lib/market-data.ts` `journal` | Demo journal rows |
+| Journal seed samples | `lib/market-data/legacy.ts` `journal` | Demo journal rows |
 | Paper portfolio | User actions + `paper-trading.ts` | Local session state |
+
+See also: [`MARKET_DATA_FOUNDATION.md`](./MARKET_DATA_FOUNDATION.md).
 
 ---
 
@@ -318,10 +321,10 @@ All other scores are **secondary diagnostics** unless product ownership is forma
 
 | Claim | Status |
 |-------|--------|
-| Main workspace quotes | **Deterministic mock** via `marketUniverse` |
-| Main workspace candles | **Deterministic mock** via `buildMockWorkspaceCandles` / fallbacks |
-| CoinGecko helpers | **Exist but are not connected** to the primary workspace UI path |
-| Stock and ETF symbols | **Mock representations** (not live exchange feeds) |
+| Main workspace quotes | **Via MarketDataService** — fixture default; live crypto opt-in |
+| Main workspace candles | **Via MarketDataService** — fixture default; live crypto on supported TFs only |
+| CoinGecko path | **Wired behind flag** through service + `/api/market/*` proxies (not exchange-grade) |
+| Stock and ETF symbols | **Fixture representations** (not live exchange feeds) |
 | News | **Mock news feed** only |
 | Generative AI provider | **None connected** |
 | Mentor intelligence | **Deterministic and rule-based** |
@@ -363,7 +366,7 @@ Run tests before committing. Prefer deterministic fixtures for new engine tests.
 
 1. **`HermesDashboard` is a god composition root** — pipeline, paper trading, persistence, and layout in one large client component.
 2. **Score proliferation and overlap** — especially Hermes Score ↔ Trade Quality and multiple “confidence” paths.
-3. **Mock-first market path** while CoinGecko helpers and some copy can imply live markets.
+3. **Market data honesty** — live crypto is opt-in and delayed-grade; stocks/ETFs remain fixtures; avoid implying exchange real-time.
 4. **Strategy engine double evaluation** on the main workspace path.
 5. **No shared application state across routes** — mentor context can drift between Briefing / Scanner / Replay / Journal / Dashboard.
 6. **Overlapping mentor modules** (brain, memory, mentor intelligence, live mentor, chart intelligence variants).
@@ -383,7 +386,7 @@ Do **not** remove these without an explicit deprecation task. Track for future r
 | `hermes-score-engine.ts` as independent primary | Overlaps Trade Quality; ownership unresolved |
 | `chart-intelligence-engine.ts` + `chart-intelligence-panel.tsx` | Overlaps Smart Chart Intelligence |
 | Simple `trade-plan.tsx` | Superseded in practice by `floating-trade-plan.tsx` |
-| `fetchLiveQuotes` / `fetchMarketCandles` unused on main path | Dead path vs honesty/docs drift |
+| Legacy `fetchLiveQuotes` / `fetchMarketCandles` in `legacy.ts` | Superseded by crypto-provider + service; keep until explicit deprecation |
 | Dual personality/habit generators (`hermes-brain` vs `hermes-memory`) | Duplicate conceptual space |
 | `opportunity-confidence-engine` vs reasoning/live confidence | Multiple confidence semantics |
 | `hermes-intelligence.ts` / `hermes-mentor-intelligence.ts` / `live-mentor.ts` / `hermes-live-engine.ts` | Adjacent live-mentor surfaces |

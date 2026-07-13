@@ -2,7 +2,8 @@
  * Hermes market-data package.
  *
  * Step A: provider-neutral foundation + legacy re-exports.
- * Dashboard remains fixture-driven until Steps B–E are approved.
+ * Step B: workspace read-path helper (MarketDataService → compat adapters).
+ * Default remains fixtures unless HERMES_LIVE_MARKET_DATA / NEXT_PUBLIC_… = 1.
  */
 
 // ── New Live Market Data Foundation ───────────────────────────────────────
@@ -61,6 +62,7 @@ export {
 
 export {
   LIVE_MARKET_DATA_ENV_FLAG,
+  LIVE_MARKET_DATA_PUBLIC_ENV_FLAG,
   isLiveMarketDataEnabled,
   isProductionEnv,
   allowFixtureProvider,
@@ -98,7 +100,22 @@ export {
   legacyCandleToMarketCandle,
 } from "@/lib/market-data/adapters-compat";
 
-// ── Legacy surface (workspace still uses these directly) ──────────────────
+export type {
+  WorkspaceMarketSeries,
+  WorkspaceQuotesResult,
+  LoadWorkspaceMarketSeriesArgs,
+  LoadWorkspaceQuotesArgs,
+} from "@/lib/market-data/workspace";
+
+export {
+  loadWorkspaceMarketSeries,
+  loadWorkspaceQuotes,
+  notifyWorkspaceSelectionChanged,
+  createWorkspaceMarketDataService,
+  isLiveCryptoTimeframeSupported,
+} from "@/lib/market-data/workspace";
+
+// ── Legacy surface (engines still use AssetQuote / Candle contracts) ──────
 export type {
   AssetQuote,
   Bias,
