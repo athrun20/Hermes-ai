@@ -6,7 +6,8 @@ Provider-neutral market-data layer for Hermes.
 |------|--------|
 | **A** — Contracts, providers, service, API proxies, tests | Done |
 | **B** — Main workspace read path via `MarketDataService` | Done |
-| **C+** — Quality labels UI, paper refuse-order, satellite surfaces | Not started |
+| **C** — Data quality awareness metadata + minimal workspace UI | Done |
+| **D+** — Paper refuse-order, score caution hooks, satellite surfaces | Not started |
 
 ## Goals
 
@@ -35,7 +36,8 @@ lib/market-data/
   policy.ts
   service.ts
   adapters-compat.ts
-  workspace.ts          # Step B: dashboard read-path helper
+  workspace.ts                 # Step B: dashboard read-path helper
+  data-quality-awareness.ts    # Step C: WorkspaceDataQuality builder
   legacy.ts
   index.ts
 ```
@@ -105,13 +107,35 @@ No coarse-to-fine fabrication. No invented volume.
 - Dev/test fixtures allowed when policy permits.
 - Stocks/ETFs → fixture provider always.
 
-## Dashboard (Step B)
+## Dashboard (Steps B–C)
 
 Workspace quotes and selected candles load through `loadWorkspaceQuotes` / `loadWorkspaceMarketSeries`.
 
 - Flag **off**: fixture provider (catalog prices from `marketUniverse`).
 - Flag **on**: crypto supported TFs via CoinGecko proxy; stocks/ETFs still fixture; unsupported crypto TFs return honest Unavailable series.
 
+### Step C — Data quality awareness
+
+```
+loadWorkspaceMarketSeries
+  → series.dataQuality: WorkspaceDataQuality
+  → HermesDashboard workspaceDataQuality state
+  → ProfessionalChart → DataQualityIndicator
+```
+
+`WorkspaceDataQuality` exposes (read-only):
+
+| Field | Purpose |
+|-------|---------|
+| `quality` / `statusLabel` | Fixture, Delayed, Live, Stale, Partial, Unavailable, Unsupported |
+| `sourceLabel` / `provider` | Data source (Fixture, CoinGecko, …) |
+| `limitations` / `summary` | Honest caveats for UI / future mentor copy |
+| `isFixture`, `isDelayed`, `isLive`, `isUnavailable`, `timeframeUnsupported` | Booleans for future layers |
+
+**Does not** change Confidence, Trade Readiness, Trade Quality, Hermes Score, paper trading, or Learning Engine formulas.
+
+UI: compact chart-header indicator (status pill + source + summary tooltip/line). No redesign.
+
 ## Paper trading
 
-**Unchanged** in Step B. Future unavailable-price refuse-order rule is approved but not wired.
+**Unchanged** in Steps B–C. Future unavailable-price refuse-order rule is approved but not wired.

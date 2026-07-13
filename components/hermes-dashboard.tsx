@@ -13,6 +13,7 @@ import { PageShell, SegmentedControl, SkeletonLoader } from "@/components/ui";
 import { type TradeTicket } from "@/components/trade-controls";
 import {
   analyzeMarket,
+  createPendingWorkspaceDataQuality,
   loadWorkspaceMarketSeries,
   loadWorkspaceQuotes,
   notifyWorkspaceSelectionChanged,
@@ -20,6 +21,7 @@ import {
   type Candle,
   type CoinSymbol,
   type Timeframe,
+  type WorkspaceDataQuality,
 } from "@/lib/market-data";
 import {
   defaultWorkspaceWatchlist,
@@ -97,6 +99,11 @@ export function HermesDashboard() {
   const [selectedSymbol, setSelectedSymbol] = useState<CoinSymbol>("BTC");
   const [timeframe, setTimeframe] = useState<Timeframe>("1H");
   const [candles, setCandles] = useState<Candle[]>([]);
+  /** Step C: quality awareness for selected series (display / future mentor use). */
+  const [workspaceDataQuality, setWorkspaceDataQuality] =
+    useState<WorkspaceDataQuality>(() =>
+      createPendingWorkspaceDataQuality("BTC", "1H"),
+    );
   const [cash, setCash] = useState(STARTING_BALANCE);
   const [positions, setPositions] = useState<PaperPosition[]>([]);
   const [history, setHistory] = useState<ClosedTrade[]>([]);
@@ -154,9 +161,12 @@ export function HermesDashboard() {
     };
   }, []);
 
-  // Selected symbol/timeframe series via MarketDataService → legacy adapters.
+  // Selected symbol/timeframe series via MarketDataService → legacy adapters + quality.
   useEffect(() => {
     let cancelled = false;
+    setWorkspaceDataQuality(
+      createPendingWorkspaceDataQuality(selectedSymbol, timeframe),
+    );
     const generation = notifyWorkspaceSelectionChanged();
     void loadWorkspaceMarketSeries({
       symbol: selectedSymbol,
@@ -165,6 +175,7 @@ export function HermesDashboard() {
     }).then((series) => {
       if (cancelled) return;
       setCandles(series.candles);
+      setWorkspaceDataQuality(series.dataQuality);
       setQuotes((previous) => {
         const index = previous.findIndex((q) => q.symbol === series.quote.symbol);
         if (index === -1) return [...previous, series.quote];
@@ -1331,6 +1342,7 @@ export function HermesDashboard() {
                 ...footprint.chartLabels,
                 ...hermesVision.labels,
               ].slice(0, 5)}
+              dataQuality={workspaceDataQuality}
               drawings={selectedChartDrawings}
               footprint={footprint}
               hermesScore={hermesScore}

@@ -3,6 +3,7 @@
  *
  * Step A: provider-neutral foundation + legacy re-exports.
  * Step B: workspace read-path helper (MarketDataService → compat adapters).
+ * Step C: data-quality awareness metadata for UI / future mentor layers.
  * Default remains fixtures unless HERMES_LIVE_MARKET_DATA / NEXT_PUBLIC_… = 1.
  */
 
@@ -114,6 +115,20 @@ export {
   createWorkspaceMarketDataService,
   isLiveCryptoTimeframeSupported,
 } from "@/lib/market-data/workspace";
+
+export type {
+  WorkspaceDataQuality,
+  DataQualityToneHint,
+  BuildWorkspaceDataQualityInput,
+} from "@/lib/market-data/data-quality-awareness";
+
+export {
+  buildWorkspaceDataQuality,
+  createPendingWorkspaceDataQuality,
+  providerDisplayName,
+  qualityStatusLabel,
+  dataQualityTone,
+} from "@/lib/market-data/data-quality-awareness";
 
 // ── Legacy surface (engines still use AssetQuote / Candle contracts) ──────
 export type {

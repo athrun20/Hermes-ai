@@ -1,14 +1,18 @@
 /**
- * Workspace market-data integration (Step B).
+ * Workspace market-data integration (Steps B–C).
  *
  * Thin read-path helper: Dashboard → MarketDataService → compat adapters → engines.
- * Does not own intelligence, paper trading, or score authority.
+ * Step C attaches data-quality awareness metadata (no score / paper authority changes).
  */
 
 import {
   marketCandleSeriesToLegacyCandles,
   marketQuoteToAssetQuote,
 } from "@/lib/market-data/adapters-compat";
+import {
+  buildWorkspaceDataQuality,
+  type WorkspaceDataQuality,
+} from "@/lib/market-data/data-quality-awareness";
 import {
   createMarketDataService,
   getMarketDataService,
@@ -44,6 +48,8 @@ export type WorkspaceMarketSeries = {
   error?: MarketDataError;
   generation?: number;
   liveMarketDataEnabled: boolean;
+  /** Step C: quality awareness for UI and future mentor layers. */
+  dataQuality: WorkspaceDataQuality;
 };
 
 export type WorkspaceQuotesResult = {
@@ -97,6 +103,18 @@ export async function loadWorkspaceMarketSeries(
 
   const quote = ensureLegacyQuote(marketQuoteToAssetQuote(marketQuote), symbol);
   const candles = marketCandleSeriesToLegacyCandles(series);
+  const provider = String(series.provider || marketQuote.provider || "unknown");
+  const error = series.error ?? marketQuote.error;
+  const dataQuality = buildWorkspaceDataQuality({
+    symbol,
+    timeframe,
+    quoteQuality: marketQuote.dataQuality,
+    candleQuality: series.dataQuality,
+    provider,
+    limitations,
+    error,
+    liveMarketDataEnabled: liveEnabled,
+  });
 
   return {
     symbol,
@@ -105,11 +123,12 @@ export async function loadWorkspaceMarketSeries(
     candles,
     quoteQuality: marketQuote.dataQuality,
     candleQuality: series.dataQuality,
-    provider: String(series.provider || marketQuote.provider || "unknown"),
-    limitations,
-    error: series.error ?? marketQuote.error,
+    provider,
+    limitations: dataQuality.limitations,
+    error,
     generation,
     liveMarketDataEnabled: liveEnabled,
+    dataQuality,
   };
 }
 

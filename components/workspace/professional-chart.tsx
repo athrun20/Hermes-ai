@@ -3,9 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bell, RotateCcw, Ruler, SlidersHorizontal } from "lucide-react";
 import type { ChartDrawing, ChartDrawingTool, ChartTradeLevels } from "@/lib/chart-types";
-import { formatCurrency, formatPercent, type AssetQuote, type Candle } from "@/lib/market-data";
+import {
+  formatCurrency,
+  formatPercent,
+  type AssetQuote,
+  type Candle,
+  type WorkspaceDataQuality,
+} from "@/lib/market-data";
 import { type WorkspaceTimeframe } from "@/lib/market-universe";
 import { ChartTeachingOverlay } from "@/components/workspace/chart-teaching-overlay";
+import { DataQualityIndicator } from "@/components/workspace/data-quality-indicator";
 import { DecisionHeader } from "@/components/workspace/decision-header";
 import { EvidenceStrip } from "@/components/workspace/evidence-cards";
 import { NativeHermesChart } from "@/components/workspace/native-hermes-chart";
@@ -85,6 +92,7 @@ export function ProfessionalChart({
   chartLabels,
   smartChart = null,
   sessionIntelligence = null,
+  dataQuality = null,
   newsKeywords = [],
   onTimeframeChange,
   onToggleIndicator,
@@ -111,6 +119,8 @@ export function ProfessionalChart({
   smartChart?: SmartChartIntelligenceResult | null;
   /** Session Intelligence v1 — session evolution teaching (chart overlay only). */
   sessionIntelligence?: SessionIntelligence | null;
+  /** Step C: market data quality awareness (display only). */
+  dataQuality?: WorkspaceDataQuality | null;
   newsKeywords?: string[];
   onTimeframeChange: (timeframe: WorkspaceTimeframe) => void;
   onToggleIndicator: (indicator: keyof IndicatorVisibility) => void;
@@ -320,6 +330,7 @@ export function ProfessionalChart({
               {formatPercent(quote.change24h)}
             </span>
             <StatusPill tone="muted">{timeframe}</StatusPill>
+            <DataQualityIndicator dataQuality={dataQuality} />
           </div>
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-[#070A0F]/80 p-2 shadow-inner shadow-black/30">
